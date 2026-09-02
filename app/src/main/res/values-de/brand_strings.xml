@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m3_app_subtitle">NFC-Auslesung für kompatible W1-Wasserzähler</string>
+    <string name="m3_open_navigation">Navigation öffnen</string>
+    <string name="m3_backup_summary_brand_neutral">Verlustfreie W1 NFC Reader-Sicherung für Handywechsel oder Zurücksetzen</string>
+    <string name="m3_details_meter_number">Zählernummer</string>
+</resources>

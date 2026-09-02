@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="about080_page_title">Over de app</string>
+    <string name="about080_intro">Open-sourcehulpmiddel voor het lokaal uitlezen van compatibele Axioma Qalcosonic W1-watermeters via NFC-V / ISO 15693.</string>
+    <string name="about080_build_title">App-informatie</string>
+    <string name="about080_version_label">Versie</string>
+    <string name="about080_build_label">Build / commit</string>
+    <string name="about080_maintainer_label">Beheerder</string>
+    <string name="about080_open_maintainer">Profiel van beheerder openen</string>
+    <string name="about080_independent_notice">Onafhankelijk project; niet gelieerd aan of goedgekeurd door Axioma Metering of STMicroelectronics.</string>
+
+    <string name="about080_license_title">Licentie en broncode</string>
+    <string name="about080_software_license_label">Softwarelicentie</string>
+    <string name="about080_docs_license_label">Projectdocumentatie</string>
+    <string name="about080_license_terms">Dit programma is vrije software en mag onder GPL-3.0-or-later worden verspreid en gewijzigd. Voor zover wettelijk toegestaan wordt het zonder garantie geleverd. Materiaal van derden behoudt de eigen toepasselijke auteursrechten en licentievoorwaarden.</string>
+    <string name="about080_source_pending">Openbare repository in voorbereiding — ontwikkelversie.</string>
+    <string name="about080_source_available">De openbare broncoderepository die bij deze build hoort, staat hieronder.</string>
+    <string name="about080_open_source">Broncoderepository openen</string>
+    <string name="about080_view_gpl">GNU GPL v3-licentietekst bekijken</string>
+    <string name="about080_open_cc">CC BY-SA 4.0-licentie-informatie openen</string>
+
+    <string name="about080_third_party_title">Open source en vermeldingen van derden</string>
+    <string name="about080_upstream_project_label">Upstreamproject voor protocolonderzoek</string>
+    <string name="about080_upstream_author_label">Auteur / beheerder</string>
+    <string name="about080_upstream_license_label">Upstreamlicentie</string>
+    <string name="about080_upstream_explanation">Het protocolonderzoek naar de ST25DV-mailboxstroom, de Qalcosonic M-Bus-uitleesvolgorde en Qalcosonic-specifieke veldtoewijzingen is mede gebaseerd op dit open-sourceproject. De Android-app is een afzonderlijke Java-implementatie en bevat of koppelt de upstream ESPHome-binary/bibliotheek niet.</string>
+    <string name="about080_upstream_acknowledgement">Het upstreamproject en de auteur worden vermeld zodat de herkomst van het protocolonderzoek zichtbaar blijft, ook wanneer de APK los van de repository wordt gedeeld.</string>
+    <string name="about080_open_upstream">Upstreamproject openen</string>
+    <string name="about080_view_lgpl">GNU LGPL v2.1-licentietekst bekijken</string>
+
+    <string name="about080_privacy_title">Privacy en lokale gegevens</string>
+    <string name="about080_privacy_local_title">Lokaal als uitgangspunt</string>
+    <string name="about080_privacy_local_body">Voor normaal NFC-uitlezen zijn geen account, backend of cloudservice nodig. De app bevat geen analytics en geen automatische telemetrie.</string>
+    <string name="about080_privacy_history_title">Lokale historie</string>
+    <string name="about080_privacy_history_body">Geslaagde Live-uitlezingen en gevalideerde archiefperioden van de meter worden lokaal per meteridentiteit opgeslagen. De historie kan het meternummer, uitlees- en archieftijden, meterstanden, voor verbruiksberekening benodigde meetwaarden, batterijstatus en alarm-/statusinformatie bevatten.</string>
+    <string name="about080_privacy_not_stored_title">Niet opgeslagen in de normale permanente historie</string>
+    <string name="about080_privacy_not_stored_body">De normale permanente historie bewaart geen NFC-UID, ST25-transportstatus, mailboxinhoud, ruwe NFC-bytes, ruwe M-Bus-frames of diagnosetraces.</string>
+    <string name="about080_privacy_backup_title">Android-appback-up</string>
+    <string name="about080_privacy_backup_body">Android-appback-up is voor deze app uitgeschakeld. De meterhistorie wordt door deze toepassing daarom niet bewust opgenomen in de Android-systeemback-up van de app.</string>
+    <string name="about080_privacy_portable_title">CSV-export en Qalcosonic-back-up</string>
+    <string name="about080_privacy_portable_body">CSV-exports en .qw1backup-bestanden worden alleen gemaakt nadat je bewust een opslaglocatie hebt gekozen. CSV is bedoeld voor spreadsheets. De versiegebonden Qalcosonic-back-up kan lokale historie, integriteitsmetadata van archieven, informatie over meterwissels en overdraagbare app-instellingen bevatten, zodat deze in een andere installatie kunnen worden hersteld.</string>
+    <string name="about080_privacy_sharing_title">Delen en diagnostiek</string>
+    <string name="about080_privacy_sharing_body">Gegevens verlaten de app alleen na een expliciete actie van de gebruiker. Normale gegevens, back-ups en diagnosefuncties blijven lokaal totdat je kiest voor exporteren of delen. Technische ruwe diagnostiek kan identificatoren of verbruiksgegevens bevatten en moet alleen bewust worden gedeeld.</string>
+
+    <string name="about080_open_link_failed">Er is geen app beschikbaar om deze link te openen.</string>
+    <string name="about080_license_load_failed">De meegeleverde licentietekst kon niet worden geopend.</string>
+</resources>

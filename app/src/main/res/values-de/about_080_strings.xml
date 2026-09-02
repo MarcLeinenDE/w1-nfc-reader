@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="about080_page_title">Über die App</string>
+    <string name="about080_intro">Open-Source-Werkzeug zum lokalen Auslesen kompatibler Axioma-Qalcosonic-W1-Wasserzähler über NFC-V / ISO 15693.</string>
+    <string name="about080_build_title">App-Informationen</string>
+    <string name="about080_version_label">Version</string>
+    <string name="about080_build_label">Build / Commit</string>
+    <string name="about080_maintainer_label">Maintainer</string>
+    <string name="about080_open_maintainer">Maintainer-Profil öffnen</string>
+    <string name="about080_independent_notice">Unabhängiges Projekt; keine Verbindung zu oder Unterstützung durch Axioma Metering oder STMicroelectronics.</string>
+
+    <string name="about080_license_title">Lizenz &amp; Quellcode</string>
+    <string name="about080_software_license_label">Softwarelizenz</string>
+    <string name="about080_docs_license_label">Projektdokumentation</string>
+    <string name="about080_license_terms">Dieses Programm ist freie Software und darf unter GPL-3.0-or-later weitergegeben und verändert werden. Soweit gesetzlich zulässig, wird es ohne Gewährleistung bereitgestellt. Drittmaterial behält seine jeweils geltenden Urheberrechts- und Lizenzbedingungen.</string>
+    <string name="about080_source_pending">Öffentliches Repository in Vorbereitung — Entwicklungsversion.</string>
+    <string name="about080_source_available">Das zu diesem Build gehörende öffentliche Quellcode-Repository ist unten hinterlegt.</string>
+    <string name="about080_open_source">Quellcode-Repository öffnen</string>
+    <string name="about080_view_gpl">GNU-GPL-v3-Lizenztext anzeigen</string>
+    <string name="about080_open_cc">CC-BY-SA-4.0-Lizenzinformationen öffnen</string>
+
+    <string name="about080_third_party_title">Open Source &amp; Drittanbieter</string>
+    <string name="about080_upstream_project_label">Upstream-Projekt für die Recherche</string>
+    <string name="about080_upstream_author_label">Autor / Maintainer</string>
+    <string name="about080_upstream_license_label">Upstream-Lizenz</string>
+    <string name="about080_upstream_explanation">Die Protokollrecherche zum ST25DV-Mailbox-Ablauf, zur Qalcosonic-M-Bus-Lesesequenz und zu Qalcosonic-spezifischen Feldzuordnungen wurde durch dieses Open-Source-Projekt mit ermöglicht. Die Android-App ist eine separate Java-Implementierung und bindet weder die ESPHome-Binärdatei noch eine Upstream-Bibliothek ein.</string>
+    <string name="about080_upstream_acknowledgement">Das Upstream-Projekt und sein Autor werden bewusst genannt, damit die Herkunft der Protokollrecherche auch dann sichtbar bleibt, wenn die APK unabhängig vom Repository weitergegeben wird.</string>
+    <string name="about080_open_upstream">Upstream-Projekt öffnen</string>
+    <string name="about080_view_lgpl">GNU-LGPL-v2.1-Lizenztext anzeigen</string>
+
+    <string name="about080_privacy_title">Datenschutz &amp; lokale Daten</string>
+    <string name="about080_privacy_local_title">Lokal zuerst</string>
+    <string name="about080_privacy_local_body">Das normale NFC-Auslesen benötigt kein Konto, Backend und keinen Cloud-Dienst. Die App enthält keine Analytics und keine automatische Telemetrie.</string>
+    <string name="about080_privacy_history_title">Lokale Historie</string>
+    <string name="about080_privacy_history_body">Erfolgreiche Live-Auslesungen und validierte Zähler-Archivperioden werden lokal nach Zähleridentität gespeichert. Die Historie kann Zählernummer, Auslese- und Archivzeiten, Zählerstände, für den Verbrauch benötigte Messwerte, Batteriestand und Alarm-/Statusinformationen enthalten.</string>
+    <string name="about080_privacy_not_stored_title">Nicht in der normalen dauerhaften Historie gespeichert</string>
+    <string name="about080_privacy_not_stored_body">Die normale dauerhafte Historie speichert keine NFC-UID, keinen ST25-Transportzustand, keine Mailbox-Inhalte, keine rohen NFC-Bytes, keine rohen M-Bus-Frames und keine Diagnosetraces.</string>
+    <string name="about080_privacy_backup_title">Android-App-Backup</string>
+    <string name="about080_privacy_backup_body">Das Android-App-Backup ist für diese App deaktiviert. Die Zählerhistorie wird von dieser Anwendung daher nicht absichtlich in das Android-Systembackup der App aufgenommen.</string>
+    <string name="about080_privacy_portable_title">CSV-Export &amp; Qalcosonic-Backup</string>
+    <string name="about080_privacy_portable_body">CSV-Exporte und .qw1backup-Dateien werden nur erstellt, nachdem du ausdrücklich einen Speicherort gewählt hast. CSV ist für Tabellenprogramme gedacht. Das versionierte Qalcosonic-Backup kann lokale Historie, Integritätsmetadaten der Archive, Informationen zu Zählerwechseln und übertragbare App-Einstellungen enthalten, damit sie in einer anderen Installation wiederhergestellt werden können.</string>
+    <string name="about080_privacy_sharing_title">Teilen &amp; Diagnose</string>
+    <string name="about080_privacy_sharing_body">Daten verlassen die App nur nach einer ausdrücklichen Nutzeraktion. Normale Daten-, Backup- und Diagnosefunktionen bleiben lokal, bis du Exportieren oder Teilen auswählst. Technische Rohdiagnosen können Kennungen oder Verbrauchsdaten enthalten und sollten nur bewusst geteilt werden.</string>
+
+    <string name="about080_open_link_failed">Es ist keine App zum Öffnen dieses Links verfügbar.</string>
+    <string name="about080_license_load_failed">Der mitgelieferte Lizenztext konnte nicht geöffnet werden.</string>
+</resources>

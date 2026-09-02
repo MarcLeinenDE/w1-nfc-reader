@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m3_app_subtitle">NFC readout for compatible W1 water meters</string>
+    <string name="m3_open_navigation">Open navigation</string>
+    <string name="m3_backup_summary_brand_neutral">Lossless W1 NFC Reader backup for phone changes or reset</string>
+    <string name="m3_details_meter_number">Meter number</string>
+</resources>

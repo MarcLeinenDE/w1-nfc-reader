@@ -1,0 +1,6 @@
+<resources>
+    <string name="m3_share_live">Bendrinti paskutinį tiesioginį nuskaitymą</string>
+    <string name="m3_share_live_chooser">Bendrinti tiesioginį nuskaitymą</string>
+    <string name="m3_share_live_unavailable">Dar nėra sėkmingo tiesioginio nuskaitymo.</string>
+    <string name="m3_share_live_text">W1 NFC Reader\nSkaitiklio numeris: %1$s\nSkaitiklio rodmuo: %2$s\nNuskaityta: %3$s</string>
+</resources>

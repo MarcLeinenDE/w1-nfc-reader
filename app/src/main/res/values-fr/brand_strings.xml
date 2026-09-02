@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m3_app_subtitle">Lecture NFC pour compteurs d’eau W1 compatibles</string>
+    <string name="m3_open_navigation">Ouvrir la navigation</string>
+    <string name="m3_backup_summary_brand_neutral">Sauvegarde W1 NFC Reader sans perte pour changement de téléphone ou réinitialisation</string>
+    <string name="m3_details_meter_number">Numéro du compteur</string>
+</resources>

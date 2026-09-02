@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="about080_page_title">O aplikacji</string>
+    <string name="about080_intro">Narzędzie open source do lokalnego odczytu zgodnych wodomierzy Axioma Qalcosonic W1 przez NFC-V / ISO 15693.</string>
+    <string name="about080_build_title">Informacje o aplikacji</string>
+    <string name="about080_version_label">Wersja</string>
+    <string name="about080_build_label">Build / commit</string>
+    <string name="about080_maintainer_label">Opiekun projektu</string>
+    <string name="about080_open_maintainer">Otwórz profil opiekuna</string>
+    <string name="about080_independent_notice">Niezależny projekt; nie jest powiązany z Axioma Metering ani STMicroelectronics i nie jest przez te firmy wspierany ani zatwierdzany.</string>
+
+    <string name="about080_license_title">Licencja i kod źródłowy</string>
+    <string name="about080_software_license_label">Licencja oprogramowania</string>
+    <string name="about080_docs_license_label">Dokumentacja projektu</string>
+    <string name="about080_license_terms">Ten program jest wolnym oprogramowaniem i może być rozpowszechniany oraz modyfikowany na warunkach GPL-3.0-or-later. W zakresie dozwolonym przez prawo jest udostępniany bez gwarancji. Materiały stron trzecich zachowują własne prawa autorskie i warunki licencyjne.</string>
+    <string name="about080_source_pending">Publiczne repozytorium jest w przygotowaniu — wersja rozwojowa.</string>
+    <string name="about080_source_available">Publiczne repozytorium kodu źródłowego odpowiadające tej kompilacji jest podane poniżej.</string>
+    <string name="about080_open_source">Otwórz repozytorium kodu źródłowego</string>
+    <string name="about080_view_gpl">Wyświetl tekst licencji GNU GPL v3</string>
+    <string name="about080_open_cc">Otwórz informacje o licencji CC BY-SA 4.0</string>
+
+    <string name="about080_third_party_title">Open source i informacje o stronach trzecich</string>
+    <string name="about080_upstream_project_label">Projekt źródłowy wykorzystany w badaniach</string>
+    <string name="about080_upstream_author_label">Autor / opiekun</string>
+    <string name="about080_upstream_license_label">Licencja projektu źródłowego</string>
+    <string name="about080_upstream_explanation">Badania protokołu przepływu skrzynki ST25DV, sekwencji odczytu Qalcosonic M-Bus oraz mapowania pól specyficznych dla Qalcosonic korzystały z informacji z tego projektu open source. Aplikacja Android jest oddzielną implementacją w Javie i nie zawiera ani nie łączy binariów lub biblioteki ESPHome projektu źródłowego.</string>
+    <string name="about080_upstream_acknowledgement">Projekt źródłowy i jego autor są wymienieni, aby pochodzenie badań protokołu pozostało widoczne również wtedy, gdy plik APK jest udostępniany niezależnie od repozytorium.</string>
+    <string name="about080_open_upstream">Otwórz projekt źródłowy</string>
+    <string name="about080_view_lgpl">Wyświetl tekst licencji GNU LGPL v2.1</string>
+
+    <string name="about080_privacy_title">Prywatność i dane lokalne</string>
+    <string name="about080_privacy_local_title">Dane przede wszystkim lokalnie</string>
+    <string name="about080_privacy_local_body">Normalny odczyt NFC nie wymaga konta, serwera ani usługi chmurowej. Aplikacja nie zawiera analityki ani automatycznej telemetrii.</string>
+    <string name="about080_privacy_history_title">Historia lokalna</string>
+    <string name="about080_privacy_history_body">Udane odczyty Live i zweryfikowane okresy archiwalne wodomierza są przechowywane lokalnie według tożsamości wodomierza. Historia może zawierać numer wodomierza, czas odczytu i archiwum, wskazania, pomiary potrzebne do obliczania zużycia, stan baterii oraz informacje o alarmach i statusie.</string>
+    <string name="about080_privacy_not_stored_title">Nie jest zapisywane w normalnej trwałej historii</string>
+    <string name="about080_privacy_not_stored_body">Normalna trwała historia nie zapisuje identyfikatora NFC UID, stanu transportu ST25, zawartości skrzynki, surowych bajtów NFC, surowych ramek M-Bus ani śladów diagnostycznych.</string>
+    <string name="about080_privacy_backup_title">Kopia zapasowa aplikacji Android</string>
+    <string name="about080_privacy_backup_body">Systemowa kopia zapasowa Android dla tej aplikacji jest wyłączona. Aplikacja nie umieszcza więc celowo historii wodomierza w systemowej kopii zapasowej Android.</string>
+    <string name="about080_privacy_portable_title">Eksport CSV i kopia Qalcosonic</string>
+    <string name="about080_privacy_portable_body">Eksporty CSV i pliki .qw1backup są tworzone wyłącznie po świadomym wybraniu miejsca zapisu. CSV jest przeznaczony do arkuszy kalkulacyjnych. Wersjonowana kopia Qalcosonic może zawierać lokalną historię, metadane integralności archiwów, informacje o wymianie wodomierza i przenośne ustawienia aplikacji, aby można je było odtworzyć w innej instalacji.</string>
+    <string name="about080_privacy_sharing_title">Udostępnianie i diagnostyka</string>
+    <string name="about080_privacy_sharing_body">Dane opuszczają aplikację wyłącznie po wyraźnym działaniu użytkownika. Zwykłe dane, kopie zapasowe i funkcje diagnostyczne pozostają lokalne, dopóki nie wybierzesz eksportu lub udostępnienia. Surowe dane diagnostyczne mogą zawierać identyfikatory lub dane o zużyciu i powinny być udostępniane tylko świadomie.</string>
+
+    <string name="about080_open_link_failed">Brak aplikacji, która może otworzyć ten link.</string>
+    <string name="about080_license_load_failed">Nie udało się otworzyć dołączonego tekstu licencji.</string>
+</resources>

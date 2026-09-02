@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="about080_page_title">À propos de l’application</string>
+    <string name="about080_intro">Utilitaire open source permettant de lire localement des compteurs d’eau Axioma Qalcosonic W1 compatibles via NFC-V / ISO 15693.</string>
+    <string name="about080_build_title">Informations sur l’application</string>
+    <string name="about080_version_label">Version</string>
+    <string name="about080_build_label">Build / commit</string>
+    <string name="about080_maintainer_label">Mainteneur</string>
+    <string name="about080_open_maintainer">Ouvrir le profil du mainteneur</string>
+    <string name="about080_independent_notice">Projet indépendant, sans affiliation avec Axioma Metering ou STMicroelectronics et non approuvé par ces sociétés.</string>
+
+    <string name="about080_license_title">Licence et code source</string>
+    <string name="about080_software_license_label">Licence du logiciel</string>
+    <string name="about080_docs_license_label">Documentation du projet</string>
+    <string name="about080_license_terms">Ce programme est un logiciel libre et peut être redistribué et modifié selon les termes de la GPL-3.0-or-later. Il est fourni sans garantie dans la mesure permise par la loi. Les éléments tiers conservent leurs droits d’auteur et conditions de licence applicables.</string>
+    <string name="about080_source_pending">Dépôt public en préparation — version de développement.</string>
+    <string name="about080_source_available">Le dépôt public du code source correspondant à ce build est indiqué ci-dessous.</string>
+    <string name="about080_open_source">Ouvrir le dépôt du code source</string>
+    <string name="about080_view_gpl">Afficher le texte de la licence GNU GPL v3</string>
+    <string name="about080_open_cc">Ouvrir les informations sur la licence CC BY-SA 4.0</string>
+
+    <string name="about080_third_party_title">Open source et mentions de tiers</string>
+    <string name="about080_upstream_project_label">Projet amont utilisé pour la recherche</string>
+    <string name="about080_upstream_author_label">Auteur / mainteneur</string>
+    <string name="about080_upstream_license_label">Licence du projet amont</string>
+    <string name="about080_upstream_explanation">La recherche sur le protocole du flux de boîte aux lettres ST25DV, la séquence de lecture M-Bus Qalcosonic et les correspondances de champs propres à Qalcosonic s’est appuyée sur ce projet open source. L’application Android est une implémentation Java distincte et n’intègre ni ne lie le binaire ou la bibliothèque ESPHome du projet amont.</string>
+    <string name="about080_upstream_acknowledgement">Le projet amont et son auteur sont crédités afin que l’origine des recherches sur le protocole reste visible même lorsque l’APK est partagé séparément de son dépôt.</string>
+    <string name="about080_open_upstream">Ouvrir le projet amont</string>
+    <string name="about080_view_lgpl">Afficher le texte de la licence GNU LGPL v2.1</string>
+
+    <string name="about080_privacy_title">Confidentialité et données locales</string>
+    <string name="about080_privacy_local_title">Local par conception</string>
+    <string name="about080_privacy_local_body">La lecture NFC normale ne nécessite ni compte, ni serveur, ni service cloud. L’application ne contient ni système d’analytics ni télémétrie automatique.</string>
+    <string name="about080_privacy_history_title">Historique local</string>
+    <string name="about080_privacy_history_body">Les lectures Live réussies et les périodes d’archive du compteur validées sont stockées localement selon l’identité du compteur. L’historique peut contenir le numéro du compteur, les heures de lecture et d’archive, les index, les mesures nécessaires au calcul de la consommation, l’état de la batterie et les informations d’alarme ou d’état.</string>
+    <string name="about080_privacy_not_stored_title">Non stocké dans l’historique persistant normal</string>
+    <string name="about080_privacy_not_stored_body">L’historique persistant normal ne stocke pas l’UID NFC, l’état de transport ST25, le contenu de la boîte aux lettres, les octets NFC bruts, les trames M-Bus brutes ni les traces de diagnostic.</string>
+    <string name="about080_privacy_backup_title">Sauvegarde Android de l’application</string>
+    <string name="about080_privacy_backup_body">La sauvegarde Android de l’application est désactivée. L’historique des compteurs n’est donc pas volontairement inclus par cette application dans la sauvegarde système Android.</string>
+    <string name="about080_privacy_portable_title">Export CSV et sauvegarde Qalcosonic</string>
+    <string name="about080_privacy_portable_body">Les exports CSV et les fichiers .qw1backup ne sont créés qu’après le choix explicite d’un emplacement. Le CSV est destiné aux tableurs. La sauvegarde Qalcosonic versionnée peut contenir l’historique local, les métadonnées d’intégrité des archives, les informations de remplacement de compteur et les réglages transférables afin de pouvoir les restaurer dans une autre installation.</string>
+    <string name="about080_privacy_sharing_title">Partage et diagnostics</string>
+    <string name="about080_privacy_sharing_body">Les données ne quittent l’application qu’après une action explicite de l’utilisateur. Les données normales, sauvegardes et fonctions de diagnostic restent locales jusqu’à ce que vous choisissiez de les exporter ou de les partager. Les diagnostics techniques bruts peuvent contenir des identifiants ou des données de consommation et ne doivent être partagés qu’en connaissance de cause.</string>
+
+    <string name="about080_open_link_failed">Aucune application n’est disponible pour ouvrir ce lien.</string>
+    <string name="about080_license_load_failed">Le texte de licence intégré n’a pas pu être ouvert.</string>
+</resources>

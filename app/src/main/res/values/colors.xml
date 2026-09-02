@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="app_primary">#0061A4</color>
+    <color name="app_on_primary">#FFFFFF</color>
+    <color name="app_primary_container">#D1E4FF</color>
+    <color name="app_on_primary_container">#001D36</color>
+    <color name="app_secondary">#535F70</color>
+    <color name="app_on_secondary">#FFFFFF</color>
+    <color name="app_surface">#FDFCFF</color>
+    <color name="app_on_surface">#1A1C1E</color>
+    <color name="app_surface_variant">#DFE2EB</color>
+    <color name="app_on_surface_variant">#43474E</color>
+    <color name="app_outline">#73777F</color>
+    <color name="app_error">#BA1A1A</color>
+    <color name="app_on_error">#FFFFFF</color>
+    <color name="app_success">#2E6B3A</color>
+    <color name="app_success_container">#B9F0BA</color>
+    <color name="app_on_success_container">#002108</color>
+    <color name="ic_launcher_background">#0B4F9C</color>
+</resources>

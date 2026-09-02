@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m3_app_subtitle">NFC-uitlezing voor compatibele W1-watermeters</string>
+    <string name="m3_open_navigation">Navigatie openen</string>
+    <string name="m3_backup_summary_brand_neutral">Verliesvrije W1 NFC Reader-back-up voor een nieuwe telefoon of reset</string>
+    <string name="m3_details_meter_number">Meternummer</string>
+</resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m3_app_subtitle">Suderinamų W1 vandens skaitiklių NFC nuskaitymas</string>
+    <string name="m3_open_navigation">Atidaryti navigaciją</string>
+    <string name="m3_backup_summary_brand_neutral">Be nuostolių atkuriama W1 NFC Reader atsarginė kopija keičiant telefoną arba atkuriant nustatymus</string>
+    <string name="m3_details_meter_number">Skaitiklio numeris</string>
+</resources>

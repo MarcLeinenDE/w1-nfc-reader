@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="about080_page_title">Apie programėlę</string>
+    <string name="about080_intro">Atvirojo kodo įrankis, skirtas vietoje per NFC-V / ISO 15693 nuskaityti suderinamus „Axioma Qalcosonic W1“ vandens skaitiklius.</string>
+    <string name="about080_build_title">Programėlės informacija</string>
+    <string name="about080_version_label">Versija</string>
+    <string name="about080_build_label">Build / commit</string>
+    <string name="about080_maintainer_label">Prižiūrėtojas</string>
+    <string name="about080_open_maintainer">Atverti prižiūrėtojo profilį</string>
+    <string name="about080_independent_notice">Nepriklausomas projektas; nėra susijęs su „Axioma Metering“ ar „STMicroelectronics“ ir nėra jų remiamas ar patvirtintas.</string>
+
+    <string name="about080_license_title">Licencija ir pirminis kodas</string>
+    <string name="about080_software_license_label">Programinės įrangos licencija</string>
+    <string name="about080_docs_license_label">Projekto dokumentacija</string>
+    <string name="about080_license_terms">Ši programa yra laisvoji programinė įranga ir gali būti platinama bei keičiama pagal GPL-3.0-or-later sąlygas. Kiek leidžia įstatymai, ji pateikiama be garantijų. Trečiųjų šalių medžiagai lieka galioti jos autorių teisės ir licencijų sąlygos.</string>
+    <string name="about080_source_pending">Vieša saugykla ruošiama — kūrimo versija.</string>
+    <string name="about080_source_available">Šiam build atitinkanti vieša pirminio kodo saugykla nurodyta žemiau.</string>
+    <string name="about080_open_source">Atverti pirminio kodo saugyklą</string>
+    <string name="about080_view_gpl">Peržiūrėti GNU GPL v3 licencijos tekstą</string>
+    <string name="about080_open_cc">Atverti CC BY-SA 4.0 licencijos informaciją</string>
+
+    <string name="about080_third_party_title">Atvirasis kodas ir trečiųjų šalių informacija</string>
+    <string name="about080_upstream_project_label">Pirminis projektas, naudotas protokolo tyrimams</string>
+    <string name="about080_upstream_author_label">Autorius / prižiūrėtojas</string>
+    <string name="about080_upstream_license_label">Pirminio projekto licencija</string>
+    <string name="about080_upstream_explanation">ST25DV pašto dėžutės veikimo, Qalcosonic M-Bus nuskaitymo sekos ir Qalcosonic būdingų laukų atvaizdavimo protokolo tyrimams buvo naudinga ši atvirojo kodo programa. Android programėlė yra atskira Java realizacija ir joje nėra įtraukta ar susieta pirminio ESPHome projekto dvejetainė programa ar biblioteka.</string>
+    <string name="about080_upstream_acknowledgement">Pirminis projektas ir jo autorius nurodomi tam, kad protokolo tyrimų kilmė išliktų matoma net tada, kai APK platinamas atskirai nuo saugyklos.</string>
+    <string name="about080_open_upstream">Atverti pirminį projektą</string>
+    <string name="about080_view_lgpl">Peržiūrėti GNU LGPL v2.1 licencijos tekstą</string>
+
+    <string name="about080_privacy_title">Privatumas ir vietiniai duomenys</string>
+    <string name="about080_privacy_local_title">Pirmiausia vietoje</string>
+    <string name="about080_privacy_local_body">Įprastam NFC nuskaitymui nereikia paskyros, serverio ar debesijos paslaugos. Programėlėje nėra analizės sistemų ar automatinės telemetrijos.</string>
+    <string name="about080_privacy_history_title">Vietinė istorija</string>
+    <string name="about080_privacy_history_body">Sėkmingi Live nuskaitymai ir patvirtinti skaitiklio archyvo laikotarpiai saugomi vietoje pagal skaitiklio tapatybę. Istorijoje gali būti skaitiklio numeris, nuskaitymo ir archyvo laikas, rodmenys, suvartojimui apskaičiuoti reikalingi matavimai, baterijos būsena bei įspėjimų ar būsenos informacija.</string>
+    <string name="about080_privacy_not_stored_title">Nesaugoma įprastoje nuolatinėje istorijoje</string>
+    <string name="about080_privacy_not_stored_body">Įprastoje nuolatinėje istorijoje nesaugomas NFC UID, ST25 perdavimo būsenos duomenys, pašto dėžutės turinys, neapdoroti NFC baitai, neapdoroti M-Bus kadrai ar diagnostikos žurnalai.</string>
+    <string name="about080_privacy_backup_title">Android programėlės atsarginė kopija</string>
+    <string name="about080_privacy_backup_body">Android programėlės sistemos atsarginė kopija šiai programėlei išjungta. Todėl skaitiklio istorija nėra sąmoningai įtraukiama į Android sistemos programėlės atsarginę kopiją.</string>
+    <string name="about080_privacy_portable_title">CSV eksportas ir Qalcosonic atsarginė kopija</string>
+    <string name="about080_privacy_portable_body">CSV eksportai ir .qw1backup failai sukuriami tik tada, kai aiškiai pasirenkate saugojimo vietą. CSV skirtas skaičiuoklėms. Versijuota Qalcosonic atsarginė kopija gali turėti vietinę istoriją, archyvo vientisumo metaduomenis, skaitiklio pakeitimo informaciją ir perkeliamus programėlės nustatymus, kad juos būtų galima atkurti kitoje instaliacijoje.</string>
+    <string name="about080_privacy_sharing_title">Bendrinimas ir diagnostika</string>
+    <string name="about080_privacy_sharing_body">Duomenys programėlę palieka tik po aiškaus naudotojo veiksmo. Įprasti duomenys, atsarginės kopijos ir diagnostikos funkcijos lieka vietoje, kol pasirenkate eksportuoti ar bendrinti. Techniniuose neapdorotuose diagnostikos duomenyse gali būti identifikatorių ar suvartojimo duomenų, todėl juos reikėtų bendrinti tik sąmoningai.</string>
+
+    <string name="about080_open_link_failed">Nėra programos, galinčios atverti šią nuorodą.</string>
+    <string name="about080_license_load_failed">Nepavyko atverti pridėto licencijos teksto.</string>
+</resources>

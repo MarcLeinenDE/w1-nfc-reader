@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m3_app_subtitle">Odczyt NFC zgodnych wodomierzy W1</string>
+    <string name="m3_open_navigation">Otwórz nawigację</string>
+    <string name="m3_backup_summary_brand_neutral">Bezstratna kopia zapasowa W1 NFC Reader przy zmianie telefonu lub resetowaniu</string>
+    <string name="m3_details_meter_number">Numer wodomierza</string>
+</resources>

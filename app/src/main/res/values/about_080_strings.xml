@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="about080_page_title">About</string>
+    <string name="about080_intro">Open-source utility for locally reading compatible Axioma Qalcosonic W1 water meters over NFC-V / ISO 15693.</string>
+    <string name="about080_build_title">App information</string>
+    <string name="about080_version_label">Version</string>
+    <string name="about080_build_label">Build / commit</string>
+    <string name="about080_maintainer_label">Maintainer</string>
+    <string name="about080_maintainer_value" translatable="false">MarcLeinenDE</string>
+    <string name="about080_open_maintainer">Open maintainer profile</string>
+    <string name="about080_independent_notice">Independent project; not affiliated with or endorsed by Axioma Metering or STMicroelectronics.</string>
+
+    <string name="about080_license_title">License &amp; source code</string>
+    <string name="about080_copyright" translatable="false">Copyright © 2026 Marc Leinen</string>
+    <string name="about080_software_license_label">Software license</string>
+    <string name="about080_software_license_value" translatable="false">GPL-3.0-or-later</string>
+    <string name="about080_docs_license_label">Project documentation</string>
+    <string name="about080_docs_license_value" translatable="false">CC-BY-SA-4.0</string>
+    <string name="about080_license_terms">This program is free software and may be redistributed and modified under GPL-3.0-or-later. It is provided without warranty to the extent permitted by law. Third-party material keeps its own applicable copyright and license terms.</string>
+    <string name="about080_source_pending">Public repository in preparation — development build.</string>
+    <string name="about080_source_available">The corresponding public source repository for this build is configured below.</string>
+    <string name="about080_open_source">Open source repository</string>
+    <string name="about080_view_gpl">View GNU GPL v3 license text</string>
+    <string name="about080_open_cc">Open CC BY-SA 4.0 license information</string>
+    <string name="about080_gpl_title" translatable="false">GNU General Public License v3</string>
+    <string name="about080_lgpl_title" translatable="false">GNU Lesser General Public License v2.1</string>
+
+    <string name="about080_third_party_title">Open source &amp; third-party notices</string>
+    <string name="about080_upstream_name" translatable="false">esphome_qalcosonicnfc</string>
+    <string name="about080_upstream_author" translatable="false">Mark Hermann / dbmaxpayne</string>
+    <string name="about080_upstream_license" translatable="false">LGPL-2.1-or-later</string>
+    <string name="about080_upstream_project_label">Upstream research project</string>
+    <string name="about080_upstream_author_label">Author / maintainer</string>
+    <string name="about080_upstream_license_label">Upstream license</string>
+    <string name="about080_upstream_explanation">Protocol research for the ST25DV mailbox flow, the Qalcosonic M-Bus read sequence and Qalcosonic-specific field mappings was informed by this open-source project. The Android application is a separate Java implementation and does not bundle or link the upstream ESPHome binary/library.</string>
+    <string name="about080_upstream_acknowledgement">The upstream project and its author are credited so the protocol research lineage remains visible even when this APK is shared separately from its repository.</string>
+    <string name="about080_open_upstream">Open upstream project</string>
+    <string name="about080_view_lgpl">View GNU LGPL v2.1 license text</string>
+
+    <string name="about080_privacy_title">Privacy &amp; local data</string>
+    <string name="about080_privacy_local_title">Local-first</string>
+    <string name="about080_privacy_local_body">Normal NFC readout requires no account, backend or cloud service. The app contains no analytics or automatic telemetry.</string>
+    <string name="about080_privacy_history_title">Local history</string>
+    <string name="about080_privacy_history_body">Successful live reads and validated meter archive periods are stored locally by meter identity. History can contain the meter number, read and archive times, meter readings, measurements needed for consumption, battery state and alarm/status information.</string>
+    <string name="about080_privacy_not_stored_title">Not stored in normal persistent history</string>
+    <string name="about080_privacy_not_stored_body">Normal persistent history does not store the NFC UID, ST25 transport state, mailbox payloads, raw NFC bytes, raw M-Bus frames or diagnostic traces.</string>
+    <string name="about080_privacy_backup_title">Android app backup</string>
+    <string name="about080_privacy_backup_body">Android application backup is disabled for this app. Meter history is therefore not intentionally included in Android system app backup by this application.</string>
+    <string name="about080_privacy_portable_title">CSV export &amp; Qalcosonic backup</string>
+    <string name="about080_privacy_portable_body">CSV exports and .qw1backup files are created only after you explicitly choose a destination. CSV is intended for spreadsheets. The versioned Qalcosonic backup can contain local history, archive integrity metadata, meter-replacement information and portable app settings so they can be restored on another installation.</string>
+    <string name="about080_privacy_sharing_title">Sharing &amp; diagnostics</string>
+    <string name="about080_privacy_sharing_body">Data leaves the app only after an explicit user action. Normal data, backup and diagnostic functions stay local until you choose to export or share them. Technical raw diagnostics can contain identifiers or consumption data and should only be shared deliberately.</string>
+
+    <string name="about080_open_link_failed">No app is available to open this link.</string>
+    <string name="about080_license_load_failed">The bundled license text could not be opened.</string>
+</resources>

@@ -1,0 +1,26 @@
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Gradle / Android
+.gradle/
+**/build/
+local.properties
+captures/
+
+# Signing material — never commit release/development private keys or secret files
+*.jks
+*.keystore
+*.p12
+*.pfx
+*signing-secrets*
+.signing/
+
+# Generated release artifacts
+*.apk
+*.aab
+*.sha256
+
+# OS
+.DS_Store
+Thumbs.db
