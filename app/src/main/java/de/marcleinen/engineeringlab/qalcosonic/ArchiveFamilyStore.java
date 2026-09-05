@@ -19,6 +19,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TimeZone;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Canonical archive database shared by Hour/Day/Month/Year families.
@@ -36,6 +38,7 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
     static final int CONFLICT_CONTENT = 1;
     static final int CONFLICT_STRUCTURE = 1 << 1;
     static final int CONFLICT_PROVENANCE = 1 << 2;
+    private static final Pattern LEADING_NUMBER = Pattern.compile("^[-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)");
 
     ArchiveFamilyStore(Context context) {
         super(context.getApplicationContext(), DB_NAME, null, DB_VERSION);
@@ -330,7 +333,7 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
                 c.getString(5), c.getLong(6), c.getString(7), c.getLong(8), c.getString(9),
                 c.getString(10), c.getString(11), c.getString(12), c.getInt(13), c.getInt(14),
                 c.getInt(15), c.getInt(16), c.getInt(17), c.getInt(18), c.getString(19),
-                c.getString(20), c.getString(21), c.getString(22), nullable(c,23), nullable(c,24),
+                c.getString(20), c.getString(21), c.getString(22), measurementNumber(nullable(c,23)), nullable(c,24),
                 nullable(c,25), nullable(c,26), nullable(c,27), nullable(c,28), nullable(c,29),
                 nullable(c,30), nullable(c,31), nullable(c,32), nullable(c,33), nullable(c,34),
                 nullable(c,35), nullable(c,36), nullable(c,37), nullable(c,38), nullable(c,39),
@@ -338,6 +341,13 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
     }
 
     private static String nullable(Cursor c, int index) { return c.isNull(index) ? null : c.getString(index); }
+
+    static String measurementNumber(String value) {
+        if (value == null) return null;
+        String normalized = value.trim().replace(',', '.');
+        Matcher matcher = LEADING_NUMBER.matcher(normalized);
+        return matcher.find() ? matcher.group() : null;
+    }
 
     static final class StoredPeriod {
         final long id;
@@ -437,7 +447,6 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
         String v = value == null ? "<null>" : value;
         s.append(v.length()).append(':').append(v).append('|');
     }
-
     private static long parseRetrievedAtUtc(String value) {
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
         format.setLenient(false); format.setTimeZone(TimeZone.getTimeZone("UTC"));
