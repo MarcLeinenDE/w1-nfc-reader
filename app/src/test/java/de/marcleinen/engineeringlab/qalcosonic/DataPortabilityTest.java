@@ -97,7 +97,9 @@ public final class DataPortabilityTest {
         assertTrue(new LiveReadMetadataStore(context).get("B").available());
     }
 
-    @Test public void csvExportDoesNotTreatM3UnitSuffixAsDigit() throws Exception {
+    @Test
+    @Config(sdk = 28)
+    public void csvExportDoesNotTreatM3UnitSuffixAsDigit() throws Exception {
         try (ArchiveFamilyStore archive = new ArchiveFamilyStore(context)) {
             assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED,
                     archive.upsert("M1", archivePeriod("2024-09-01 00:00",
