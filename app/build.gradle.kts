@@ -36,7 +36,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = 38
-        versionName = "1.0.0-dev"
+        versionName = "1.0.0"
 
         buildConfigField("String", "BUILD_COMMIT", buildConfigString(buildCommit))
         buildConfigField("String", "SOURCE_REPOSITORY_URL", buildConfigString(sourceRepositoryUrl))
