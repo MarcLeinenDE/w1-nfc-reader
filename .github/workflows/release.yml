@@ -92,9 +92,12 @@ jobs:
           test -n "$APK"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
           "$APKSIGNER" verify --print-certs "$APK" | tee signer.txt
-          ACTUAL="$(awk -F': ' '/certificate SHA-256 digest/ {print $2; exit}' signer.txt | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          ACTUAL="$(sed -n 's/.*certificate SHA-256 digest:[[:space:]]*//p' signer.txt | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
           EXPECTED="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
-          test -n "$ACTUAL"
+          if [[ ! "$ACTUAL" =~ ^[0-9A-F]{64}$ ]]; then
+            echo "Could not parse release signer SHA-256 digest" >&2
+            exit 1
+          fi
           if [[ "$ACTUAL" != "$EXPECTED" ]]; then
             echo "Release signer mismatch" >&2
             echo "Expected: $EXPECTED" >&2
