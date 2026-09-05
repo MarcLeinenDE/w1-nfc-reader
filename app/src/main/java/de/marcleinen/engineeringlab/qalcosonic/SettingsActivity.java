@@ -22,6 +22,8 @@ import java.util.Locale;
 
 /** Material 3 normal-product settings. No protocol behavior lives here. */
 public final class SettingsActivity extends MaterialBaseActivity {
+    static final String BACKUP_CREATE_MIME = "application/octet-stream";
+
     private View root;
     private ActivityResultLauncher<String> csvCreate;
     private ActivityResultLauncher<String> backupCreate;
@@ -107,7 +109,7 @@ public final class SettingsActivity extends MaterialBaseActivity {
                 message(R.string.m3_export_failed);
             }
         });
-        backupCreate = registerForActivityResult(new ActivityResultContracts.CreateDocument("application/zip"), uri -> {
+        backupCreate = registerForActivityResult(new ActivityResultContracts.CreateDocument(BACKUP_CREATE_MIME), uri -> {
             if (uri == null) return;
             try (OutputStream out = getContentResolver().openOutputStream(uri, "w")) {
                 if (out == null) throw new IllegalStateException("no output stream");
@@ -212,7 +214,7 @@ public final class SettingsActivity extends MaterialBaseActivity {
         return "w1-nfc-reader-data-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(new java.util.Date()) + ".csv";
     }
 
-    private static String backupFileName() {
+    static String backupFileName() {
         return "w1-nfc-reader-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(new java.util.Date()) + ".qw1backup";
     }
 }

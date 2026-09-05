@@ -47,6 +47,10 @@ android {
         buildConfig = true
     }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
     signingConfigs {
         if (hasStableSigning) {
             create("stable") {

@@ -47,6 +47,17 @@ public final class ArchiveFamilyStoreTest {
         assertEquals(1, store.getKnownTimestamps("M1", ArchiveFamilyPeriod.Family.MONTH).size());
     }
 
+    @Test public void presentationNumberDoesNotTreatUnitSuffixDigitAsMeasurement() {
+        assertEquals("0", ArchiveFamilyStore.measurementNumber("0 m3"));
+        assertEquals("203.518", ArchiveFamilyStore.measurementNumber("203.518 m3"));
+        assertEquals("1.931", ArchiveFamilyStore.measurementNumber("1,931m3"));
+
+        assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED,
+                store.upsert("M1", period(ArchiveFamilyPeriod.Family.MONTH,
+                        "2024-09-01 00:00", "0 m3", "zero")));
+        assertEquals("0", store.getPeriods("M1", ArchiveFamilyPeriod.Family.MONTH).get(0).totalVolume);
+    }
+
     @Test public void identicalResyncAggregatesConfirmationWithoutConflictRows() {
         ArchiveFamilyPeriod first = period(ArchiveFamilyPeriod.Family.MONTH,
                 "2026-08-01 00:00", "196.668 m3", "custom-A");
