@@ -13,7 +13,10 @@ import org.robolectric.annotation.Config;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -25,6 +28,8 @@ import static org.junit.Assert.assertTrue;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28, manifest = Config.NONE)
 public final class DataPortabilityTest {
+    private static final Pattern CSV_FIELD = Pattern.compile("\\\"([^\\\"]*)\\\"");
+
     private Context context;
 
     @Before public void setUp() {
@@ -92,6 +97,28 @@ public final class DataPortabilityTest {
         assertTrue(new LiveReadMetadataStore(context).get("B").available());
     }
 
+    @Test public void csvExportDoesNotTreatM3UnitSuffixAsDigit() throws Exception {
+        try (ArchiveFamilyStore archive = new ArchiveFamilyStore(context)) {
+            assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED,
+                    archive.upsert("M1", archivePeriod("2024-09-01 00:00",
+                            "2026-09-05T19:00:00Z", "0 m3")));
+            assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED,
+                    archive.upsert("M1", archivePeriod("2024-10-01 00:00",
+                            "2026-09-05T19:01:00Z", "1.931 m3")));
+        }
+        new MeterLifecycleStore(context).adoptInitialMeter("M1");
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        DataPortability.writeCsv(context, out);
+        String csv = out.toString(StandardCharsets.UTF_8);
+
+        List<String> september = csvRow(csv, "2024-09-01 00:00");
+        List<String> october = csvRow(csv, "2024-10-01 00:00");
+        assertEquals(0.0, localizedDouble(september.get(6)), 0.000001);
+        assertEquals(1.931, localizedDouble(october.get(6)), 0.000001);
+        assertEquals(1.931, localizedDouble(october.get(7)), 0.000001);
+    }
+
     @Test
     @Config(sdk = 33, manifest = Config.NONE)
     public void backupRestoreReconcilesAndroid13ApplicationLocale() throws Exception {
@@ -140,6 +167,30 @@ public final class DataPortabilityTest {
         try (MeterHistoryStore live = new MeterHistoryStore(context)) {
             assertEquals(1, live.getReadings("A", 0L).size());
         }
+    }
+
+    private static ArchiveFamilyPeriod archivePeriod(String timestamp, String retrievedAtUtc, String total) {
+        return new ArchiveFamilyPeriod(ArchiveFamilyPeriod.Family.MONTH, timestamp, retrievedAtUtc,
+                "test-structure", "TEST", "VALIDATED",
+                ArchiveNormalizedValues.builder()
+                        .totalVolume(total)
+                        .batteryPercent("100 %")
+                        .errorFlags("0x00000000")
+                        .build());
+    }
+
+    private static List<String> csvRow(String csv, String primaryTime) {
+        for (String line : csv.split("\\r?\\n")) {
+            List<String> fields = new ArrayList<>();
+            Matcher matcher = CSV_FIELD.matcher(line);
+            while (matcher.find()) fields.add(matcher.group(1).replace("\"\"", "\""));
+            if (fields.size() > 7 && primaryTime.equals(fields.get(3))) return fields;
+        }
+        throw new AssertionError("missing CSV row " + primaryTime);
+    }
+
+    private static double localizedDouble(String value) {
+        return Double.parseDouble(value.replace(',', '.'));
     }
 
     private static byte[] corruptDataEntryWithoutUpdatingManifest(byte[] backup) throws Exception {
