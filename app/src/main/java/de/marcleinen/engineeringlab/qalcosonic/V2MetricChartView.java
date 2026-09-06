@@ -164,7 +164,7 @@ final class V2MetricChartView extends View {
         int labelStep = labelStep(entries.size());
         textPaint.setTextAlign(Paint.Align.CENTER);
         textPaint.setTextSize(sp(9));
-        textPaint.setTextColor(muted);
+        textPaint.setColor(muted);
 
         Path path = new Path();
         boolean pathStarted = false;
