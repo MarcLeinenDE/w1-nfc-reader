@@ -38,6 +38,9 @@ public final class ArchiveFinalVerificationStopReasonTest {
                 null,
                 false,
                 0,
+                null,
+                true,
+                true,
                 null);
 
         assertEquals(ArchiveFamilySyncState.StopReason.ON_TIME_INCONSISTENT,
@@ -72,6 +75,9 @@ public final class ArchiveFinalVerificationStopReasonTest {
                 null,
                 false,
                 0,
+                null,
+                true,
+                true,
                 null);
 
         assertEquals(ArchiveFamilySyncState.StopReason.IO_ERROR,
