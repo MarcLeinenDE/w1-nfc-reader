@@ -64,8 +64,12 @@ android {
 
     buildTypes {
         debug {
+            // Development/test APKs must be installable next to the stable public app. This also
+            // prevents a disposable runner debug key from ever requiring the user to uninstall
+            // the signed stable installation merely to test an in-development protocol change.
+            applicationIdSuffix = ".dev"
             // Local contributors can use Android's normal debug key. CI may inject a stable
-            // development/release identity explicitly through environment variables.
+            // development identity explicitly through environment variables when desired.
             signingConfigs.findByName("stable")?.let { signingConfig = it }
         }
         release {
