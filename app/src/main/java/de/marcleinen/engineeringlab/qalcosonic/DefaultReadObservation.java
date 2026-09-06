@@ -75,11 +75,7 @@ final class DefaultReadObservation {
             return ArchiveFamilySyncState.StopReason.DEFAULT_STATE_UNVERIFIED;
         }
         String expected = normalize(expectedMeterId);
-        // A null expected ID is allowed only for the temporary Month compatibility facade. The
-        // immediately preceding dashboard contact already verified the user-selected meter on the
-        // same connected NFC tag; this family preflight then adopts the post-reset meter ID and the
-        // final Live verification must match it. Missing identity is never accepted.
-        if (meterId == null || (expected != null && !expected.equals(meterId))) {
+        if (expected == null || meterId == null || !expected.equals(meterId)) {
             return ArchiveFamilySyncState.StopReason.METER_ID_MISMATCH;
         }
         if (timeEvidence == null || !timeEvidence.frameValid || !timeEvidence.typeFPresent) {
