@@ -17,16 +17,24 @@ public final class MonthlyArchiveV2CompatibilityFacadeTest {
     private static final String RETRIEVED = "2026-09-06T09:10:00Z";
 
     @Test public void productionFourArgRunRoutesToV2AndDiscardsLegacyHardCap() {
-        DualWire wire = new DualWire();
+        DualWire wire = new DualWire(
+                timeFrame("2026-09-01 00:00", 19_500_000L),
+                timeFrame("2026-08-01 00:00", 16_821_600L),
+                new byte[]{(byte) 0xE5, 0x7D});
         QueueVerifier verifier = new QueueVerifier(
                 healthyDefault("METER-1", "2026-09-06 10:00", 20_000_000L),
                 healthyDefault("METER-1", "2026-09-06 10:01", 20_000_060L));
 
+        // Legacy cap=1 is deliberately smaller than the two supplied Month records. The real
+        // dual-interface production path must still read both records and request the terminal.
         MonthlyArchiveTransportAdapter.Result result = MonthlyArchiveTransportAdapter.run(
                 1, wire, verifier, RETRIEVED);
 
         assertEquals(0, result.hardCap);
-        assertEquals(1, result.selectedRequestsAttempted());
+        assertEquals(3, result.selectedRequestsAttempted());
+        assertEquals(2, result.enumeration.periods.size());
+        assertEquals("2026-09-01 00:00", result.enumeration.periods.get(0).loggerTimestamp);
+        assertEquals("2026-08-01 00:00", result.enumeration.periods.get(1).loggerTimestamp);
         assertTrue(result.enumeration.terminalConfirmed());
         assertEquals(MonthlyArchiveEnumerator.StopReason.TERMINAL_W1_E5_7D,
                 result.enumeration.stopReason);
@@ -121,11 +129,20 @@ public final class MonthlyArchiveV2CompatibilityFacadeTest {
 
     private static final class DualWire implements MonthlyArchiveTransportAdapter.Wire,
             ArchiveFamilyTransportAdapter.Wire {
+        private final Deque<byte[]> selectedResponses = new ArrayDeque<>();
         long elapsedMs;
         boolean healthy = true;
         boolean startResetSeen;
         boolean finalResetSeen;
         boolean familySelectSeen;
+
+        DualWire(byte[]... selectedResponses) {
+            if (selectedResponses == null || selectedResponses.length == 0) {
+                this.selectedResponses.add(new byte[]{(byte) 0xE5, 0x7D});
+            } else {
+                this.selectedResponses.addAll(Arrays.asList(selectedResponses));
+            }
+        }
 
         @Override public void prepare() { }
 
@@ -135,7 +152,10 @@ public final class MonthlyArchiveV2CompatibilityFacadeTest {
             if ("ARCHIVE_SYNC_FINAL_RESET_DEFAULT".equals(label)) finalResetSeen = true;
             if ("ARCHIVE_SYNC_SELECT_50_40".equals(label)) familySelectSeen = true;
             if (label.startsWith("ARCHIVE_SYNC_SELECTED_")) {
-                return new byte[]{(byte) 0xE5, 0x7D};
+                if (selectedResponses.isEmpty()) {
+                    throw new AssertionError("unexpected selected request " + label);
+                }
+                return selectedResponses.removeFirst();
             }
             return new byte[]{(byte) 0xE5};
         }
