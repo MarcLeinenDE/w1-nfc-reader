@@ -889,10 +889,9 @@ final class DataPortability {
     }
 
     private static Double parseMeasurement(String value) {
-        if (value == null) return null;
-        String cleaned = value.trim().replace(',', '.').replaceAll("[^0-9+\\-.]", "");
-        if (cleaned.isEmpty()) return null;
-        try { return Double.parseDouble(cleaned); } catch (NumberFormatException e) { return null; }
+        String number = ArchiveFamilyStore.measurementNumber(value);
+        if (number == null || number.isEmpty()) return null;
+        try { return Double.parseDouble(number); } catch (NumberFormatException e) { return null; }
     }
 
     private static Integer parseInteger(String value) {
