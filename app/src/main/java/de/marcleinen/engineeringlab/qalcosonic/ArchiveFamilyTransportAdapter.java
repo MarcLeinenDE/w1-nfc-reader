@@ -59,6 +59,11 @@ final class ArchiveFamilyTransportAdapter {
                 String retrievedAtUtc);
     }
 
+    /** Called synchronously after, and only after, the traversal accepts a new stable record. */
+    interface AcceptedPeriodSink {
+        void persist(ArchiveFamilyPeriod period);
+    }
+
     static final class SafetyVerification {
         int applicationResetCommands;
         int liveReadAttempts;
@@ -90,6 +95,9 @@ final class ArchiveFamilyTransportAdapter {
         final long boundaryDeadlineElapsedMs;
         final long watchdogDeadlineElapsedMs;
         final String diagnostic;
+        final boolean persistenceAttached;
+        final int persistedAccepted;
+        final String persistenceDiagnostic;
 
         Result(
                 ArchiveFamilyPeriod.Family family,
@@ -102,7 +110,10 @@ final class ArchiveFamilyTransportAdapter {
                 boolean applicationSelectAttempted,
                 long boundaryDeadlineElapsedMs,
                 long watchdogDeadlineElapsedMs,
-                String diagnostic) {
+                String diagnostic,
+                boolean persistenceAttached,
+                int persistedAccepted,
+                String persistenceDiagnostic) {
             this.family = family;
             this.mode = mode;
             this.traversal = traversal;
@@ -114,6 +125,9 @@ final class ArchiveFamilyTransportAdapter {
             this.boundaryDeadlineElapsedMs = boundaryDeadlineElapsedMs;
             this.watchdogDeadlineElapsedMs = watchdogDeadlineElapsedMs;
             this.diagnostic = diagnostic;
+            this.persistenceAttached = persistenceAttached;
+            this.persistedAccepted = persistedAccepted;
+            this.persistenceDiagnostic = persistenceDiagnostic;
         }
 
         int selectedRequestsAttempted() {
@@ -128,7 +142,22 @@ final class ArchiveFamilyTransportAdapter {
             return traversal.semanticSuccess() && finalRestoreVerified();
         }
 
+        boolean persistenceComplete() {
+            return persistenceAttached
+                    && persistenceDiagnostic == null
+                    && persistedAccepted == traversal.periods.size();
+        }
+
+        /** Full product completion requires both the protocol shell and durable accepted records. */
+        boolean completeProductAttempt() {
+            return completeSafetyShell() && persistenceComplete();
+        }
+
         ArchiveFamilySyncState.StopReason effectiveStopReason() {
+            if (persistenceDiagnostic != null
+                    || (persistenceAttached && persistedAccepted != traversal.periods.size())) {
+                return ArchiveFamilySyncState.StopReason.PERSISTENCE_ERROR;
+            }
             if (traversal.stopReason != ArchiveFamilySyncState.StopReason.NONE) {
                 return traversal.stopReason;
             }
@@ -149,6 +178,16 @@ final class ArchiveFamilyTransportAdapter {
             String expectedMeterId,
             String retrievedAtUtc,
             ArchiveFamilySyncState.SyncMode mode) {
+        return runMonth(wire, verifier, expectedMeterId, retrievedAtUtc, mode, null);
+    }
+
+    static Result runMonth(
+            Wire wire,
+            DefaultVerifier verifier,
+            String expectedMeterId,
+            String retrievedAtUtc,
+            ArchiveFamilySyncState.SyncMode mode,
+            AcceptedPeriodSink acceptedPeriodSink) {
         return run(
                 ArchiveFamilyPolicy.forFamily(ArchiveFamilyPeriod.Family.MONTH),
                 wire,
@@ -158,7 +197,8 @@ final class ArchiveFamilyTransportAdapter {
                 mode,
                 null,
                 0,
-                ArchiveFamilyTransportAdapter::mapProductionResponse);
+                ArchiveFamilyTransportAdapter::mapProductionResponse,
+                acceptedPeriodSink);
     }
 
     static Result run(
@@ -171,6 +211,21 @@ final class ArchiveFamilyTransportAdapter {
             ArchiveTraversalStateMachine.KnownRecordMatcher knownMatcher,
             int requiredKnownOverlap,
             ResponseMapper mapper) {
+        return run(policy, wire, verifier, expectedMeterId, retrievedAtUtc, mode,
+                knownMatcher, requiredKnownOverlap, mapper, null);
+    }
+
+    static Result run(
+            ArchiveFamilyPolicy policy,
+            Wire wire,
+            DefaultVerifier verifier,
+            String expectedMeterId,
+            String retrievedAtUtc,
+            ArchiveFamilySyncState.SyncMode mode,
+            ArchiveTraversalStateMachine.KnownRecordMatcher knownMatcher,
+            int requiredKnownOverlap,
+            ResponseMapper mapper,
+            AcceptedPeriodSink acceptedPeriodSink) {
         Objects.requireNonNull(policy, "policy");
         Objects.requireNonNull(wire, "wire");
         Objects.requireNonNull(verifier, "verifier");
@@ -194,6 +249,8 @@ final class ArchiveFamilyTransportAdapter {
         long boundaryDeadline = -1L;
         long watchdogDeadline = -1L;
         String diagnostic = null;
+        int persistedAccepted = 0;
+        String persistenceDiagnostic = null;
 
         try {
             wire.prepare();
@@ -270,7 +327,28 @@ final class ArchiveFamilyTransportAdapter {
                                 ArchiveFamilySyncState.StopReason.PARSER_ERROR,
                                 "DECODE_EXCEPTION:" + safe(error));
                     }
+
+                    int acceptedBefore = session.acceptedPeriodCount();
                     session.accept(candidate);
+                    if (acceptedPeriodSink != null
+                            && session.acceptedPeriodCount() > acceptedBefore) {
+                        ArchiveTraversalStateMachine.PeriodEvidence accepted =
+                                session.lastAcceptedPeriod();
+                        try {
+                            if (accepted == null || accepted.period == null) {
+                                throw new IllegalStateException("accepted period missing");
+                            }
+                            acceptedPeriodSink.persist(accepted.period);
+                            persistedAccepted++;
+                        } catch (RuntimeException error) {
+                            persistenceDiagnostic = safe(error);
+                            if (!session.stopped()) {
+                                session.abort(ArchiveFamilySyncState.StopReason.PERSISTENCE_ERROR,
+                                        persistenceDiagnostic);
+                            }
+                            break;
+                        }
+                    }
                 } catch (IOException error) {
                     session.accept(ArchiveTraversalStateMachine.Candidate.failure(
                             ArchiveFamilySyncState.StopReason.IO_ERROR, safe(error)));
@@ -299,7 +377,10 @@ final class ArchiveFamilyTransportAdapter {
                 selectAttempted,
                 boundaryDeadline,
                 watchdogDeadline,
-                diagnostic);
+                diagnostic,
+                acceptedPeriodSink != null,
+                persistedAccepted,
+                persistenceDiagnostic);
     }
 
     static ArchiveTraversalStateMachine.Candidate mapProductionResponse(
