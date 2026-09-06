@@ -23,9 +23,13 @@ public final class HistorySyncSubpageUiTest {
 
     private static String read(String path) throws Exception {
         Path fromRoot = Paths.get(path);
-        if (Files.exists(fromRoot)) return Files.readString(fromRoot, StandardCharsets.UTF_8);
+        if (Files.exists(fromRoot)) {
+            return new String(Files.readAllBytes(fromRoot), StandardCharsets.UTF_8);
+        }
         Path fromModule = Paths.get(path.replaceFirst("^app/", ""));
-        if (Files.exists(fromModule)) return Files.readString(fromModule, StandardCharsets.UTF_8);
+        if (Files.exists(fromModule)) {
+            return new String(Files.readAllBytes(fromModule), StandardCharsets.UTF_8);
+        }
         throw new AssertionError("file not found: " + path);
     }
 }
