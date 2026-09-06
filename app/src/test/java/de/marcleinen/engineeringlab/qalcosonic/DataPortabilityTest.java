@@ -38,7 +38,7 @@ public final class DataPortabilityTest {
         context.getSharedPreferences("ui_preferences", Context.MODE_PRIVATE).edit().clear().commit();
     }
 
-    @Test public void backupRoundTripRestoresReadingsArchiveAndReplacementChain() throws Exception {
+    @Test public void backupRoundTripRestoresReadingsArchiveReplacementChainAndFamilyState() throws Exception {
         MbusParser.MeterData first = meter("A", 203.500, 88, "2026-08-31 20:08");
         MbusParser.MeterData second = meter("B", 0.250, 100, "2026-09-01 09:00");
         try (MeterHistoryStore live = new MeterHistoryStore(context)) {
@@ -46,40 +46,77 @@ public final class DataPortabilityTest {
             live.insertSuccessful(second, 2_000_000L);
         }
         try (ArchiveFamilyStore archive = new ArchiveFamilyStore(context)) {
-            ArchiveFamilyPeriod period = new ArchiveFamilyPeriod(
-                    ArchiveFamilyPeriod.Family.MONTH,
-                    "2026-08-01 00:00",
-                    "2026-08-31T19:00:00Z",
-                    "test-structure",
-                    "TEST",
-                    "VALIDATED",
-                    ArchiveNormalizedValues.builder()
-                            .totalVolume("196.668")
-                            .batteryPercent("89")
-                            .errorFlags("0x00000000")
-                            .build());
             assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED,
-                    archive.upsert("A", period));
+                    archive.upsert("A", archivePeriod(ArchiveFamilyPeriod.Family.MONTH,
+                            "2026-08-01 00:00", "2026-08-31T19:00:00Z", "196.668")));
+            assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED,
+                    archive.upsert("B", archivePeriod(ArchiveFamilyPeriod.Family.HOUR,
+                            "2026-09-01 08:00", "2026-09-01T09:01:00Z", "0.200")));
+            assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED,
+                    archive.upsert("B", archivePeriod(ArchiveFamilyPeriod.Family.DAY,
+                            "2026-09-01 00:00", "2026-09-01T09:02:00Z", "0.250")));
+            assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED,
+                    archive.upsert("B", archivePeriod(ArchiveFamilyPeriod.Family.MONTH,
+                            "2026-09-01 00:00", "2026-09-01T09:03:00Z", "0.250")));
         }
         MeterLifecycleStore lifecycle = new MeterLifecycleStore(context);
         lifecycle.adoptInitialMeter("A");
         lifecycle.confirmReplacement("A", "B", 2_000_000L, 2_000_000L, 0.250);
         new LiveReadMetadataStore(context).record(second, 2_000_000L);
 
+        ArchiveFamilySyncStateStore familySync = new ArchiveFamilySyncStateStore(context);
+        familySync.recordAttempt(
+                "B", ArchiveFamilyPeriod.Family.HOUR,
+                ArchiveFamilySyncState.SyncMode.INITIAL_FULL,
+                3_000_000L,
+                ArchiveFamilySyncState.AttemptOutcome.COMPLETE,
+                ArchiveFamilySyncState.StopReason.PROTOCOL_TERMINAL,
+                true,
+                "2026-08-25 00:00", "2026-09-01 08:00",
+                8, 8, 0, 0);
+        familySync.recordAttempt(
+                "B", ArchiveFamilyPeriod.Family.DAY,
+                ArchiveFamilySyncState.SyncMode.INITIAL_FULL,
+                4_000_000L,
+                ArchiveFamilySyncState.AttemptOutcome.PARTIAL,
+                ArchiveFamilySyncState.StopReason.TRANSPORT_SESSION_LOST,
+                false,
+                "2026-08-31 00:00", "2026-09-01 00:00",
+                2, 2, 0, 0);
+        familySync.recordAttempt(
+                "B", ArchiveFamilyPeriod.Family.MONTH,
+                ArchiveFamilySyncState.SyncMode.INITIAL_FULL,
+                5_000_000L,
+                ArchiveFamilySyncState.AttemptOutcome.COMPLETE,
+                ArchiveFamilySyncState.StopReason.PROTOCOL_TERMINAL,
+                true,
+                "2026-08-01 00:00", "2026-09-01 00:00",
+                2, 2, 0, 0);
+
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         DataPortability.writeBackup(context, out);
         byte[] bytes = out.toByteArray();
         assertTrue(bytes.length > 0);
+        assertEquals(2, DataPortability.BACKUP_SCHEMA);
 
         DataPortability.BackupPreview preview = DataPortability.inspectBackup(
                 new ByteArrayInputStream(bytes));
         assertEquals("B", preview.activeMeterId);
         assertEquals(2, preview.liveReadings);
-        assertEquals(1, preview.archivePeriods);
+        assertEquals(4, preview.archivePeriods);
         assertEquals(1, preview.replacementTransitions);
+        assertEquals(1, preview.hourPeriods);
+        assertEquals(1, preview.dayPeriods);
+        assertEquals(2, preview.monthPeriods);
+        assertEquals(ArchiveFamilySyncState.BaselineState.COMPLETE, preview.hourBaselineState);
+        assertEquals(ArchiveFamilySyncState.BaselineState.PARTIAL, preview.dayBaselineState);
+        assertEquals(ArchiveFamilySyncState.BaselineState.COMPLETE, preview.monthBaselineState);
 
         DataPortability.clearMeterData(context);
         assertEquals(null, new MeterLifecycleStore(context).activeMeterId());
+        assertEquals(ArchiveFamilySyncState.BaselineState.NEVER_SYNCED,
+                new ArchiveFamilySyncStateStore(context)
+                        .get("B", ArchiveFamilyPeriod.Family.HOUR).baselineState);
 
         DataPortability.restoreBackup(context, bytes);
 
@@ -90,11 +127,29 @@ public final class DataPortabilityTest {
              ArchiveFamilyStore archive = new ArchiveFamilyStore(context)) {
             assertEquals(1, live.getReadings("A", 0L).size());
             assertEquals(1, live.getReadings("B", 0L).size());
-            assertEquals(1, archive.getPeriods("A", ArchiveFamilyPeriod.Family.MONTH).size());
+            assertEquals(1, archive.getPeriods("B", ArchiveFamilyPeriod.Family.HOUR).size());
+            assertEquals(1, archive.getPeriods("B", ArchiveFamilyPeriod.Family.DAY).size());
+            assertEquals(1, archive.getPeriods("B", ArchiveFamilyPeriod.Family.MONTH).size());
             assertEquals("196.668", archive.getPeriods("A", ArchiveFamilyPeriod.Family.MONTH)
                     .get(0).totalVolume);
         }
         assertTrue(new LiveReadMetadataStore(context).get("B").available());
+
+        ArchiveFamilySyncState restoredHour = new ArchiveFamilySyncStateStore(context)
+                .get("B", ArchiveFamilyPeriod.Family.HOUR);
+        ArchiveFamilySyncState restoredDay = new ArchiveFamilySyncStateStore(context)
+                .get("B", ArchiveFamilyPeriod.Family.DAY);
+        ArchiveFamilySyncState restoredMonth = new ArchiveFamilySyncStateStore(context)
+                .get("B", ArchiveFamilyPeriod.Family.MONTH);
+        assertTrue(restoredHour.baselineComplete());
+        assertEquals(ArchiveFamilySyncState.StopReason.PROTOCOL_TERMINAL,
+                restoredHour.lastStopReason);
+        assertEquals(ArchiveFamilySyncState.BaselineState.PARTIAL, restoredDay.baselineState);
+        assertEquals(ArchiveFamilySyncState.StopReason.TRANSPORT_SESSION_LOST,
+                restoredDay.lastStopReason);
+        assertEquals(2, restoredDay.accepted);
+        assertTrue(restoredMonth.baselineComplete());
+        assertEquals(5_000_000L, restoredMonth.baselineCompletedAtMs);
     }
 
     @Test
@@ -102,11 +157,11 @@ public final class DataPortabilityTest {
     public void csvExportDoesNotTreatM3UnitSuffixAsDigit() throws Exception {
         try (ArchiveFamilyStore archive = new ArchiveFamilyStore(context)) {
             assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED,
-                    archive.upsert("M1", archivePeriod("2024-09-01 00:00",
-                            "2026-09-05T19:00:00Z", "0 m3")));
+                    archive.upsert("M1", archivePeriod(ArchiveFamilyPeriod.Family.MONTH,
+                            "2024-09-01 00:00", "2026-09-05T19:00:00Z", "0 m3")));
             assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED,
-                    archive.upsert("M1", archivePeriod("2024-10-01 00:00",
-                            "2026-09-05T19:01:00Z", "1.931 m3")));
+                    archive.upsert("M1", archivePeriod(ArchiveFamilyPeriod.Family.MONTH,
+                            "2024-10-01 00:00", "2026-09-05T19:01:00Z", "1.931 m3")));
         }
         new MeterLifecycleStore(context).adoptInitialMeter("M1");
 
@@ -153,6 +208,15 @@ public final class DataPortabilityTest {
             live.insertSuccessful(meter, 1_000_000L);
         }
         new MeterLifecycleStore(context).adoptInitialMeter("A");
+        new ArchiveFamilySyncStateStore(context).recordAttempt(
+                "A", ArchiveFamilyPeriod.Family.MONTH,
+                ArchiveFamilySyncState.SyncMode.INITIAL_FULL,
+                2_000_000L,
+                ArchiveFamilySyncState.AttemptOutcome.COMPLETE,
+                ArchiveFamilySyncState.StopReason.PROTOCOL_TERMINAL,
+                true,
+                "2026-01-01 00:00", "2026-08-01 00:00",
+                8, 8, 0, 0);
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         DataPortability.writeBackup(context, out);
@@ -169,10 +233,16 @@ public final class DataPortabilityTest {
         try (MeterHistoryStore live = new MeterHistoryStore(context)) {
             assertEquals(1, live.getReadings("A", 0L).size());
         }
+        assertTrue(new ArchiveFamilySyncStateStore(context)
+                .get("A", ArchiveFamilyPeriod.Family.MONTH).baselineComplete());
     }
 
-    private static ArchiveFamilyPeriod archivePeriod(String timestamp, String retrievedAtUtc, String total) {
-        return new ArchiveFamilyPeriod(ArchiveFamilyPeriod.Family.MONTH, timestamp, retrievedAtUtc,
+    private static ArchiveFamilyPeriod archivePeriod(
+            ArchiveFamilyPeriod.Family family,
+            String timestamp,
+            String retrievedAtUtc,
+            String total) {
+        return new ArchiveFamilyPeriod(family, timestamp, retrievedAtUtc,
                 "test-structure", "TEST", "VALIDATED",
                 ArchiveNormalizedValues.builder()
                         .totalVolume(total)

@@ -40,7 +40,7 @@ import java.util.zip.ZipOutputStream;
 
 /** User-controlled CSV export and versioned lossless *.qw1backup phone-migration format. */
 final class DataPortability {
-    static final int BACKUP_SCHEMA = 1;
+    static final int BACKUP_SCHEMA = 2;
     private static final int CSV_SCHEMA = 1;
     private static final int MAX_BACKUP_BYTES = 50 * 1024 * 1024;
     private static final String MANIFEST = "manifest.json";
@@ -52,15 +52,38 @@ final class DataPortability {
         final int liveReadings;
         final int archivePeriods;
         final int replacementTransitions;
+        final int hourPeriods;
+        final int dayPeriods;
+        final int monthPeriods;
+        final ArchiveFamilySyncState.BaselineState hourBaselineState;
+        final ArchiveFamilySyncState.BaselineState dayBaselineState;
+        final ArchiveFamilySyncState.BaselineState monthBaselineState;
         final byte[] bytes;
 
-        BackupPreview(String createdUtc, String activeMeterId, int liveReadings, int archivePeriods,
-                      int replacementTransitions, byte[] bytes) {
+        BackupPreview(
+                String createdUtc,
+                String activeMeterId,
+                int liveReadings,
+                int archivePeriods,
+                int replacementTransitions,
+                int hourPeriods,
+                int dayPeriods,
+                int monthPeriods,
+                ArchiveFamilySyncState.BaselineState hourBaselineState,
+                ArchiveFamilySyncState.BaselineState dayBaselineState,
+                ArchiveFamilySyncState.BaselineState monthBaselineState,
+                byte[] bytes) {
             this.createdUtc = createdUtc;
             this.activeMeterId = activeMeterId;
             this.liveReadings = liveReadings;
             this.archivePeriods = archivePeriods;
             this.replacementTransitions = replacementTransitions;
+            this.hourPeriods = hourPeriods;
+            this.dayPeriods = dayPeriods;
+            this.monthPeriods = monthPeriods;
+            this.hourBaselineState = hourBaselineState;
+            this.dayBaselineState = dayBaselineState;
+            this.monthBaselineState = monthBaselineState;
             this.bytes = bytes;
         }
     }
@@ -108,8 +131,17 @@ final class DataPortability {
         manifest.put("data_entry", DATA);
         manifest.put("data_sha256", sha256(dataBytes));
         manifest.put("live_readings", data.getJSONArray("live_readings").length());
-        manifest.put("archive_periods", data.getJSONArray("archive_periods").length());
+        JSONArray archivePeriods = data.getJSONArray("archive_periods");
+        manifest.put("archive_periods", archivePeriods.length());
+        manifest.put("archive_hour_periods",
+                countArchivePeriods(archivePeriods, ArchiveFamilyPeriod.Family.HOUR));
+        manifest.put("archive_day_periods",
+                countArchivePeriods(archivePeriods, ArchiveFamilyPeriod.Family.DAY));
+        manifest.put("archive_month_periods",
+                countArchivePeriods(archivePeriods, ArchiveFamilyPeriod.Family.MONTH));
         manifest.put("archive_conflicts", data.getJSONArray("archive_conflicts").length());
+        manifest.put("history_sync_v2_entries",
+                data.getJSONObject("history_sync_v2").getJSONArray("entries").length());
         manifest.put("replacement_transitions",
                 data.getJSONObject("meter_lifecycle").getJSONArray("transitions").length());
 
@@ -124,11 +156,25 @@ final class DataPortability {
         byte[] bytes = readLimited(input, MAX_BACKUP_BYTES);
         ParsedBackup parsed = parseBackup(bytes);
         JSONObject lifecycle = parsed.data.getJSONObject("meter_lifecycle");
-        String active = lifecycle.isNull("active_meter_id") ? "—" : lifecycle.optString("active_meter_id", "—");
-        return new BackupPreview(parsed.manifest.getString("created_utc"), active,
+        String activeRaw = lifecycle.isNull("active_meter_id")
+                ? null
+                : lifecycle.optString("active_meter_id", null);
+        String activeDisplay = activeRaw == null || activeRaw.trim().isEmpty() ? "—" : activeRaw;
+        JSONArray archivePeriods = parsed.data.getJSONArray("archive_periods");
+        JSONObject familySync = parsed.data.getJSONObject("history_sync_v2");
+        return new BackupPreview(
+                parsed.manifest.getString("created_utc"),
+                activeDisplay,
                 parsed.data.getJSONArray("live_readings").length(),
-                parsed.data.getJSONArray("archive_periods").length(),
-                lifecycle.getJSONArray("transitions").length(), bytes);
+                archivePeriods.length(),
+                lifecycle.getJSONArray("transitions").length(),
+                countArchivePeriods(archivePeriods, ArchiveFamilyPeriod.Family.HOUR),
+                countArchivePeriods(archivePeriods, ArchiveFamilyPeriod.Family.DAY),
+                countArchivePeriods(archivePeriods, ArchiveFamilyPeriod.Family.MONTH),
+                baselineState(familySync, activeRaw, ArchiveFamilyPeriod.Family.HOUR),
+                baselineState(familySync, activeRaw, ArchiveFamilyPeriod.Family.DAY),
+                baselineState(familySync, activeRaw, ArchiveFamilyPeriod.Family.MONTH),
+                bytes);
     }
 
     static void restoreBackup(Context context, byte[] backupBytes) throws IOException, JSONException {
@@ -165,6 +211,7 @@ final class DataPortability {
         root.put("live_freshness", new LiveReadMetadataStore(context).exportJson());
         root.put("live_details", new LiveDetailMetadataStore(context).exportJson());
         root.put("history_sync", new HistorySyncMetadataStore(context).exportJson());
+        root.put("history_sync_v2", new ArchiveFamilySyncStateStore(context).exportJson());
         JSONObject preferences = new JSONObject();
         preferences.put("theme", UiPreferences.getTheme(context));
         preferences.put("language", UiPreferences.getSelectedLanguageTag(context));
@@ -247,6 +294,7 @@ final class DataPortability {
         new LiveReadMetadataStore(context).restoreJson(data.getJSONObject("live_freshness"));
         new LiveDetailMetadataStore(context).restoreJson(data.getJSONObject("live_details"));
         new HistorySyncMetadataStore(context).restoreJson(data.getJSONObject("history_sync"));
+        new ArchiveFamilySyncStateStore(context).restoreJson(data.getJSONObject("history_sync_v2"));
         restorePreferences(context, data.optJSONObject("preferences"));
     }
 
@@ -396,6 +444,7 @@ final class DataPortability {
             new LiveReadMetadataStore(context).restoreJson(data.getJSONObject("live_freshness"));
             new LiveDetailMetadataStore(context).restoreJson(data.getJSONObject("live_details"));
             new HistorySyncMetadataStore(context).restoreJson(data.getJSONObject("history_sync"));
+            new ArchiveFamilySyncStateStore(context).restoreJson(data.getJSONObject("history_sync_v2"));
             restorePreferences(context, data.optJSONObject("preferences"));
         }
     }
@@ -429,6 +478,7 @@ final class DataPortability {
         new LiveReadMetadataStore(context).clear();
         new LiveDetailMetadataStore(context).clear();
         new HistorySyncMetadataStore(context).clear();
+        new ArchiveFamilySyncStateStore(context).clear();
         if (includePreferences) context.getSharedPreferences("ui_preferences", Context.MODE_PRIVATE).edit().clear().apply();
     }
 
@@ -471,6 +521,47 @@ final class DataPortability {
         data.getJSONObject("live_freshness");
         data.getJSONObject("live_details");
         data.getJSONObject("history_sync");
+        JSONObject familySync = data.getJSONObject("history_sync_v2");
+        if (familySync.optInt("schema_version", -1) != ArchiveFamilySyncStateStore.SCHEMA_VERSION) {
+            throw new JSONException("unsupported history sync v2 schema");
+        }
+        familySync.getJSONArray("entries");
+    }
+
+    private static int countArchivePeriods(
+            JSONArray rows,
+            ArchiveFamilyPeriod.Family family) throws JSONException {
+        int count = 0;
+        for (int i = 0; i < rows.length(); i++) {
+            JSONObject row = rows.getJSONObject(i);
+            if (family.name().equals(requiredString(row, "archive_family"))) count++;
+        }
+        return count;
+    }
+
+    private static ArchiveFamilySyncState.BaselineState baselineState(
+            JSONObject familySync,
+            String meterId,
+            ArchiveFamilyPeriod.Family family) throws JSONException {
+        if (meterId == null || meterId.trim().isEmpty()) {
+            return ArchiveFamilySyncState.BaselineState.NEVER_SYNCED;
+        }
+        if (familySync.optInt("schema_version", -1) != ArchiveFamilySyncStateStore.SCHEMA_VERSION) {
+            throw new JSONException("unsupported history sync v2 schema");
+        }
+        JSONArray entries = familySync.getJSONArray("entries");
+        for (int i = 0; i < entries.length(); i++) {
+            JSONObject entry = entries.getJSONObject(i);
+            if (!meterId.equals(requiredString(entry, "meter_id"))) continue;
+            if (!family.name().equals(requiredString(entry, "family"))) continue;
+            try {
+                return ArchiveFamilySyncState.BaselineState.valueOf(
+                        requiredString(entry, "baseline_state"));
+            } catch (IllegalArgumentException error) {
+                throw new JSONException("invalid history sync v2 baseline state");
+            }
+        }
+        return ArchiveFamilySyncState.BaselineState.NEVER_SYNCED;
     }
 
     private static List<ExportRow> exportRows(Context context) {
