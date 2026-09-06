@@ -41,7 +41,7 @@ import java.util.zip.ZipOutputStream;
 /** User-controlled CSV export and versioned lossless *.qw1backup phone-migration format. */
 final class DataPortability {
     static final int BACKUP_SCHEMA = 2;
-    private static final int CSV_SCHEMA = 1;
+    private static final int CSV_SCHEMA = 2;
     private static final int MAX_BACKUP_BYTES = 50 * 1024 * 1024;
     private static final String MANIFEST = "manifest.json";
     private static final String DATA = "data.json";
@@ -102,18 +102,55 @@ final class DataPortability {
         List<ExportRow> rows = exportRows(context);
         StringBuilder csv = new StringBuilder();
         csv.append('\uFEFF');
-        appendCsv(csv, delimiter, "schema_version", "meter_id", "record_type", "primary_time",
-                "device_time", "meter_time", "total_m3", "consumption_m3", "battery_percent",
-                "status", "raw_status", "provenance", "partial");
+        appendCsv(csv, delimiter,
+                "schema_version", "meter_id", "record_type", "primary_time", "time_basis",
+                "device_time", "device_time_utc", "meter_time",
+                "total_m3", "consumption_m3", "positive_m3", "reverse_m3", "tariff1_m3",
+                "flow_m3h", "max_flow_m3h", "max_flow_at", "min_flow_m3h", "min_flow_at",
+                "water_temperature_c", "external_temperature_c",
+                "max_temperature_c", "max_temperature_at", "min_temperature_c", "min_temperature_at",
+                "battery_percent", "status", "raw_status", "on_time", "operating_time",
+                "baseline_state", "observation_count", "identical_content_confirmations",
+                "revision_count", "conflict_flags", "source", "validation", "provenance");
         for (ExportRow row : rows) {
             appendCsv(csv, delimiter,
-                    Integer.toString(CSV_SCHEMA), row.meterId, row.type, row.primaryTime,
+                    Integer.toString(CSV_SCHEMA),
+                    row.meterId,
+                    row.type,
+                    row.primaryTime,
+                    row.timeBasis,
                     row.deviceTimeMs <= 0 ? "" : deviceDate.format(new Date(row.deviceTimeMs)),
+                    row.deviceTimeMs <= 0 ? "" : utcMillis(row.deviceTimeMs),
                     row.meterTime,
-                    row.totalM3 == null ? "" : numbers.format(row.totalM3),
-                    row.consumptionM3 == null ? "" : numbers.format(row.consumptionM3),
-                    row.batteryPercent == null ? "" : Integer.toString(row.batteryPercent),
-                    row.status, row.rawStatus, row.provenance, row.partial ? "true" : "false");
+                    number(numbers, row.totalM3),
+                    number(numbers, row.consumptionM3),
+                    number(numbers, row.positiveM3),
+                    number(numbers, row.reverseM3),
+                    number(numbers, row.tariff1M3),
+                    number(numbers, row.flowM3h),
+                    number(numbers, row.maxFlowM3h),
+                    row.maxFlowAt,
+                    number(numbers, row.minFlowM3h),
+                    row.minFlowAt,
+                    number(numbers, row.waterTemperatureC),
+                    number(numbers, row.externalTemperatureC),
+                    number(numbers, row.maxTemperatureC),
+                    row.maxTemperatureAt,
+                    number(numbers, row.minTemperatureC),
+                    row.minTemperatureAt,
+                    integer(row.batteryPercent),
+                    row.status,
+                    row.rawStatus,
+                    row.onTime,
+                    row.operatingTime,
+                    row.baselineState,
+                    integer(row.observationCount),
+                    integer(row.identicalContentConfirmations),
+                    integer(row.revisionCount),
+                    integer(row.conflictFlags),
+                    row.source,
+                    row.validation,
+                    row.provenance);
         }
         output.write(csv.toString().getBytes(StandardCharsets.UTF_8));
         output.flush();
@@ -568,6 +605,7 @@ final class DataPortability {
         List<ExportRow> out = new ArrayList<>();
         List<WaterUsageAnalytics.Point> points = new ArrayList<>();
         Map<String, ExportRow> byIdentity = new HashMap<>();
+        ArchiveFamilySyncStateStore familySyncStore = new ArchiveFamilySyncStateStore(context);
         try (MeterHistoryStore liveStore = new MeterHistoryStore(context);
              ArchiveFamilyStore archiveStore = new ArchiveFamilyStore(context)) {
             Set<String> meters = new LinkedHashSet<>(liveStore.getMeterIds());
@@ -583,13 +621,31 @@ final class DataPortability {
                             localMinute(reading.readAtMs), reading.readAtMs,
                             HistorySemanticTimeline.Granularity.LIVE, reading.totalM3);
                     points.add(p);
-                    ExportRow row = new ExportRow(meter, "LIVE", localMinute(reading.readAtMs),
-                            reading.readAtMs, reading.meterTime, reading.totalM3, reading.batteryPercent,
-                            MeterStatusPresentation.localizedAlarmCodes(context, reading.alarmCodes), "",
-                            context.getString(R.string.m3_provenance_live), false);
+
+                    ExportRow row = new ExportRow();
+                    row.meterId = meter;
+                    row.type = "LIVE";
+                    row.primaryTime = localMinute(reading.readAtMs);
+                    row.timeBasis = "DEVICE_LOCAL";
+                    row.deviceTimeMs = reading.readAtMs;
+                    row.sortTimeMs = reading.readAtMs;
+                    row.meterTime = reading.meterTime;
+                    row.totalM3 = reading.totalM3;
+                    row.positiveM3 = reading.positiveM3;
+                    row.reverseM3 = reading.negativeM3;
+                    row.flowM3h = reading.flowM3h;
+                    row.waterTemperatureC = reading.waterTemperatureC;
+                    row.externalTemperatureC = reading.ambientTemperatureC;
+                    row.batteryPercent = reading.batteryPercent;
+                    row.status = MeterStatusPresentation.localizedAlarmCodes(context, reading.alarmCodes);
+                    row.rawStatus = "";
+                    row.source = "LIVE";
+                    row.validation = "";
+                    row.provenance = context.getString(R.string.m3_provenance_live);
                     byIdentity.put(identity, row);
                     out.add(row);
                 }
+
                 for (ArchiveFamilyStore.StoredPeriod period : archiveStore.getPeriods(meter, null)) {
                     Double total = parseMeasurement(period.totalVolume);
                     long sort = parseMeterLocal(period.loggerTimestamp);
@@ -598,27 +654,79 @@ final class DataPortability {
                     WaterUsageAnalytics.Point p = new WaterUsageAnalytics.Point(identity, meter,
                             period.loggerTimestamp, sort, granularity(period.family), total);
                     points.add(p);
+
                     MeterStatusPresentation.Historical status = MeterStatusPresentation.historical(period.errorFlags);
-                    ExportRow row = new ExportRow(meter, period.family.name(), period.loggerTimestamp,
-                            period.retrievedAtMs, "", total, parseInteger(period.batteryPercent),
-                            status.hasAnyStatus() ? status.summary(context) : "", status.hasAnyStatus() ? status.raw : "",
-                            context.getString(R.string.m3_provenance_archive), false);
+                    ArchiveFamilySyncState familyState = familySyncStore.get(meter, period.family);
+                    ExportRow row = new ExportRow();
+                    row.meterId = meter;
+                    row.type = period.family.name();
+                    row.primaryTime = period.loggerTimestamp;
+                    row.timeBasis = period.loggerTimeBasis;
+                    row.deviceTimeMs = period.retrievedAtMs;
+                    row.sortTimeMs = sort;
+                    row.meterTime = "";
+                    row.totalM3 = total;
+                    row.positiveM3 = parseMeasurement(period.positiveVolume);
+                    row.reverseM3 = parseMeasurement(period.reverseVolume);
+                    row.tariff1M3 = parseMeasurement(period.tariff1Volume);
+                    row.flowM3h = parseMeasurement(period.flow);
+                    row.maxFlowM3h = parseMeasurement(period.maxFlow);
+                    row.maxFlowAt = emptyIfNull(period.maxFlowAt);
+                    row.minFlowM3h = parseMeasurement(period.minFlow);
+                    row.minFlowAt = emptyIfNull(period.minFlowAt);
+                    row.waterTemperatureC = parseMeasurement(period.temperature);
+                    row.externalTemperatureC = parseMeasurement(period.externalTemperature);
+                    row.maxTemperatureC = parseMeasurement(period.maxTemperature);
+                    row.maxTemperatureAt = emptyIfNull(period.maxTemperatureAt);
+                    row.minTemperatureC = parseMeasurement(period.minTemperature);
+                    row.minTemperatureAt = emptyIfNull(period.minTemperatureAt);
+                    row.batteryPercent = parseInteger(period.batteryPercent);
+                    row.status = status.hasAnyStatus() ? status.summary(context) : "";
+                    row.rawStatus = status.hasAnyStatus() ? status.raw : "";
+                    row.onTime = emptyIfNull(period.onTime);
+                    row.operatingTime = emptyIfNull(period.operatingTime);
+                    row.baselineState = familyState.baselineState.name();
+                    row.observationCount = period.observationCount;
+                    row.identicalContentConfirmations = period.identicalContentConfirmations;
+                    row.revisionCount = period.revisionCount;
+                    row.conflictFlags = period.conflictFlags;
+                    row.source = period.source;
+                    row.validation = period.validation;
+                    row.provenance = context.getString(R.string.m3_provenance_archive);
                     byIdentity.put(identity, row);
                     out.add(row);
                 }
             }
         }
+
         for (WaterUsageAnalytics.HistoryDelta delta : WaterUsageAnalytics.historyNewestFirst(points)) {
             ExportRow row = byIdentity.get(delta.point.identity);
             if (row != null) row.consumptionM3 = delta.consumptionSincePreviousM3;
         }
+
         for (MeterLifecycleStore.Transition transition : new MeterLifecycleStore(context).transitions()) {
-            out.add(new ExportRow(transition.successorMeterId, "METER_REPLACEMENT",
-                    localMinute(transition.confirmedAtMs), transition.confirmedAtMs, "", null, null,
-                    context.getString(R.string.m3_meter_replacement_event), "",
-                    transition.predecessorMeterId + " -> " + transition.successorMeterId, true));
+            ExportRow row = new ExportRow();
+            row.meterId = transition.successorMeterId;
+            row.type = "METER_REPLACEMENT";
+            row.primaryTime = localMinute(transition.confirmedAtMs);
+            row.timeBasis = "DEVICE_LOCAL";
+            row.deviceTimeMs = transition.confirmedAtMs;
+            row.sortTimeMs = transition.confirmedAtMs;
+            row.status = context.getString(R.string.m3_meter_replacement_event);
+            row.rawStatus = "";
+            row.source = "LOCAL_EVENT";
+            row.validation = "";
+            row.provenance = transition.predecessorMeterId + " -> " + transition.successorMeterId;
+            out.add(row);
         }
-        out.sort((a,b) -> Long.compare(a.deviceTimeMs, b.deviceTimeMs));
+
+        out.sort((a, b) -> {
+            int byTime = Long.compare(a.sortTimeMs, b.sortTimeMs);
+            if (byTime != 0) return byTime;
+            int byMeter = emptyIfNull(a.meterId).compareTo(emptyIfNull(b.meterId));
+            if (byMeter != 0) return byMeter;
+            return emptyIfNull(a.type).compareTo(emptyIfNull(b.type));
+        });
         return out;
     }
 
@@ -762,6 +870,12 @@ final class DataPortability {
         return f.format(new Date());
     }
 
+    private static String utcMillis(long ms) {
+        SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
+        f.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return f.format(new Date(ms));
+    }
+
     private static long parseMeterLocal(String value) {
         if (value == null || value.trim().isEmpty()) return 0L;
         SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US);
@@ -775,15 +889,26 @@ final class DataPortability {
     }
 
     private static Double parseMeasurement(String value) {
-        if (value == null) return null;
-        String cleaned = value.trim().replace(',', '.').replaceAll("[^0-9+\\-.]", "");
-        if (cleaned.isEmpty()) return null;
-        try { return Double.parseDouble(cleaned); } catch (NumberFormatException e) { return null; }
+        String number = ArchiveFamilyStore.measurementNumber(value);
+        if (number == null || number.isEmpty()) return null;
+        try { return Double.parseDouble(number); } catch (NumberFormatException e) { return null; }
     }
 
     private static Integer parseInteger(String value) {
         Double d = parseMeasurement(value);
         return d == null ? null : (int)Math.round(d);
+    }
+
+    private static String number(NumberFormat numbers, Double value) {
+        return value == null ? "" : numbers.format(value);
+    }
+
+    private static String integer(Integer value) {
+        return value == null ? "" : Integer.toString(value);
+    }
+
+    private static String emptyIfNull(String value) {
+        return value == null ? "" : value;
     }
 
     private static HistorySemanticTimeline.Granularity granularity(ArchiveFamilyPeriod.Family family) {
@@ -821,18 +946,41 @@ final class DataPortability {
     }
 
     private static final class ExportRow {
-        final String meterId, type, primaryTime, meterTime, status, rawStatus, provenance;
-        final long deviceTimeMs;
-        final Double totalM3;
+        String meterId;
+        String type;
+        String primaryTime = "";
+        String timeBasis = "";
+        long deviceTimeMs;
+        long sortTimeMs;
+        String meterTime = "";
+        Double totalM3;
         Double consumptionM3;
-        final Integer batteryPercent;
-        final boolean partial;
-        ExportRow(String meterId, String type, String primaryTime, long deviceTimeMs, String meterTime,
-                  Double totalM3, Integer batteryPercent, String status, String rawStatus,
-                  String provenance, boolean partial) {
-            this.meterId=meterId; this.type=type; this.primaryTime=primaryTime; this.deviceTimeMs=deviceTimeMs;
-            this.meterTime=meterTime; this.totalM3=totalM3; this.batteryPercent=batteryPercent;
-            this.status=status; this.rawStatus=rawStatus; this.provenance=provenance; this.partial=partial;
-        }
+        Double positiveM3;
+        Double reverseM3;
+        Double tariff1M3;
+        Double flowM3h;
+        Double maxFlowM3h;
+        String maxFlowAt = "";
+        Double minFlowM3h;
+        String minFlowAt = "";
+        Double waterTemperatureC;
+        Double externalTemperatureC;
+        Double maxTemperatureC;
+        String maxTemperatureAt = "";
+        Double minTemperatureC;
+        String minTemperatureAt = "";
+        Integer batteryPercent;
+        String status = "";
+        String rawStatus = "";
+        String onTime = "";
+        String operatingTime = "";
+        String baselineState = "";
+        Integer observationCount;
+        Integer identicalContentConfirmations;
+        Integer revisionCount;
+        Integer conflictFlags;
+        String source = "";
+        String validation = "";
+        String provenance = "";
     }
 }

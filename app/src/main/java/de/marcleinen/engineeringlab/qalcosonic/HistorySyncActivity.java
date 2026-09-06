@@ -5,9 +5,11 @@ import android.nfc.Tag;
 import android.nfc.tech.NfcV;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -38,6 +40,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class HistorySyncActivity extends MaterialBaseActivity implements NfcAdapter.ReaderCallback {
     private static final long BETWEEN_FAMILY_RECONNECT_MS = 1500L;
+    private static final int PROGRESS_RECORD_STEP = 8;
+    private static final long PROGRESS_MIN_INTERVAL_MS = 350L;
     private static final ArchiveFamilyPeriod.Family[] SYNC_ALL_ORDER = {
             ArchiveFamilyPeriod.Family.HOUR,
             ArchiveFamilyPeriod.Family.DAY,
@@ -55,6 +59,9 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
     private TextView meterText;
     private TextView statusTitle;
     private TextView statusBody;
+    private LinearLayout syncProgressRow;
+    private ProgressBar syncProgressIndicator;
+    private TextView syncProgressText;
     private TextView debugText;
     private TextView monthState;
     private TextView dayState;
@@ -113,6 +120,7 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         if (NfcV.get(tag) == null) {
             reading.set(false);
             disarmSync();
+            hideSyncProgress();
             runOnUiThread(() -> {
                 setStatus(R.string.m3_state_wrong_tag_title, R.string.m3_state_wrong_tag_body);
                 if (runAll) {
@@ -139,12 +147,14 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
                     ? allException(expectedMeter, null, error)
                     : HistorySyncTemporaryDebug.exception(expectedMeter, family, error);
             runOnUiThread(() -> {
+                hideSyncProgress();
                 setStatus(R.string.m3_state_sync_failed_title, R.string.m3_state_sync_failed_body);
                 setDebug(debug);
             });
         } finally {
             reading.set(false);
             disarmSync();
+            hideSyncProgress();
             runOnUiThread(this::refreshState);
         }
     }
@@ -154,11 +164,13 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
             ArchiveFamilyPeriod.Family family,
             String expectedMeter) throws Exception {
         runOnUiThread(() -> setDebug(HistorySyncTemporaryDebug.running(expectedMeter, family)));
+        showSyncProgress(family, 0, false, 0);
         NfcV nfcv = NfcV.get(tag);
         if (nfcv == null) throw new IOException("NFC_V_MISSING");
         try {
             nfcv.connect();
-            FamilyAttempt attempt = performFamilyBaseline(nfcv, tag, family, expectedMeter);
+            FamilyAttempt attempt = performFamilyBaseline(
+                    nfcv, tag, family, expectedMeter, false, 0);
             runOnUiThread(() -> {
                 setDebug(attempt.debug);
                 showAttemptStatus(attempt.complete, attempt.partial);
@@ -183,7 +195,9 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         boolean previousFamilyRan = false;
         boolean allComplete = true;
 
-        for (ArchiveFamilyPeriod.Family family : SYNC_ALL_ORDER) {
+        for (int familyIndex = 0; familyIndex < SYNC_ALL_ORDER.length; familyIndex++) {
+            ArchiveFamilyPeriod.Family family = SYNC_ALL_ORDER[familyIndex];
+            int step = familyIndex + 1;
             ArchiveFamilySyncState existing = syncStateStore.get(expectedMeter, family);
             if (existing.baselineComplete()) {
                 appendAllLine(debug, family, "SKIPPED_BASELINE_COMPLETE");
@@ -191,6 +205,7 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
                 continue;
             }
 
+            showSyncProgress(family, 0, true, step);
             if (previousFamilyRan) {
                 appendAllLine(debug, family, "RECONNECT_WAIT");
                 runOnUiThread(() -> setDebug(debug.toString()));
@@ -215,7 +230,8 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
                 runOnUiThread(() -> setStatus(
                         R.string.m3_state_sync_title,
                         R.string.m3_state_sync_body));
-                attempt = performFamilyBaseline(nfcv, tag, family, expectedMeter);
+                attempt = performFamilyBaseline(
+                        nfcv, tag, family, expectedMeter, true, step);
             } catch (Exception error) {
                 allComplete = false;
                 debug.append("\n\n").append(allException(expectedMeter, family, error));
@@ -258,7 +274,9 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
             NfcV nfcv,
             Tag tag,
             ArchiveFamilyPeriod.Family family,
-            String expectedMeter) {
+            String expectedMeter,
+            boolean allMode,
+            int allStep) {
         String retrievedAtUtc = utcNow();
         MonthlyArchiveNfcWire wire = new MonthlyArchiveNfcWire(nfcv, tag.getId());
         ArchivePersistenceCoordinator.ImmediateSession persistence =
@@ -267,13 +285,28 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
                         expectedMeter,
                         family);
 
+        final int[] safelyStored = {0};
+        final long[] lastProgressAt = {0L};
+        ArchiveFamilyTransportAdapter.AcceptedPeriodSink progressSink = period -> {
+            persistence.accept(period);
+            int count = ++safelyStored[0];
+            long now = SystemClock.elapsedRealtime();
+            if (count == 1
+                    || count % PROGRESS_RECORD_STEP == 0
+                    || now - lastProgressAt[0] >= PROGRESS_MIN_INTERVAL_MS) {
+                lastProgressAt[0] = now;
+                showSyncProgress(family, count, allMode, allStep);
+            }
+        };
+
         ArchiveFamilyTransportAdapter.Result transport = runInitialBaseline(
                 family,
                 wire,
                 expectedMeter,
                 retrievedAtUtc,
-                persistence::accept);
+                progressSink);
         ArchivePersistenceCoordinator.Result persisted = persistence.result();
+        showSyncProgress(family, persisted.committed, allMode, allStep);
         String debug = HistorySyncTemporaryDebug.format(expectedMeter, transport, persisted);
 
         boolean complete = transport.completeProductAttempt();
@@ -388,6 +421,21 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         statusBody.setPadding(0, MaterialUi.dp(this, 5), 0, 0);
         statusContent.addView(statusTitle);
         statusContent.addView(statusBody);
+
+        syncProgressRow = MaterialUi.horizontal(this);
+        syncProgressRow.setGravity(Gravity.CENTER_VERTICAL);
+        syncProgressRow.setPadding(0, MaterialUi.dp(this, 10), 0, 0);
+        syncProgressIndicator = new ProgressBar(this);
+        syncProgressIndicator.setIndeterminate(true);
+        syncProgressRow.addView(syncProgressIndicator, new LinearLayout.LayoutParams(
+                MaterialUi.dp(this, 30), MaterialUi.dp(this, 30)));
+        syncProgressText = MaterialUi.body(this, "");
+        syncProgressText.setPadding(MaterialUi.dp(this, 10), 0, 0, 0);
+        syncProgressRow.addView(syncProgressText, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        syncProgressRow.setVisibility(View.GONE);
+        statusContent.addView(syncProgressRow);
+
         statusCard.addView(statusContent);
         MaterialUi.addTopMargin(content, statusCard, 12);
 
@@ -480,12 +528,15 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
             Snackbar.make(root, R.string.m3_not_available, Snackbar.LENGTH_LONG).show();
             return;
         }
+        int positiveAction = current.hasAttempt() ? R.string.m3_sync_retry : R.string.m3_sync_history;
 
         new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.m3_sync_history)
-                .setMessage(R.string.m3_state_sync_body)
+                .setMessage(current.hasAttempt()
+                        ? R.string.m3_state_sync_partial_body_v2
+                        : R.string.m3_state_sync_body)
                 .setNegativeButton(R.string.m3_cancel, null)
-                .setPositiveButton(R.string.m3_sync_history,
+                .setPositiveButton(positiveAction,
                         (dialog, which) -> armFamily(meter, family))
                 .show();
     }
@@ -502,11 +553,16 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
             return;
         }
 
+        ArchiveFamilySyncState hour = syncStateStore.get(meter, ArchiveFamilyPeriod.Family.HOUR);
+        ArchiveFamilySyncState day = syncStateStore.get(meter, ArchiveFamilyPeriod.Family.DAY);
+        ArchiveFamilySyncState month = syncStateStore.get(meter, ArchiveFamilyPeriod.Family.MONTH);
+        boolean retry = hasRetryableAttempt(hour) || hasRetryableAttempt(day) || hasRetryableAttempt(month);
+
         new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.m3_sync_history)
-                .setMessage(R.string.m3_state_sync_body)
+                .setMessage(retry ? R.string.m3_state_sync_partial_body_v2 : R.string.m3_state_sync_body)
                 .setNegativeButton(R.string.m3_cancel, null)
-                .setPositiveButton(R.string.m3_sync_history,
+                .setPositiveButton(retry ? R.string.m3_sync_retry : R.string.m3_sync_history,
                         (dialog, which) -> armAll(meter))
                 .show();
     }
@@ -516,6 +572,7 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         armedFamily = family;
         armedAll = false;
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        hideSyncProgress();
         setStatus(R.string.m3_state_verify_title, R.string.m3_state_verify_body);
         setDebug(HistorySyncTemporaryDebug.running(meterId, family));
         refreshState();
@@ -526,6 +583,7 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         armedFamily = null;
         armedAll = true;
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        hideSyncProgress();
         setStatus(R.string.m3_state_verify_title, R.string.m3_state_verify_body);
         setDebug("TEMP DEBUG — wird vor Release entfernt\nmode=ALL\nexpectedMeter="
                 + meterId + "\nphase=ARMED");
@@ -563,6 +621,15 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         ArchiveFamilySyncState hour = updateFamilyState(
                 meter, ArchiveFamilyPeriod.Family.HOUR, hourState);
 
+        updateActionButton(monthButton, ArchiveFamilyPeriod.Family.MONTH, month);
+        updateActionButton(dayButton, ArchiveFamilyPeriod.Family.DAY, day);
+        updateActionButton(hourButton, ArchiveFamilyPeriod.Family.HOUR, hour);
+        boolean retryAll = hasRetryableAttempt(hour)
+                || hasRetryableAttempt(day)
+                || hasRetryableAttempt(month);
+        allButton.setText(getString(R.string.m3_filter_all) + " · "
+                + getString(retryAll ? R.string.m3_sync_retry : R.string.m3_sync_history));
+
         boolean idle = armedFamily == null && !armedAll && !reading.get();
         monthButton.setEnabled(idle && !month.baselineComplete());
         dayButton.setEnabled(idle && !day.baselineComplete());
@@ -589,7 +656,7 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
                     ? getString(R.string.m3_last_read, formatDateTime(state.lastSuccessMs))
                     : getString(R.string.m3_state_sync_ok_title));
         } else if (state.lastAttemptOutcome == ArchiveFamilySyncState.AttemptOutcome.PARTIAL) {
-            stateView.setText(R.string.m3_state_sync_partial_title);
+            stateView.setText(getString(R.string.m3_sync_partial_family_detail, state.accepted));
         } else if (state.lastAttemptOutcome == ArchiveFamilySyncState.AttemptOutcome.FAILED) {
             stateView.setText(R.string.m3_state_sync_failed_title);
         } else {
@@ -598,13 +665,73 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         return state;
     }
 
+    private void updateActionButton(
+            MaterialButton button,
+            ArchiveFamilyPeriod.Family family,
+            ArchiveFamilySyncState state) {
+        if (button == null || family == null || state == null) return;
+        boolean retry = hasRetryableAttempt(state);
+        button.setText(familyLabel(family) + " · "
+                + getString(retry ? R.string.m3_sync_retry : R.string.m3_sync_history));
+    }
+
+    private static boolean hasRetryableAttempt(ArchiveFamilySyncState state) {
+        return state != null && !state.baselineComplete() && state.hasAttempt();
+    }
+
     private void showAttemptStatus(boolean complete, boolean partial) {
+        hideSyncProgress();
         if (complete) {
             setStatus(R.string.m3_state_sync_ok_title, R.string.m3_state_sync_ok_body);
         } else if (partial) {
-            setStatus(R.string.m3_state_sync_partial_title, R.string.m3_state_sync_partial_body);
+            setStatus(R.string.m3_state_sync_partial_title, R.string.m3_state_sync_partial_body_v2);
         } else {
             setStatus(R.string.m3_state_sync_failed_title, R.string.m3_state_sync_failed_body);
+        }
+    }
+
+    private void showSyncProgress(
+            ArchiveFamilyPeriod.Family family,
+            int safelyStored,
+            boolean allMode,
+            int allStep) {
+        if (family == null) return;
+        runOnUiThread(() -> {
+            if (syncProgressRow == null || syncProgressText == null) return;
+            syncProgressRow.setVisibility(View.VISIBLE);
+            String label = familyLabel(family);
+            if (allMode) {
+                syncProgressText.setText(getString(
+                        R.string.m3_sync_progress_all,
+                        allStep,
+                        SYNC_ALL_ORDER.length,
+                        label,
+                        Math.max(0, safelyStored)));
+            } else if (safelyStored <= 0) {
+                syncProgressText.setText(getString(R.string.m3_sync_progress_preparing, label));
+            } else {
+                syncProgressText.setText(getString(
+                        R.string.m3_sync_progress_single,
+                        label,
+                        safelyStored));
+            }
+        });
+    }
+
+    private void hideSyncProgress() {
+        runOnUiThread(() -> {
+            if (syncProgressRow != null) syncProgressRow.setVisibility(View.GONE);
+            if (syncProgressText != null) syncProgressText.setText("");
+        });
+    }
+
+    private String familyLabel(ArchiveFamilyPeriod.Family family) {
+        switch (family) {
+            case HOUR: return getString(R.string.m3_filter_hour);
+            case DAY: return getString(R.string.m3_filter_day);
+            case MONTH: return getString(R.string.m3_filter_month);
+            case YEAR: return getString(R.string.m3_filter_year);
+            default: return family.name();
         }
     }
 

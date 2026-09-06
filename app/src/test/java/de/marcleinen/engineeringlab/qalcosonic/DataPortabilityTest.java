@@ -168,12 +168,73 @@ public final class DataPortabilityTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         DataPortability.writeCsv(context, out);
         String csv = out.toString(StandardCharsets.UTF_8);
+        List<String> header = csvHeader(csv);
+        int schema = header.indexOf("schema_version");
+        int total = header.indexOf("total_m3");
+        int consumption = header.indexOf("consumption_m3");
+        assertTrue(schema >= 0 && total >= 0 && consumption >= 0);
 
         List<String> september = csvRow(csv, "2024-09-01 00:00");
         List<String> october = csvRow(csv, "2024-10-01 00:00");
-        assertEquals(0.0, localizedDouble(september.get(6)), 0.000001);
-        assertEquals(1.931, localizedDouble(october.get(6)), 0.000001);
-        assertEquals(1.931, localizedDouble(october.get(7)), 0.000001);
+        assertEquals("2", september.get(schema));
+        assertEquals(0.0, localizedDouble(september.get(total)), 0.000001);
+        assertEquals(1.931, localizedDouble(october.get(total)), 0.000001);
+        assertEquals(1.931, localizedDouble(october.get(consumption)), 0.000001);
+    }
+
+    @Test
+    @Config(sdk = 28)
+    public void csvSchema2ExportsNativeFamiliesAndArchiveMetrics() throws Exception {
+        try (ArchiveFamilyStore archive = new ArchiveFamilyStore(context)) {
+            assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED,
+                    archive.upsert("M1", richArchivePeriod(
+                            ArchiveFamilyPeriod.Family.HOUR,
+                            "2026-09-06 18:00",
+                            "2026-09-06T18:01:00Z")));
+            assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED,
+                    archive.upsert("M1", archivePeriod(
+                            ArchiveFamilyPeriod.Family.DAY,
+                            "2026-09-06 00:00",
+                            "2026-09-06T18:02:00Z",
+                            "10.500")));
+            assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED,
+                    archive.upsert("M1", archivePeriod(
+                            ArchiveFamilyPeriod.Family.MONTH,
+                            "2026-09-01 00:00",
+                            "2026-09-06T18:03:00Z",
+                            "10.500")));
+        }
+        new MeterLifecycleStore(context).adoptInitialMeter("M1");
+        ArchiveFamilySyncStateStore sync = new ArchiveFamilySyncStateStore(context);
+        recordComplete(sync, ArchiveFamilyPeriod.Family.HOUR, "2026-09-06 18:00", 10_000_000L);
+        recordComplete(sync, ArchiveFamilyPeriod.Family.DAY, "2026-09-06 00:00", 11_000_000L);
+        recordComplete(sync, ArchiveFamilyPeriod.Family.MONTH, "2026-09-01 00:00", 12_000_000L);
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        DataPortability.writeCsv(context, out);
+        String csv = out.toString(StandardCharsets.UTF_8);
+        List<String> header = csvHeader(csv);
+        List<String> hour = csvRow(csv, "2026-09-06 18:00");
+        List<String> day = csvRow(csv, "2026-09-06 00:00");
+        List<String> month = csvRow(csv, "2026-09-01 00:00");
+
+        assertEquals("2", csvValue(header, hour, "schema_version"));
+        assertEquals("HOUR", csvValue(header, hour, "record_type"));
+        assertEquals("DAY", csvValue(header, day, "record_type"));
+        assertEquals("MONTH", csvValue(header, month, "record_type"));
+        assertEquals("COMPLETE", csvValue(header, hour, "baseline_state"));
+        assertEquals("TEST", csvValue(header, hour, "source"));
+        assertEquals("VALIDATED", csvValue(header, hour, "validation"));
+        assertEquals("80734200 s", csvValue(header, hour, "on_time"));
+        assertEquals("80730000 s", csvValue(header, hour, "operating_time"));
+        assertEquals("1", csvValue(header, hour, "observation_count"));
+        assertEquals("0", csvValue(header, hour, "conflict_flags"));
+        assertEquals(0.100, localizedDouble(csvValue(header, hour, "reverse_m3")), 0.000001);
+        assertEquals(0.250, localizedDouble(csvValue(header, hour, "flow_m3h")), 0.000001);
+        assertEquals(1.500, localizedDouble(csvValue(header, hour, "max_flow_m3h")), 0.000001);
+        assertEquals(18.5, localizedDouble(csvValue(header, hour, "water_temperature_c")), 0.000001);
+        assertEquals(12.0, localizedDouble(csvValue(header, hour, "external_temperature_c")), 0.000001);
+        assertEquals("87", csvValue(header, hour, "battery_percent"));
     }
 
     @Test
@@ -251,14 +312,82 @@ public final class DataPortabilityTest {
                         .build());
     }
 
+    private static ArchiveFamilyPeriod richArchivePeriod(
+            ArchiveFamilyPeriod.Family family,
+            String timestamp,
+            String retrievedAtUtc) {
+        ArchiveNormalizedValues.Builder values = ArchiveNormalizedValues.builder();
+        values.totalVolume = "10.500 m3";
+        values.positiveVolume = "10.600 m3";
+        values.reverseVolume = "0.100 m3";
+        values.tariff1Volume = "4.000 m3";
+        values.flow = "0.250 m3/h";
+        values.maxFlow = "1.500 m3/h";
+        values.maxFlowAt = "2026-09-06 17:15";
+        values.minFlow = "0.010 m3/h";
+        values.minFlowAt = "2026-09-06 03:10";
+        values.temperature = "18.5 C";
+        values.externalTemperature = "12.0 C";
+        values.maxTemperature = "22.5 C";
+        values.maxTemperatureAt = "2026-09-06 14:00";
+        values.minTemperature = "10.5 C";
+        values.minTemperatureAt = "2026-09-06 05:00";
+        values.batteryPercent = "87 %";
+        values.errorFlags = "0x00000000";
+        values.onTime = "80734200 s";
+        values.operatingTime = "80730000 s";
+        return new ArchiveFamilyPeriod(family, timestamp, retrievedAtUtc,
+                "test-structure", "TEST", "VALIDATED", values.build());
+    }
+
+    private static void recordComplete(
+            ArchiveFamilySyncStateStore sync,
+            ArchiveFamilyPeriod.Family family,
+            String timestamp,
+            long atMs) {
+        sync.recordAttempt(
+                "M1", family,
+                ArchiveFamilySyncState.SyncMode.INITIAL_FULL,
+                atMs,
+                ArchiveFamilySyncState.AttemptOutcome.COMPLETE,
+                ArchiveFamilySyncState.StopReason.PROTOCOL_TERMINAL,
+                true,
+                timestamp,
+                timestamp,
+                1, 1, 0, 0);
+    }
+
+    private static List<String> csvHeader(String csv) {
+        for (String line : csv.split("\\r?\\n")) {
+            List<String> fields = csvFields(line);
+            if (fields.isEmpty()) continue;
+            if (fields.get(0).startsWith("\uFEFF")) {
+                fields.set(0, fields.get(0).substring(1));
+            }
+            if (fields.contains("schema_version") && fields.contains("record_type")) return fields;
+        }
+        throw new AssertionError("missing CSV header");
+    }
+
     private static List<String> csvRow(String csv, String primaryTime) {
         for (String line : csv.split("\\r?\\n")) {
-            List<String> fields = new ArrayList<>();
-            Matcher matcher = CSV_FIELD.matcher(line);
-            while (matcher.find()) fields.add(matcher.group(1).replace("\"\"", "\""));
-            if (fields.size() > 7 && primaryTime.equals(fields.get(3))) return fields;
+            List<String> fields = csvFields(line);
+            if (fields.size() > 3 && primaryTime.equals(fields.get(3))) return fields;
         }
         throw new AssertionError("missing CSV row " + primaryTime);
+    }
+
+    private static List<String> csvFields(String line) {
+        List<String> fields = new ArrayList<>();
+        Matcher matcher = CSV_FIELD.matcher(line);
+        while (matcher.find()) fields.add(matcher.group(1).replace("\"\"", "\""));
+        return fields;
+    }
+
+    private static String csvValue(List<String> header, List<String> row, String column) {
+        int index = header.indexOf(column);
+        if (index < 0 || index >= row.size()) throw new AssertionError("missing CSV column " + column);
+        return row.get(index);
     }
 
     private static double localizedDouble(String value) {

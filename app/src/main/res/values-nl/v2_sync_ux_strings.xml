@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m3_sync_progress_preparing">%1$s · Synchronisatie wordt voorbereid…</string>
+    <string name="m3_sync_progress_single">%1$s · %2$d records veilig opgeslagen</string>
+    <string name="m3_sync_progress_all">%1$d van %2$d · %3$s · %4$d records veilig opgeslagen</string>
+    <string name="m3_sync_retry">Opnieuw synchroniseren</string>
+    <string name="m3_sync_partial_family_detail">Laatste poging: %1$d records verwerkt. Opgeslagen gegevens blijven behouden — start gewoon opnieuw.</string>
+    <string name="m3_state_sync_partial_body_v2">De synchronisatie stopte voordat deze volledig was afgerond. Opgeslagen gegevens blijven behouden. Start dezelfde synchronisatie opnieuw; identieke records worden herkend en ontbrekende records worden toegevoegd.</string>
+</resources>
