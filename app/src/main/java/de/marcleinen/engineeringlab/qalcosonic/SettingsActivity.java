@@ -66,6 +66,10 @@ public final class SettingsActivity extends MaterialBaseActivity {
         addSectionTitle(content, R.string.m3_settings_data);
         MaterialCardView data = MaterialUi.card(this);
         LinearLayout dataContent = MaterialUi.vertical(this);
+        dataContent.addView(MaterialUi.settingRow(this, R.drawable.ic_m3_settings,
+                getString(R.string.m3_sync_history), getString(R.string.m3_history_subtitle),
+                v -> startActivity(new Intent(this, HistorySyncActivity.class))));
+        dataContent.addView(MaterialUi.divider(this));
         dataContent.addView(MaterialUi.settingRow(this, R.drawable.ic_m3_backup,
                 getString(R.string.m3_export_csv), getString(R.string.m3_export_csv_summary),
                 v -> csvCreate.launch(csvFileName())));
