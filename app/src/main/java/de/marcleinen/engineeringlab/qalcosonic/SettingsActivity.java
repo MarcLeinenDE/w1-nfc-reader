@@ -137,7 +137,16 @@ public final class SettingsActivity extends MaterialBaseActivity {
 
     private void showRestorePreview(DataPortability.BackupPreview preview) {
         String body = getString(R.string.m3_backup_preview, preview.createdUtc, preview.activeMeterId,
-                preview.liveReadings, preview.archivePeriods);
+                preview.liveReadings, preview.archivePeriods)
+                + "\n\n"
+                + getString(R.string.m3_filter_hour) + ": " + preview.hourPeriods + " · "
+                + baselineLabel(preview.hourBaselineState)
+                + "\n"
+                + getString(R.string.m3_filter_day) + ": " + preview.dayPeriods + " · "
+                + baselineLabel(preview.dayBaselineState)
+                + "\n"
+                + getString(R.string.m3_filter_month) + ": " + preview.monthPeriods + " · "
+                + baselineLabel(preview.monthBaselineState);
         new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.m3_backup_preview_title)
                 .setMessage(body)
@@ -151,6 +160,16 @@ public final class SettingsActivity extends MaterialBaseActivity {
                         message(R.string.m3_restore_failed);
                     }
                 }).show();
+    }
+
+    private String baselineLabel(ArchiveFamilySyncState.BaselineState state) {
+        if (state == ArchiveFamilySyncState.BaselineState.COMPLETE) {
+            return getString(R.string.m3_state_sync_ok_title);
+        }
+        if (state == ArchiveFamilySyncState.BaselineState.PARTIAL) {
+            return getString(R.string.m3_state_sync_partial_title);
+        }
+        return getString(R.string.m3_no_archive);
     }
 
     private void chooseTheme() {
