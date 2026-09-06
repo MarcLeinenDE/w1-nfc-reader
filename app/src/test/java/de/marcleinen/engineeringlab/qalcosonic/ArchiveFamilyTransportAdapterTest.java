@@ -49,9 +49,13 @@ public final class ArchiveFamilyTransportAdapterTest {
         assertTrue(result.finalRestoreVerified());
         assertTrue(result.completeSafetyShell());
         assertEquals(1, result.preflight.applicationResetCommands);
+        assertEquals(1, result.preflight.liveReadAttempts);
         assertEquals(1, result.finalVerification.applicationResetCommands);
+        assertEquals(1, result.finalVerification.liveReadAttempts);
         assertTrue(wire.events.indexOf("ARCHIVE_SYNC_START_RESET_DEFAULT")
-                < wire.events.indexOf("VERIFY_DEFAULT"));
+                < wire.events.indexOf("ARCHIVE_SYNC_MBUS_RESET"));
+        assertTrue(wire.events.indexOf("ARCHIVE_SYNC_MBUS_RESET")
+                < wire.events.indexOf("ARCHIVE_SYNC_SELECT_50_40"));
         assertTrue(wire.events.indexOf("ARCHIVE_SYNC_FINAL_RESET_DEFAULT")
                 > wire.events.indexOf("ARCHIVE_SYNC_SELECTED_3_7B"));
     }
