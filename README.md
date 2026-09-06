@@ -149,3 +149,10 @@ This project started as a private spare-time project out of personal need, curio
 Issues, corrections and pull requests are welcome. This is not a commercial project and there is no support or response-time commitment. I have a young child and limited spare time, so reviews and replies may sometimes take a while. Community contributions are nevertheless very welcome.
 
 Copyright © 2026 Marc Leinen and contributors.
+
+---
+
+### ☕ Like this project?
+
+If this work saved you some time or a few developer nerves, you can [buy me a coffee via PayPal](https://www.paypal.me/ccaa/). ☕😄  
+No obligation — a ⭐, useful issue, or contribution is equally appreciated. See [SUPPORT.md](SUPPORT.md) for details.
