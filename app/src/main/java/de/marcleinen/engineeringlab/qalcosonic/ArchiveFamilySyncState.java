@@ -48,6 +48,7 @@ final class ArchiveFamilySyncState {
         TYPE_F_MISSING,
         TYPE_F_INVALID,
         ON_TIME_INCONSISTENT,
+        METER_ID_MISMATCH,
         PROGRESSION_INCONSISTENT,
         DEFAULT_STATE_UNVERIFIED,
         WATCHDOG_REACHED,
