@@ -28,6 +28,10 @@ abstract class MaterialBaseActivity extends AppCompatActivity {
         super.onPostCreate(state);
         if (this instanceof ProductDashboardActivity) {
             LiveShareAction.attach(this);
+            // Transitional v2 cleanup: the only user-facing History synchronization entry point is
+            // Settings -> History synchronization. Remove this helper when the legacy dashboard
+            // action code itself is deleted after the family migration.
+            LegacyOverviewHistoryActionHider.hide(this);
         }
         if (this instanceof ProductDashboardActivity
                 || this instanceof MeterDetailsActivity
