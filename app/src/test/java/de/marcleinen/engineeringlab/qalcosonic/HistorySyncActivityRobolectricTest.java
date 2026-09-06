@@ -45,7 +45,7 @@ public final class HistorySyncActivityRobolectricTest {
         }
     }
 
-    @Test public void knownActiveMeterEnablesIndependentFirstBaselines() throws Exception {
+    @Test public void knownActiveMeterEnablesIndependentAndSyncAllBaselines() throws Exception {
         new MeterLifecycleStore(app).adoptInitialMeter("12345678");
 
         try (ActivityController<HistorySyncActivity> controller =
@@ -55,16 +55,48 @@ public final class HistorySyncActivityRobolectricTest {
             assertTrue(button(activity, "monthButton").isEnabled());
             assertTrue(button(activity, "dayButton").isEnabled());
             assertTrue(button(activity, "hourButton").isEnabled());
+            assertTrue(button(activity, "allButton").isEnabled());
+        }
+    }
+
+    @Test public void completedFamilyDisablesOnlyThatBaselineAndKeepsSyncAllAvailable() throws Exception {
+        String meter = "12345678";
+        new MeterLifecycleStore(app).adoptInitialMeter(meter);
+        complete(meter, ArchiveFamilyPeriod.Family.DAY);
+
+        try (ActivityController<HistorySyncActivity> controller =
+                     Robolectric.buildActivity(HistorySyncActivity.class).setup()) {
+            HistorySyncActivity activity = controller.get();
+
+            assertTrue(button(activity, "monthButton").isEnabled());
+            assertFalse(button(activity, "dayButton").isEnabled());
+            assertTrue(button(activity, "hourButton").isEnabled());
+            assertTrue(button(activity, "allButton").isEnabled());
+        }
+    }
+
+    @Test public void allCompleteBaselinesDisableEveryInitialBaselineAction() throws Exception {
+        String meter = "12345678";
+        new MeterLifecycleStore(app).adoptInitialMeter(meter);
+        complete(meter, ArchiveFamilyPeriod.Family.HOUR);
+        complete(meter, ArchiveFamilyPeriod.Family.DAY);
+        complete(meter, ArchiveFamilyPeriod.Family.MONTH);
+
+        try (ActivityController<HistorySyncActivity> controller =
+                     Robolectric.buildActivity(HistorySyncActivity.class).setup()) {
+            HistorySyncActivity activity = controller.get();
+
+            assertFalse(button(activity, "monthButton").isEnabled());
+            assertFalse(button(activity, "dayButton").isEnabled());
+            assertFalse(button(activity, "hourButton").isEnabled());
             assertFalse(button(activity, "allButton").isEnabled());
         }
     }
 
-    @Test public void completedFamilyDisablesOnlyThatBaselineAction() throws Exception {
-        String meter = "12345678";
-        new MeterLifecycleStore(app).adoptInitialMeter(meter);
+    private void complete(String meter, ArchiveFamilyPeriod.Family family) {
         new ArchiveFamilySyncStateStore(app).recordAttempt(
                 meter,
-                ArchiveFamilyPeriod.Family.DAY,
+                family,
                 ArchiveFamilySyncState.SyncMode.INITIAL_FULL,
                 System.currentTimeMillis(),
                 ArchiveFamilySyncState.AttemptOutcome.COMPLETE,
@@ -76,16 +108,6 @@ public final class HistorySyncActivityRobolectricTest {
                 200,
                 0,
                 0);
-
-        try (ActivityController<HistorySyncActivity> controller =
-                     Robolectric.buildActivity(HistorySyncActivity.class).setup()) {
-            HistorySyncActivity activity = controller.get();
-
-            assertTrue(button(activity, "monthButton").isEnabled());
-            assertFalse(button(activity, "dayButton").isEnabled());
-            assertTrue(button(activity, "hourButton").isEnabled());
-            assertFalse(button(activity, "allButton").isEnabled());
-        }
     }
 
     private static MaterialButton button(HistorySyncActivity activity, String fieldName)
