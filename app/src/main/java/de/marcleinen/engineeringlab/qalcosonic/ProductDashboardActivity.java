@@ -1,6 +1,9 @@
 package de.marcleinen.engineeringlab.qalcosonic;
 
+import android.database.Cursor;
+import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
@@ -9,8 +12,10 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.BaseAdapter;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -92,8 +97,11 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
     private TextView syncHint;
 
     private ChipGroup historyFilterHost;
-    private LinearLayout historyList;
+    private ListView historyList;
+    private HistoryListAdapter historyAdapter;
     private HistorySemanticTimeline.Granularity historyFilter;
+    private List<HistoryItem> historyItemsCache = Collections.emptyList();
+    private List<MeterLifecycleStore.Transition> historyTransitionsCache = Collections.emptyList();
 
     private TextView statsMonth;
     private TextView statsYear;
@@ -463,10 +471,12 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         historyButton.setMinHeight(MaterialUi.dp(this, 48));
         historyButton.setOnClickListener(v -> toggleHistorySync());
         MaterialUi.addTopMargin(content, historyButton, 12);
+        historyButton.setVisibility(View.GONE);
         syncHint = MaterialUi.body(this, getString(R.string.m3_calculated_note));
         syncHint.setGravity(Gravity.CENTER_HORIZONTAL);
         syncHint.setPadding(MaterialUi.dp(this, 8), MaterialUi.dp(this, 6), MaterialUi.dp(this, 8), 0);
         content.addView(syncHint);
+        syncHint.setVisibility(View.GONE);
         return scroll(content);
     }
 
@@ -482,9 +492,21 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         historyFilterHost.setChipSpacingHorizontal(MaterialUi.dp(this, 6));
         historyFilterHost.setChipSpacingVertical(MaterialUi.dp(this, 6));
         MaterialUi.addTopMargin(content, historyFilterHost, 12);
-        historyList = MaterialUi.vertical(this);
-        MaterialUi.addTopMargin(content, historyList, 10);
-        return scroll(content);
+
+        // Large real-device baselines can contain thousands of Hour/Day periods. A LinearLayout
+        // inside a ScrollView materializes every card at once and caused repeated Android ANRs after
+        // the first H+D+M full sync. ListView keeps the complete logical timeline while creating
+        // only the rows currently visible on screen.
+        historyList = new ListView(this);
+        historyList.setDivider(new ColorDrawable(Color.TRANSPARENT));
+        historyList.setDividerHeight(MaterialUi.dp(this, 8));
+        historyList.setClipToPadding(false);
+        historyList.setPadding(0, MaterialUi.dp(this, 10), 0, 0);
+        historyAdapter = new HistoryListAdapter();
+        historyList.setAdapter(historyAdapter);
+        content.addView(historyList, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+        return content;
     }
 
     private View buildStatsPage() {
@@ -534,7 +556,11 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         }
         List<String> chain = lifecycleStore.chainMeterIds();
         if (chain.isEmpty() && displayMeterId != null) chain = Collections.singletonList(displayMeterId);
-        List<HistoryItem> items = buildHistoryItems(chain);
+
+        List<MeterLifecycleStore.Transition> transitions = lifecycleStore.transitions();
+        boolean needsAllArchiveFamilies = currentPage == PAGE_HISTORY || !transitions.isEmpty();
+        List<HistoryItem> items = buildHistoryItems(chain,
+                needsAllArchiveFamilies ? null : ArchiveFamilyPeriod.Family.MONTH);
         List<WaterUsageAnalytics.Point> allPoints = new ArrayList<>();
         List<WaterUsageAnalytics.Point> monthly = new ArrayList<>();
         for (HistoryItem item : items) {
@@ -544,17 +570,20 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         MeterHistoryStore.Reading latestLive = latestLive(displayMeterId);
         LiveReadMetadataStore.Summary liveMetadata = liveMetadataStore.get(displayMeterId);
         WaterUsageAnalytics.Point latestLivePoint = currentLivePoint(latestLive, liveMetadata, displayMeterId);
-        WaterUsageAnalytics.Statistics statistics = WaterUsageAnalytics.statistics(monthly, latestLivePoint, System.currentTimeMillis());
-        ConsumptionView consumption = consumptionView(statistics, allPoints);
-        refreshOverview(liveMetadata, latestLive, chain, consumption);
-        refreshHistory(items);
-        refreshStatistics(monthly, latestLivePoint, statistics, consumption);
+        WaterUsageAnalytics.Statistics statistics = WaterUsageAnalytics.statistics(
+                monthly, latestLivePoint, System.currentTimeMillis());
+        ConsumptionView consumption = consumptionView(statistics, allPoints, transitions);
+        refreshOverview(liveMetadata, latestLive, archiveSummary(chain), consumption);
+        if (currentPage == PAGE_HISTORY) refreshHistory(items, transitions);
+        if (currentPage == PAGE_STATS) {
+            refreshStatistics(monthly, latestLivePoint, statistics, consumption);
+        }
         updateHistoryButton();
     }
 
     private ConsumptionView consumptionView(WaterUsageAnalytics.Statistics statistics,
-                                             List<WaterUsageAnalytics.Point> allPoints) {
-        List<MeterLifecycleStore.Transition> transitions = lifecycleStore.transitions();
+                                             List<WaterUsageAnalytics.Point> allPoints,
+                                             List<MeterLifecycleStore.Transition> transitions) {
         if (transitions.isEmpty()) {
             return new ConsumptionView(statistics.currentMonthM3, false, statistics.currentYearM3, false);
         }
@@ -574,7 +603,7 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
     }
 
     private void refreshOverview(LiveReadMetadataStore.Summary meta, MeterHistoryStore.Reading latest,
-                                 List<String> chain, ConsumptionView consumption) {
+                                 ArchiveSummary archiveSummary, ConsumptionView consumption) {
         boolean useMeta = meta.available() && (latest == null || meta.readAtMs >= latest.readAtMs);
         if (useMeta) {
             overviewReading.setText(formatM3(meta.totalM3));
@@ -600,19 +629,13 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         overviewMonth.setText(formatConsumption(consumption.monthM3, consumption.monthPartial));
         overviewYear.setText(formatConsumption(consumption.yearM3, consumption.yearPartial));
 
-        long lastArchive = 0L;
-        int count = 0, confirmed = 0, conflicts = 0;
-        for (String meter : chain) {
-            for (ArchiveFamilyStore.StoredPeriod period : archiveStore.getPeriods(meter, null)) {
-                count++;
-                lastArchive = Math.max(lastArchive, period.retrievedAtMs);
-                if (period.identicalContentConfirmations > 0) confirmed++;
-                if (period.conflictFlags != 0) conflicts++;
-            }
-        }
-        overviewLastArchive.setText(lastArchive <= 0 ? getString(R.string.m3_no_archive) : formatDateTime(lastArchive));
-        overviewHistoryState.setText(count == 0 ? getString(R.string.m3_no_archive)
-                : getString(R.string.m3_archive_summary, count, confirmed, conflicts));
+        overviewLastArchive.setText(archiveSummary.lastArchiveMs <= 0L
+                ? getString(R.string.m3_no_archive)
+                : formatDateTime(archiveSummary.lastArchiveMs));
+        overviewHistoryState.setText(archiveSummary.count == 0
+                ? getString(R.string.m3_no_archive)
+                : getString(R.string.m3_archive_summary,
+                        archiveSummary.count, archiveSummary.confirmed, archiveSummary.conflicts));
 
         HistorySyncMetadataStore.Summary sync = syncMetadataStore.get(displayMeterId);
         if (sync.lastAttemptComplete()) {
@@ -624,6 +647,27 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         } else {
             syncHint.setText(R.string.m3_calculated_note);
         }
+    }
+
+    private ArchiveSummary archiveSummary(List<String> meters) {
+        ArchiveSummary summary = new ArchiveSummary();
+        if (meters == null || archiveStore == null) return summary;
+        String sql = "SELECT COUNT(*), MAX(retrieved_at_ms), "
+                + "COALESCE(SUM(CASE WHEN identical_content_confirmations > 0 THEN 1 ELSE 0 END),0), "
+                + "COALESCE(SUM(CASE WHEN conflict_flags != 0 THEN 1 ELSE 0 END),0) "
+                + "FROM " + ArchiveFamilyStore.TABLE_PERIODS + " WHERE meter_id = ?";
+        for (String meter : meters) {
+            if (meter == null || meter.trim().isEmpty()) continue;
+            try (Cursor cursor = archiveStore.getReadableDatabase().rawQuery(
+                    sql, new String[]{meter.trim()})) {
+                if (!cursor.moveToFirst()) continue;
+                summary.count += cursor.getInt(0);
+                if (!cursor.isNull(1)) summary.lastArchiveMs = Math.max(summary.lastArchiveMs, cursor.getLong(1));
+                summary.confirmed += cursor.getInt(2);
+                summary.conflicts += cursor.getInt(3);
+            }
+        }
+        return summary;
     }
 
     private void setAlarm(String codes, long atMs, boolean available) {
@@ -645,7 +689,11 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         }
     }
 
-    private void refreshHistory(List<HistoryItem> items) {
+    private void refreshHistory(List<HistoryItem> items,
+                                List<MeterLifecycleStore.Transition> transitions) {
+        historyItemsCache = Collections.unmodifiableList(new ArrayList<>(items));
+        historyTransitionsCache = Collections.unmodifiableList(new ArrayList<>(transitions));
+
         historyFilterHost.removeAllViews();
         Set<HistorySemanticTimeline.Granularity> available = new LinkedHashSet<>();
         for (HistoryItem item : items) available.add(item.point.granularity);
@@ -669,21 +717,19 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
             }
         }
         if (historyFilter == null) {
-            for (MeterLifecycleStore.Transition transition : lifecycleStore.transitions()) {
+            for (MeterLifecycleStore.Transition transition : transitions) {
                 timeline.add(TimelineEntry.transition(transition));
             }
         }
         timeline.sort((a,b) -> Long.compare(b.sortMs, a.sortMs));
-        historyList.removeAllViews();
-        for (TimelineEntry entry : timeline) {
-            if (entry.transition != null) addReplacementCard(entry.transition);
-            else addHistoryCard(entry.item, entry.delta);
-        }
-        if (timeline.isEmpty()) historyList.addView(emptyCard(R.string.m3_history_empty));
+        historyAdapter.setEntries(timeline);
+        historyList.setSelection(0);
     }
 
-    private void addHistoryCard(HistoryItem item, WaterUsageAnalytics.HistoryDelta delta) {
-        MaterialCardView card = MaterialUi.card(this);
+    private void bindHistoryCard(MaterialCardView card,
+                                 HistoryItem item,
+                                 WaterUsageAnalytics.HistoryDelta delta) {
+        card.removeAllViews();
         LinearLayout content = MaterialUi.cardContent(this);
         TextView head = MaterialUi.label(this, item.primaryDisplay + " · " + typeLabel(item.point.granularity));
         content.addView(head);
@@ -727,11 +773,11 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
             content.addView(notice, lp);
         }
         card.addView(content);
-        MaterialUi.addTopMargin(historyList, card, historyList.getChildCount() == 0 ? 0 : 8);
     }
 
-    private void addReplacementCard(MeterLifecycleStore.Transition transition) {
-        MaterialCardView card = MaterialUi.card(this);
+    private void bindReplacementCard(MaterialCardView card,
+                                     MeterLifecycleStore.Transition transition) {
+        card.removeAllViews();
         card.setStrokeColor(MaterialUi.color(this, com.google.android.material.R.attr.colorPrimary,
                 getColor(R.color.app_primary)));
         LinearLayout content = MaterialUi.cardContent(this);
@@ -743,7 +789,13 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         partial.setPadding(0, MaterialUi.dp(this, 4), 0, 0);
         content.addView(partial);
         card.addView(content);
-        MaterialUi.addTopMargin(historyList, card, historyList.getChildCount() == 0 ? 0 : 8);
+    }
+
+    private void bindEmptyHistoryCard(MaterialCardView card) {
+        card.removeAllViews();
+        LinearLayout inside = MaterialUi.cardContent(this);
+        inside.addView(MaterialUi.body(this, getString(R.string.m3_history_empty)));
+        card.addView(inside);
     }
 
     private void showHistoricalStatus(HistoryItem item) {
@@ -838,7 +890,8 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         return result;
     }
 
-    private List<HistoryItem> buildHistoryItems(List<String> meters) {
+    private List<HistoryItem> buildHistoryItems(List<String> meters,
+                                                ArchiveFamilyPeriod.Family archiveFamilyFilter) {
         List<HistoryItem> result = new ArrayList<>();
         for (String meter : meters) {
             for (MeterHistoryStore.Reading reading : liveStore.getReadings(meter, 0L)) {
@@ -848,7 +901,8 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
                 result.add(new HistoryItem(point, formatDateTime(reading.readAtMs), reading.meterTime,
                         reading.batteryPercent, reading.alarmCodes, null));
             }
-            for (ArchiveFamilyStore.StoredPeriod archive : archiveStore.getPeriods(meter, null)) {
+            for (ArchiveFamilyStore.StoredPeriod archive :
+                    archiveStore.getPeriods(meter, archiveFamilyFilter)) {
                 Double total = parseMeasurement(archive.totalVolume);
                 long sort = parseMeterLocal(archive.loggerTimestamp);
                 if (total == null || sort <= 0L) continue;
@@ -929,6 +983,7 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         if (navItemId == NAV_HISTORY) showPage(PAGE_HISTORY);
         else if (navItemId == NAV_STATS) showPage(PAGE_STATS);
         else showPage(PAGE_OVERVIEW);
+        refreshAll();
     }
 
     int currentNavigationItemId() {
@@ -1009,7 +1064,7 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         chip.setChecked(historyFilter == granularity);
         chip.setOnClickListener(v -> {
             historyFilter = granularity;
-            refreshAll();
+            refreshHistory(historyItemsCache, historyTransitionsCache);
         });
         historyFilterHost.addView(chip);
     }
@@ -1116,6 +1171,56 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         return "qalcosonic-w1-old-data-" + new SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(new Date()) + ".csv";
     }
 
+    private final class HistoryListAdapter extends BaseAdapter {
+        private static final int TYPE_EMPTY = 0;
+        private static final int TYPE_DATA = 1;
+        private static final int TYPE_TRANSITION = 2;
+        private List<TimelineEntry> entries = Collections.emptyList();
+
+        void setEntries(List<TimelineEntry> values) {
+            entries = values == null
+                    ? Collections.emptyList()
+                    : Collections.unmodifiableList(new ArrayList<>(values));
+            notifyDataSetChanged();
+        }
+
+        @Override public int getCount() {
+            return entries.isEmpty() ? 1 : entries.size();
+        }
+
+        @Override public TimelineEntry getItem(int position) {
+            return entries.isEmpty() ? null : entries.get(position);
+        }
+
+        @Override public long getItemId(int position) {
+            TimelineEntry entry = getItem(position);
+            return entry == null ? 0L : entry.sortMs;
+        }
+
+        @Override public int getViewTypeCount() { return 3; }
+
+        @Override public int getItemViewType(int position) {
+            TimelineEntry entry = getItem(position);
+            if (entry == null) return TYPE_EMPTY;
+            return entry.transition == null ? TYPE_DATA : TYPE_TRANSITION;
+        }
+
+        @Override public View getView(int position, View convertView, ViewGroup parent) {
+            MaterialCardView card = convertView instanceof MaterialCardView
+                    ? (MaterialCardView) convertView
+                    : MaterialUi.card(ProductDashboardActivity.this);
+            TimelineEntry entry = getItem(position);
+            if (entry == null) {
+                bindEmptyHistoryCard(card);
+            } else if (entry.transition != null) {
+                bindReplacementCard(card, entry.transition);
+            } else {
+                bindHistoryCard(card, entry.item, entry.delta);
+            }
+            return card;
+        }
+    }
+
     private static final class PendingMeter {
         final MbusParser.MeterData meter; final long readAtMs; final String previousMeterId;
         PendingMeter(MbusParser.MeterData meter, long readAtMs, String previousMeterId) {
@@ -1150,5 +1255,11 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         ConsumptionView(Double monthM3, boolean monthPartial, Double yearM3, boolean yearPartial) {
             this.monthM3=monthM3; this.monthPartial=monthPartial; this.yearM3=yearM3; this.yearPartial=yearPartial;
         }
+    }
+    private static final class ArchiveSummary {
+        long lastArchiveMs;
+        int count;
+        int confirmed;
+        int conflicts;
     }
 }
