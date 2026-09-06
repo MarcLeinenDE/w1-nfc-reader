@@ -191,7 +191,7 @@ public final class ArchiveFamilyTransportAdapterTest {
         return new DefaultReadObservation(
                 true,
                 true,
-                ArchiveFamilyTransportAdapter.PROTECTED_DEFAULT_FINGERPRINT,
+                FP,
                 meterId,
                 MeterTimeEvidence.inspect(timeFrame(rawMeterTime, onTime)));
     }
