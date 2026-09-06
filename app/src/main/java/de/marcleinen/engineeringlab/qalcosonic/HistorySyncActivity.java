@@ -44,6 +44,7 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
     private TextView meterText;
     private TextView statusTitle;
     private TextView statusBody;
+    private TextView debugText;
     private TextView monthState;
     private TextView dayState;
     private TextView hourState;
@@ -98,13 +99,15 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         if (nfcv == null) {
             reading.set(false);
             disarmMonth();
-            runOnUiThread(() -> setStatus(
-                    R.string.m3_state_wrong_tag_title,
-                    R.string.m3_state_wrong_tag_body));
+            runOnUiThread(() -> {
+                setStatus(R.string.m3_state_wrong_tag_title, R.string.m3_state_wrong_tag_body);
+                setDebug("TEMP DEBUG — wird vor Release entfernt\nphase=WRONG_TAG");
+            });
             return;
         }
 
         String expectedMeter = targetMeterId;
+        runOnUiThread(() -> setDebug(HistorySyncTemporaryDebug.running(expectedMeter)));
         try {
             nfcv.connect();
             runOnUiThread(() -> setStatus(
@@ -128,6 +131,9 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
                             ArchiveFamilySyncState.SyncMode.INITIAL_FULL,
                             persistence::accept);
             ArchivePersistenceCoordinator.Result persisted = persistence.result();
+            String debugSummary = HistorySyncTemporaryDebug.format(
+                    expectedMeter, transport, persisted);
+            runOnUiThread(() -> setDebug(debugSummary));
 
             boolean complete = transport.completeProductAttempt();
             boolean partial = !complete
@@ -173,9 +179,11 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
                 refreshState();
             });
         } catch (Exception error) {
-            runOnUiThread(() -> setStatus(
-                    R.string.m3_state_sync_failed_title,
-                    R.string.m3_state_sync_failed_body));
+            String debug = HistorySyncTemporaryDebug.exception(expectedMeter, error);
+            runOnUiThread(() -> {
+                setStatus(R.string.m3_state_sync_failed_title, R.string.m3_state_sync_failed_body);
+                setDebug(debug);
+            });
         } finally {
             try { nfcv.close(); } catch (IOException ignored) { }
             reading.set(false);
@@ -215,6 +223,19 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         statusContent.addView(statusBody);
         statusCard.addView(statusContent);
         MaterialUi.addTopMargin(content, statusCard, 12);
+
+        if (BuildConfig.DEBUG) {
+            MaterialCardView debugCard = MaterialUi.card(this);
+            LinearLayout debugContent = MaterialUi.cardContent(this);
+            debugContent.addView(MaterialUi.title(this, "TEMP DEBUG"));
+            debugText = MaterialUi.body(this,
+                    "Wird nach der physischen v2-Validierung wieder entfernt.");
+            debugText.setTextIsSelectable(true);
+            debugText.setPadding(0, MaterialUi.dp(this, 6), 0, 0);
+            debugContent.addView(debugText);
+            debugCard.addView(debugContent);
+            MaterialUi.addTopMargin(content, debugCard, 10);
+        }
 
         MaterialCardView monthCard = MaterialUi.card(this);
         LinearLayout monthContent = MaterialUi.cardContent(this);
@@ -303,6 +324,7 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         monthArmed = true;
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setStatus(R.string.m3_state_verify_title, R.string.m3_state_verify_body);
+        setDebug(HistorySyncTemporaryDebug.running(meterId));
         refreshState();
     }
 
@@ -350,6 +372,10 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
     private void setStatus(int titleRes, int bodyRes) {
         if (statusTitle != null) statusTitle.setText(titleRes);
         if (statusBody != null) statusBody.setText(bodyRes);
+    }
+
+    private void setDebug(String text) {
+        if (BuildConfig.DEBUG && debugText != null) debugText.setText(text);
     }
 
     private String formatDateTime(long atMs) {
