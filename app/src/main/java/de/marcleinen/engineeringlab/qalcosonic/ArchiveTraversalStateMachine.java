@@ -88,12 +88,16 @@ final class ArchiveTraversalStateMachine {
         }
 
         static Candidate failure(ArchiveFamilySyncState.StopReason reason, String diagnostic) {
+            requireProtectiveReason(reason);
+            return new Candidate(CandidateKind.FAILURE, null, reason, diagnostic);
+        }
+
+        private static void requireProtectiveReason(ArchiveFamilySyncState.StopReason reason) {
             if (reason == null || reason == ArchiveFamilySyncState.StopReason.NONE
                     || ArchiveFamilySyncState.successfulStopForMode(
                     ArchiveFamilySyncState.SyncMode.INCREMENTAL, reason)) {
                 throw new IllegalArgumentException("protective/error stop reason required");
             }
-            return new Candidate(CandidateKind.FAILURE, null, reason, diagnostic);
         }
     }
 
@@ -162,6 +166,13 @@ final class ArchiveTraversalStateMachine {
                 default:
                     stop(ArchiveFamilySyncState.StopReason.UNKNOWN_ERROR, "unhandled candidate kind");
             }
+        }
+
+        /** Protective stop before another selected request is issued. Does not increment request count. */
+        void abort(ArchiveFamilySyncState.StopReason reason, String diagnostic) {
+            if (stopped()) return;
+            Candidate.requireProtectiveReason(reason);
+            stop(reason, diagnostic);
         }
 
         boolean stopped() {
