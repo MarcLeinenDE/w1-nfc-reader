@@ -18,10 +18,13 @@ public final class HistorySyncProductRouteTest {
         assertTrue(settings.contains("R.string.m3_sync_history"));
     }
 
-    @Test public void historyActivityUsesImmediateMonthPersistenceAndSafetyShell() throws Exception {
+    @Test public void historyActivityUsesImmediatePersistenceAndSafetyShellForAllExposedFamilies()
+            throws Exception {
         String activity = read("app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncActivity.java");
         assertTrue(activity.contains("ArchivePersistenceCoordinator.beginImmediate"));
         assertTrue(activity.contains("ArchiveFamilyTransportAdapter.runMonth"));
+        assertTrue(activity.contains("ArchiveFamilyProductionRunner.runDay"));
+        assertTrue(activity.contains("ArchiveFamilyProductionRunner.runHour"));
         assertTrue(activity.contains("persistence::accept"));
         assertTrue(activity.contains("completeProductAttempt()"));
         assertTrue(activity.contains("FLAG_KEEP_SCREEN_ON"));
@@ -30,11 +33,16 @@ public final class HistorySyncProductRouteTest {
         assertFalse(activity.contains("SyncMode.INCREMENTAL"));
     }
 
-    @Test public void unvalidatedFamilyActionsRemainDisabled() throws Exception {
+    @Test public void dayAndHourAreExplicitButSyncAllRemainsDisabled() throws Exception {
         String activity = read("app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncActivity.java");
-        assertTrue(activity.contains("dayButton.setEnabled(false)"));
-        assertTrue(activity.contains("hourButton.setEnabled(false)"));
+        assertTrue(activity.contains("offerFamilySync(ArchiveFamilyPeriod.Family.DAY)"));
+        assertTrue(activity.contains("offerFamilySync(ArchiveFamilyPeriod.Family.HOUR)"));
         assertTrue(activity.contains("allButton.setEnabled(false)"));
+    }
+
+    @Test public void exactValidatedMonthEntryPointIsStillUsed() throws Exception {
+        String activity = read("app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncActivity.java");
+        assertTrue(activity.contains("ArchiveFamilyTransportAdapter.runMonth("));
     }
 
     @Test public void historyActivityIsNotExported() throws Exception {
