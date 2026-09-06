@@ -138,8 +138,8 @@ public final class ProductUiRegressionTest {
         String manifest = read(projectFile("src/main/AndroidManifest.xml"));
 
         assertTrue(build.contains("applicationId = \"de.marcleinen.w1nfcreader\""));
-        assertTrue(build.contains("versionCode = 38"));
-        assertTrue(build.contains("versionName = \"1.0.0"));
+        assertTrue(build.contains("versionCode = 39"));
+        assertTrue(build.contains("versionName = \"2.0.0-dev\""));
 
         assertTrue(manifest.contains("android.permission.NFC"));
         assertFalse(manifest.contains("android.permission.INTERNET"));
