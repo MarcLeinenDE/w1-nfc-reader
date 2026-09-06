@@ -4,8 +4,8 @@ import java.io.IOException;
 
 /**
  * Production observation used to verify the meter's default application before/after a family
- * archive session. Structural/default fingerprints remain available for the legacy Month path;
- * v2 family safety additionally retains meter identity and raw Type-F/ON_TIME evidence.
+ * archive session. A concrete default fingerprint may be used as within-session consistency
+ * evidence, but must not become a global W1 firmware allow-list.
  */
 final class DefaultReadObservation {
     final boolean validMbusLongFrame;
@@ -71,7 +71,13 @@ final class DefaultReadObservation {
     ArchiveFamilySyncState.StopReason familySafetyFailure(
             String expectedMeterId,
             String expectedFingerprint) {
-        if (!fingerprintMatches(expectedFingerprint)) {
+        if (!healthy()) {
+            return ArchiveFamilySyncState.StopReason.DEFAULT_STATE_UNVERIFIED;
+        }
+        // Research proved the fingerprint useful as session-consistency evidence, not as a global
+        // firmware allow-list. The preflight therefore accepts any healthy structure and the final
+        // Live read may then require the exact preflight fingerprint.
+        if (expectedFingerprint != null && !expectedFingerprint.equals(structuralFingerprint)) {
             return ArchiveFamilySyncState.StopReason.DEFAULT_STATE_UNVERIFIED;
         }
         String expected = normalize(expectedMeterId);
