@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m3_sync_progress_preparing">%1$s · Preparing synchronization…</string>
+    <string name="m3_sync_progress_single">%1$s · %2$d records safely stored</string>
+    <string name="m3_sync_progress_all">%1$d of %2$d · %3$s · %4$d records safely stored</string>
+    <string name="m3_sync_retry">Synchronize again</string>
+    <string name="m3_sync_partial_family_detail">Last attempt: %1$d records processed. Saved data is kept — simply start again.</string>
+    <string name="m3_state_sync_partial_body_v2">Synchronization stopped before completion. Saved data is kept. Start the same synchronization again; identical records are recognized and missing records are added.</string>
+</resources>
