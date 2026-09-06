@@ -28,7 +28,79 @@ final class ArchivePersistenceCoordinator {
         boolean complete() { return failureDiagnostic == null && committed == accepted; }
     }
 
+    /**
+     * One-at-a-time persistence session for an active archive traversal.
+     *
+     * <p>Each accepted period is committed before traversal is allowed to continue. A write failure
+     * is retained in the snapshot and rethrown so the transport layer can stop protectively with
+     * {@code PERSISTENCE_ERROR} while still performing its final default restore.</p>
+     */
+    static final class ImmediateSession {
+        private final Store store;
+        private final String meterId;
+        private final ArchiveFamilyPeriod.Family family;
+
+        private int accepted;
+        private int inserted;
+        private int confirmed;
+        private int conflicts;
+        private int committed;
+        private String failedLoggerTimestamp;
+        private String failureDiagnostic;
+
+        ImmediateSession(Store store, String meterId, ArchiveFamilyPeriod.Family family) {
+            if (store == null) throw new IllegalArgumentException("store == null");
+            if (meterId == null || meterId.trim().isEmpty()) {
+                throw new IllegalArgumentException("meterId required");
+            }
+            if (family == null) throw new IllegalArgumentException("family == null");
+            this.store = store;
+            this.meterId = meterId.trim();
+            this.family = family;
+        }
+
+        void accept(ArchiveFamilyPeriod period) {
+            if (failureDiagnostic != null) {
+                throw new IllegalStateException("persistence session already failed: " + failureDiagnostic);
+            }
+            if (period == null) throw new IllegalArgumentException("period == null");
+            if (period.family != family) throw new IllegalArgumentException("mixed archive families");
+
+            accepted++;
+            try {
+                WriteOutcome outcome = store.upsert(meterId, period);
+                if (outcome == WriteOutcome.INSERTED) inserted++;
+                else if (outcome == WriteOutcome.CONFIRMED_IDENTICAL) confirmed++;
+                else if (outcome == WriteOutcome.CONFLICT_RECORDED) conflicts++;
+                else throw new IllegalStateException("unknown persistence outcome");
+                committed++;
+            } catch (RuntimeException error) {
+                failedLoggerTimestamp = period.loggerTimestamp;
+                failureDiagnostic = safe(error);
+                throw error;
+            }
+        }
+
+        Result result() {
+            Result out = new Result(family, accepted);
+            out.inserted = inserted;
+            out.confirmed = confirmed;
+            out.conflicts = conflicts;
+            out.committed = committed;
+            out.failedLoggerTimestamp = failedLoggerTimestamp;
+            out.failureDiagnostic = failureDiagnostic;
+            return out;
+        }
+    }
+
     private ArchivePersistenceCoordinator() {}
+
+    static ImmediateSession beginImmediate(
+            Store store,
+            String meterId,
+            ArchiveFamilyPeriod.Family family) {
+        return new ImmediateSession(store, meterId, family);
+    }
 
     static Result persist(Store store, String meterId, ArchiveFamilyPeriod.Family family,
                           List<ArchiveFamilyPeriod> periods) {
