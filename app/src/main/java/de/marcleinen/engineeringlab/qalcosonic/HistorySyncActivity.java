@@ -309,7 +309,8 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
     private void disarmMonth() {
         monthArmed = false;
         targetMeterId = null;
-        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        runOnUiThread(() -> getWindow().clearFlags(
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON));
     }
 
     private void refreshState() {
