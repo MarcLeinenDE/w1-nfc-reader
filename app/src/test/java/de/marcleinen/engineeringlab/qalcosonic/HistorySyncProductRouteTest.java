@@ -25,7 +25,11 @@ public final class HistorySyncProductRouteTest {
         assertTrue(activity.contains("ArchiveFamilyTransportAdapter.runMonth"));
         assertTrue(activity.contains("ArchiveFamilyProductionRunner.runDay"));
         assertTrue(activity.contains("ArchiveFamilyProductionRunner.runHour"));
-        assertTrue(activity.contains("persistence::accept"));
+        // The user-visible progress wrapper must still persist first and only then count the record
+        // as safely stored. Do not regress this to delayed/batch persistence for UI convenience.
+        assertTrue(activity.contains("persistence.accept(period);"));
+        assertTrue(activity.contains("ArchiveFamilyTransportAdapter.AcceptedPeriodSink progressSink"));
+        assertTrue(activity.contains("progressSink"));
         assertTrue(activity.contains("completeProductAttempt()"));
         assertTrue(activity.contains("FLAG_KEEP_SCREEN_ON"));
         assertTrue(activity.contains("SyncMode.INITIAL_FULL"));
