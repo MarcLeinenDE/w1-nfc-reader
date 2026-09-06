@@ -15,11 +15,17 @@ captures/
 *.pfx
 *signing-secrets*
 .signing/
+.release-signing/
 
 # Generated release artifacts
 *.apk
 *.aab
 *.sha256
+
+# Private user exports / real-device evidence
+w1-nfc-reader-*.qw1backup
+w1-nfc-reader-*.qw1backup.zip
+w1-nfc-reader-data-*.csv
 
 # OS
 .DS_Store
