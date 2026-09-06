@@ -10,8 +10,9 @@ package de.marcleinen.engineeringlab.qalcosonic;
 final class HistorySyncTemporaryDebug {
     private HistorySyncTemporaryDebug() {}
 
-    static String running(String expectedMeterId) {
+    static String running(String expectedMeterId, ArchiveFamilyPeriod.Family family) {
         return "TEMP DEBUG — wird vor Release entfernt\n"
+                + "family=" + safeFamily(family) + "\n"
                 + "expectedMeter=" + safe(expectedMeterId) + "\n"
                 + "phase=RUNNING";
     }
@@ -26,6 +27,7 @@ final class HistorySyncTemporaryDebug {
 
         StringBuilder out = new StringBuilder();
         out.append("TEMP DEBUG — wird vor Release entfernt\n");
+        line(out, "family", transport.family);
         line(out, "expectedMeter", expectedMeterId);
         line(out, "effectiveStop", transport.effectiveStopReason());
         line(out, "traversalStop", transport.traversal == null ? null : transport.traversal.stopReason);
@@ -79,8 +81,12 @@ final class HistorySyncTemporaryDebug {
         return out.toString().trim();
     }
 
-    static String exception(String expectedMeterId, Throwable error) {
+    static String exception(
+            String expectedMeterId,
+            ArchiveFamilyPeriod.Family family,
+            Throwable error) {
         return "TEMP DEBUG — wird vor Release entfernt\n"
+                + "family=" + safeFamily(family) + "\n"
                 + "expectedMeter=" + safe(expectedMeterId) + "\n"
                 + "phase=EXCEPTION\n"
                 + "exception=" + (error == null ? "null" : error.getClass().getSimpleName()) + "\n"
@@ -103,5 +109,9 @@ final class HistorySyncTemporaryDebug {
     private static String safe(String value) {
         if (value == null) return "null";
         return value.replace('\n', ' ').replace('\r', ' ').trim();
+    }
+
+    private static String safeFamily(ArchiveFamilyPeriod.Family family) {
+        return family == null ? "null" : family.name();
     }
 }
