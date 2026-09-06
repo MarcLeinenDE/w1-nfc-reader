@@ -20,9 +20,18 @@ final class HistoryTimePresentation {
         if (observation.live && observation.deviceTimeMs > 0L) {
             return formatDeviceDateTime(use, observation.deviceTimeMs);
         }
-        Date floating = parseFloating(observation.timestamp);
-        if (floating == null) return observation.timestamp == null ? "" : observation.timestamp;
-        switch (observation.granularity) {
+        return formatFloatingPrimary(use, observation.granularity, observation.timestamp);
+    }
+
+    static String formatFloatingPrimary(Locale locale,
+                                        HistorySemanticTimeline.Granularity granularity,
+                                        String timestamp) {
+        Locale use = locale == null ? Locale.getDefault() : locale;
+        Date floating = parseFloating(timestamp);
+        if (floating == null) return timestamp == null ? "" : timestamp;
+        HistorySemanticTimeline.Granularity useGranularity = granularity == null
+                ? HistorySemanticTimeline.Granularity.HOUR : granularity;
+        switch (useGranularity) {
             case HOUR:
                 return formatFloatingDate(use, floating) + " · " + formatFloatingTime(use, floating);
             case DAY:
@@ -30,7 +39,9 @@ final class HistoryTimePresentation {
             case MONTH:
                 return formatFloatingMonth(use, floating);
             case YEAR:
-                return new SimpleDateFormat("yyyy", use) {{ setTimeZone(FLOATING_ZONE); }}.format(floating);
+                SimpleDateFormat year = new SimpleDateFormat("yyyy", use);
+                year.setTimeZone(FLOATING_ZONE);
+                return year.format(floating);
             case LIVE:
             default:
                 return formatFloatingDate(use, floating) + " · " + formatFloatingTime(use, floating);
