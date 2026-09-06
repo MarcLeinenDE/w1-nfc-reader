@@ -195,6 +195,16 @@ final class ArchiveTraversalStateMachine {
             return consecutiveKnownOverlap;
         }
 
+        /** O(1) cursor for transport-side delivery of newly accepted records. */
+        int acceptedPeriodCount() {
+            return accepted.size();
+        }
+
+        /** Returns the most recently accepted record without copying the accepted history. */
+        PeriodEvidence lastAcceptedPeriod() {
+            return accepted.isEmpty() ? null : accepted.get(accepted.size() - 1);
+        }
+
         List<PeriodEvidence> acceptedPeriods() {
             return Collections.unmodifiableList(new ArrayList<>(accepted));
         }
