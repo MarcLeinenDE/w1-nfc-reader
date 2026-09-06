@@ -8,24 +8,76 @@ import java.util.List;
 import java.util.Locale;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public final class WaterUsageAnalyticsTest {
     @Test
-    public void historyDeltaUsesPreviousStrictlyEarlierPoint() throws Exception {
-        long jan = ms("2026-01-01 00:00");
-        long feb = ms("2026-02-01 00:00");
+    public void historyDeltaUsesPreviousPointFromSameGranularity() throws Exception {
         List<WaterUsageAnalytics.Point> points = List.of(
-                point("jan", "2026-01-01 00:00", jan, HistorySemanticTimeline.Granularity.MONTH, 100.0),
-                point("feb-month", "2026-02-01 00:00", feb, HistorySemanticTimeline.Granularity.MONTH, 110.0),
-                point("feb-day", "2026-02-01 00:00", feb, HistorySemanticTimeline.Granularity.DAY, 110.0));
+                point("aug-month", "2026-08-01 00:00", ms("2026-08-01 00:00"),
+                        HistorySemanticTimeline.Granularity.MONTH, 196.668),
+                point("aug30-day", "2026-08-30 00:00", ms("2026-08-30 00:00"),
+                        HistorySemanticTimeline.Granularity.DAY, 203.200),
+                point("aug31-day", "2026-08-31 00:00", ms("2026-08-31 00:00"),
+                        HistorySemanticTimeline.Granularity.DAY, 203.518),
+                point("aug31-22-hour", "2026-08-31 22:00", ms("2026-08-31 22:00"),
+                        HistorySemanticTimeline.Granularity.HOUR, 203.400),
+                point("aug31-23-hour", "2026-08-31 23:00", ms("2026-08-31 23:00"),
+                        HistorySemanticTimeline.Granularity.HOUR, 203.518),
+                point("sep-month", "2026-09-01 00:00", ms("2026-09-01 00:00"),
+                        HistorySemanticTimeline.Granularity.MONTH, 203.518));
 
         List<WaterUsageAnalytics.HistoryDelta> result = WaterUsageAnalytics.historyNewestFirst(points);
-        assertEquals(3, result.size());
-        assertEquals(10.0, result.get(0).consumptionSincePreviousM3, 0.000001);
-        assertEquals(10.0, result.get(1).consumptionSincePreviousM3, 0.000001);
-        assertNull(result.get(2).consumptionSincePreviousM3);
+
+        WaterUsageAnalytics.HistoryDelta september = deltaFor(result, "sep-month");
+        assertNotNull(september);
+        assertEquals(6.850, september.consumptionSincePreviousM3, 0.000001);
+        assertEquals("aug-month", september.previousPoint.identity);
+        assertEquals("2026-08-01 00:00", september.previousPoint.timestamp);
+
+        WaterUsageAnalytics.HistoryDelta aug31Day = deltaFor(result, "aug31-day");
+        assertNotNull(aug31Day);
+        assertEquals(0.318, aug31Day.consumptionSincePreviousM3, 0.000001);
+        assertEquals("aug30-day", aug31Day.previousPoint.identity);
+
+        WaterUsageAnalytics.HistoryDelta aug31Hour = deltaFor(result, "aug31-23-hour");
+        assertNotNull(aug31Hour);
+        assertEquals(0.118, aug31Hour.consumptionSincePreviousM3, 0.000001);
+        assertEquals("aug31-22-hour", aug31Hour.previousPoint.identity);
+    }
+
+    @Test
+    public void historyDeltaDoesNotCrossMeterReplacement() throws Exception {
+        WaterUsageAnalytics.Point oldMeter = point("old", "11111111", "2026-08-01 00:00",
+                ms("2026-08-01 00:00"), HistorySemanticTimeline.Granularity.MONTH, 500.0);
+        WaterUsageAnalytics.Point newMeter = point("new", "22222222", "2026-09-01 00:00",
+                ms("2026-09-01 00:00"), HistorySemanticTimeline.Granularity.MONTH, 5.0);
+
+        WaterUsageAnalytics.HistoryDelta delta = deltaFor(
+                WaterUsageAnalytics.historyNewestFirst(List.of(oldMeter, newMeter)), "new");
+        assertNotNull(delta);
+        assertNull(delta.consumptionSincePreviousM3);
+        assertNull(delta.previousPoint);
+    }
+
+    @Test
+    public void sameTimestampDifferentGranularitiesDoNotBecomeEachOthersPreviousPoint() throws Exception {
+        long feb = ms("2026-02-01 00:00");
+        List<WaterUsageAnalytics.Point> points = List.of(
+                point("jan-month", "2026-01-01 00:00", ms("2026-01-01 00:00"),
+                        HistorySemanticTimeline.Granularity.MONTH, 100.0),
+                point("jan31-day", "2026-01-31 00:00", ms("2026-01-31 00:00"),
+                        HistorySemanticTimeline.Granularity.DAY, 109.0),
+                point("feb-month", "2026-02-01 00:00", feb,
+                        HistorySemanticTimeline.Granularity.MONTH, 110.0),
+                point("feb-day", "2026-02-01 00:00", feb,
+                        HistorySemanticTimeline.Granularity.DAY, 110.0));
+
+        List<WaterUsageAnalytics.HistoryDelta> result = WaterUsageAnalytics.historyNewestFirst(points);
+        assertEquals(10.0, deltaFor(result, "feb-month").consumptionSincePreviousM3, 0.000001);
+        assertEquals(1.0, deltaFor(result, "feb-day").consumptionSincePreviousM3, 0.000001);
     }
 
     @Test
@@ -64,6 +116,14 @@ public final class WaterUsageAnalyticsTest {
         assertTrue(stats.monthBuckets.isEmpty());
     }
 
+    private static WaterUsageAnalytics.HistoryDelta deltaFor(
+            List<WaterUsageAnalytics.HistoryDelta> values, String identity) {
+        for (WaterUsageAnalytics.HistoryDelta value : values) {
+            if (identity.equals(value.point.identity)) return value;
+        }
+        return null;
+    }
+
     private static WaterUsageAnalytics.Point month(String id, String timestamp, double total) throws Exception {
         return point(id, timestamp, ms(timestamp), HistorySemanticTimeline.Granularity.MONTH, total);
     }
@@ -72,6 +132,12 @@ public final class WaterUsageAnalyticsTest {
                                                    HistorySemanticTimeline.Granularity granularity,
                                                    double total) {
         return new WaterUsageAnalytics.Point(id, timestamp, sortMs, granularity, total);
+    }
+
+    private static WaterUsageAnalytics.Point point(String id, String meterId, String timestamp, long sortMs,
+                                                   HistorySemanticTimeline.Granularity granularity,
+                                                   double total) {
+        return new WaterUsageAnalytics.Point(id, meterId, timestamp, sortMs, granularity, total);
     }
 
     private static long ms(String value) throws Exception {
