@@ -17,12 +17,18 @@ Development line for the next major public version.
 
 ### In progress
 
-- Introduced the v2 product-domain contract for independent per-meter/per-family synchronization state.
-- Baseline completeness is now modeled separately from the latest synchronization attempt so a later partial update cannot erase an already completed baseline.
-- Successful completion is restricted to semantic archive end conditions (`PROTOCOL_TERMINAL`, confirmed `RING_WRAP_DETECTED`, or later incremental `KNOWN_RECORD_REACHED`) plus verified final restore; fixed record counts are not valid completion reasons.
 - Started the `2.0.0-dev` development identity (`versionCode 39`).
+- Introduced the v2 product-domain contract for independent per-meter/per-family synchronization state.
+- Baseline completeness is modeled separately from the latest synchronization attempt so a later partial update cannot erase an already completed baseline.
+- Added family policies for the validated Hour, Day, Month and optional Year selectors, native backward progression and raw-meter boundary calculation.
+- Added a family-neutral archive traversal state machine with exact FCB1/FCB0 alternation and no fixed record-count completion cap.
+- Successful completion is restricted to semantic archive end conditions (`PROTOCOL_TERMINAL`, confirmed `RING_WRAP_DETECTED`, or later incremental `KNOWN_RECORD_REACHED`) plus verified final restore.
+- `HEAD_ADVANCED_DURING_TRAVERSAL` is explicitly separated from confirmed ring wrap; ring completion requires return to the exact session head plus one continuation proof.
+- Incremental traversal requires a conservative multi-record securely-known overlap; one timestamp match alone is not a successful stop.
+- Added a read-only Type-F/ON_TIME evidence extractor beside the protected `MbusParser`, preserving raw Type-F bytes plus SU/IV flags without changing established value decoding.
+- Documented the target v2 History architecture and Settings-based Hour/Day/Month/All synchronization model.
 
-See `docs/V2_BREAKING_CHANGES.md` for the current major-version compatibility policy.
+See `docs/V2_BREAKING_CHANGES.md` for the current major-version compatibility policy and `docs/V2_HISTORY_SYNC_ARCHITECTURE.md` for the History integration contract.
 
 ## 1.0.0
 
