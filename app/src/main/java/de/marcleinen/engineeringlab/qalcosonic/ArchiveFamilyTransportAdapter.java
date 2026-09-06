@@ -158,6 +158,14 @@ final class ArchiveFamilyTransportAdapter {
                     || (persistenceAttached && persistedAccepted != traversal.periods.size())) {
                 return ArchiveFamilySyncState.StopReason.PERSISTENCE_ERROR;
             }
+            // A semantic traversal end is only successful together with the final default Live.
+            // If that final verification fails, expose the actual safety failure instead of the
+            // earlier protocol terminal / ring / known-record marker.
+            if (traversal.semanticSuccess()
+                    && finalVerification != null
+                    && finalVerification.failureReason != ArchiveFamilySyncState.StopReason.NONE) {
+                return finalVerification.failureReason;
+            }
             if (traversal.stopReason != ArchiveFamilySyncState.StopReason.NONE) {
                 return traversal.stopReason;
             }
