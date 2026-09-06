@@ -8,14 +8,16 @@ import java.io.IOException;
 import java.util.Locale;
 
 /**
- * ST25DV mailbox wire used by {@link MonthlyArchiveTransportAdapter}.
+ * ST25DV mailbox wire shared by the legacy Month adapter and the v2 family safety shell.
  *
  * <p>The transport behavior intentionally mirrors the physically successful 0.7.19/0.7.20
  * Monthly depth-32 path: unaddressed-first addressing discovery, volatile mailbox enable,
  * 100 ms mailbox polling, 100 ms inter-query quiet time and no automatic selected-request retry.</p>
  */
 final class MonthlyArchiveNfcWire implements MonthlyArchiveTransportAdapter.Wire,
-        MonthlyArchiveTransportAdapter.DefaultVerifier {
+        MonthlyArchiveTransportAdapter.DefaultVerifier,
+        ArchiveFamilyTransportAdapter.Wire,
+        ArchiveFamilyTransportAdapter.DefaultVerifier {
     static final int MAILBOX_STATUS_POLL_DELAY_MS = 100;
     static final int INTER_QUERY_QUIET_MS = 100;
 
@@ -90,6 +92,11 @@ final class MonthlyArchiveNfcWire implements MonthlyArchiveTransportAdapter.Wire
     @Override
     public boolean transportHealthy() {
         return healthy;
+    }
+
+    @Override
+    public long elapsedRealtimeMs() {
+        return SystemClock.elapsedRealtime();
     }
 
     @Override
