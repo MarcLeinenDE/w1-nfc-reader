@@ -238,6 +238,9 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
 
         MaterialToolbar toolbar = new MaterialToolbar(this);
         toolbar.setTitle(R.string.m3_sync_history);
+        toolbar.setNavigationIcon(R.drawable.ic_m3_back);
+        toolbar.setNavigationContentDescription(R.string.m3_back);
+        toolbar.setNavigationOnClickListener(v -> finish());
         shell.addView(toolbar, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -247,10 +250,8 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         LinearLayout content = MaterialUi.vertical(this);
         int p = MaterialUi.dp(this, 16);
         content.setPadding(p, p, p, MaterialUi.dp(this, 32));
-        content.addView(MaterialUi.headline(this, getString(R.string.m3_sync_history)));
 
         meterText = MaterialUi.body(this, getString(R.string.m3_no_meter));
-        meterText.setPadding(0, MaterialUi.dp(this, 6), 0, 0);
         content.addView(meterText);
 
         MaterialCardView statusCard = MaterialUi.card(this);
