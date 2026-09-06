@@ -6,8 +6,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /** Pure calculations for History deltas and water-consumption statistics. */
 final class WaterUsageAnalytics {
@@ -109,27 +111,31 @@ final class WaterUsageAnalytics {
                 .thenComparing(p -> p.granularity == null ? "" : p.granularity.name())
                 .thenComparing(p -> p.identity));
 
+        // Consumption shown on a History card is meaningful only against the previous observation
+        // from the same semantic series. Mixing Hour/Day/Month at neighbouring boundaries can
+        // otherwise produce misleading zero deltas (for example a Month point compared with the
+        // preceding Hour point). Meter id is part of the series key so replacement meters never
+        // inherit a predecessor's cumulative counter.
+        Map<String, Point> previousBySeries = new HashMap<>();
         List<HistoryDelta> ascending = new ArrayList<>();
-        Point previousStrictTimestamp = null;
         int index = 0;
         while (index < points.size()) {
             long timestamp = points.get(index).sortMs;
             int end = index + 1;
             while (end < points.size() && points.get(end).sortMs == timestamp) end++;
 
+            // Read all references before updating the timestamp group. This preserves the strict
+            // earlier-point contract if duplicate observations of one series share a timestamp.
             for (int i = index; i < end; i++) {
                 Point point = points.get(i);
-                Double delta = validDelta(previousStrictTimestamp, point);
-                ascending.add(new HistoryDelta(point, delta,
-                        delta == null ? null : previousStrictTimestamp));
+                Point previous = previousBySeries.get(historySeriesKey(point));
+                Double delta = validDelta(previous, point);
+                ascending.add(new HistoryDelta(point, delta, delta == null ? null : previous));
             }
-
-            Point reference = points.get(index);
-            for (int i = index + 1; i < end; i++) {
-                Point candidate = points.get(i);
-                if (priority(candidate.granularity) < priority(reference.granularity)) reference = candidate;
+            for (int i = index; i < end; i++) {
+                Point point = points.get(i);
+                previousBySeries.put(historySeriesKey(point), point);
             }
-            previousStrictTimestamp = reference;
             index = end;
         }
 
@@ -241,16 +247,10 @@ final class WaterUsageAnalytics {
         return Math.max(0.0, delta);
     }
 
-    private static int priority(HistorySemanticTimeline.Granularity granularity) {
-        if (granularity == null) return 99;
-        switch (granularity) {
-            case LIVE: return 0;
-            case HOUR: return 1;
-            case DAY: return 2;
-            case WEEK: return 3;
-            case MONTH: return 4;
-            case YEAR: return 5;
-            default: return 99;
-        }
+    private static String historySeriesKey(Point point) {
+        String meter = point == null || point.meterId == null ? "<unknown-meter>" : point.meterId;
+        String granularity = point == null || point.granularity == null ? "<unknown-granularity>"
+                : point.granularity.name();
+        return meter + '\u0000' + granularity;
     }
 }
