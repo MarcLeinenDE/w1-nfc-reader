@@ -37,9 +37,6 @@ final class ArchiveFamilyTransportAdapter {
     // Pure failsafe only. Hitting this is always PARTIAL/INCOMPLETE, never archive completion.
     static final long TECHNICAL_WATCHDOG_MS = 30L * 60L * 1000L;
 
-    static final String PROTECTED_DEFAULT_FINGERPRINT =
-            MonthlyArchiveTransportAdapter.PROTECTED_DEFAULT_FINGERPRINT;
-
     interface Wire {
         void prepare() throws IOException;
         byte[] exchange(String label, byte[] mbusFrame, long timeoutMs) throws IOException;
@@ -81,6 +78,10 @@ final class ArchiveFamilyTransportAdapter {
             return observation == null || observation.timeEvidence == null
                     ? null : observation.timeEvidence.decodedRawWallClock;
         }
+
+        String structuralFingerprint() {
+            return observation == null ? null : observation.structuralFingerprint;
+        }
     }
 
     static final class Result {
@@ -98,6 +99,9 @@ final class ArchiveFamilyTransportAdapter {
         final boolean persistenceAttached;
         final int persistedAccepted;
         final String persistenceDiagnostic;
+        final boolean archivePrepareAttempted;
+        final boolean archivePrepareSucceeded;
+        final String archivePrepareDiagnostic;
 
         Result(
                 ArchiveFamilyPeriod.Family family,
@@ -113,7 +117,10 @@ final class ArchiveFamilyTransportAdapter {
                 String diagnostic,
                 boolean persistenceAttached,
                 int persistedAccepted,
-                String persistenceDiagnostic) {
+                String persistenceDiagnostic,
+                boolean archivePrepareAttempted,
+                boolean archivePrepareSucceeded,
+                String archivePrepareDiagnostic) {
             this.family = family;
             this.mode = mode;
             this.traversal = traversal;
@@ -128,6 +135,9 @@ final class ArchiveFamilyTransportAdapter {
             this.persistenceAttached = persistenceAttached;
             this.persistedAccepted = persistedAccepted;
             this.persistenceDiagnostic = persistenceDiagnostic;
+            this.archivePrepareAttempted = archivePrepareAttempted;
+            this.archivePrepareSucceeded = archivePrepareSucceeded;
+            this.archivePrepareDiagnostic = archivePrepareDiagnostic;
         }
 
         int selectedRequestsAttempted() {
@@ -259,29 +269,53 @@ final class ArchiveFamilyTransportAdapter {
         String diagnostic = null;
         int persistedAccepted = 0;
         String persistenceDiagnostic = null;
+        boolean archivePrepareAttempted = false;
+        boolean archivePrepareSucceeded = false;
+        String archivePrepareDiagnostic = null;
 
         try {
             wire.prepare();
             restoreNeeded = true;
 
-            issueApplicationReset(wire, preflight, "ARCHIVE_SYNC_START_RESET_DEFAULT");
-            wire.coolDown(STABILIZATION_MS);
-            verifyDefault(verifier, preflight, expectedMeterId, null);
-            if (!preflight.verified) {
+            boolean resetAccepted = issueApplicationReset(
+                    wire, preflight, "ARCHIVE_SYNC_START_RESET_DEFAULT");
+            if (!resetAccepted) {
                 session.abort(preflight.failureReason, preflight.diagnostic);
             } else {
-                boundary = policy.nextBoundary(preflight.rawMeterTime());
-                if (boundary == null || !boundary.valid) {
-                    session.abort(ArchiveFamilySyncState.StopReason.TYPE_F_INVALID,
-                            "family boundary could not be derived from verified raw meter time");
+                wire.coolDown(STABILIZATION_MS);
+                verifyDefault(verifier, preflight, expectedMeterId, null);
+                if (!preflight.verified) {
+                    session.abort(preflight.failureReason, preflight.diagnostic);
                 } else {
-                    long anchorElapsed = wire.elapsedRealtimeMs();
-                    boundaryDeadline = safeAdd(anchorElapsed, boundary.conservativeRemainingMs);
-                    watchdogDeadline = safeAdd(anchorElapsed, TECHNICAL_WATCHDOG_MS);
-                    if (!canIssueSelectedRequest(wire.elapsedRealtimeMs(), boundaryDeadline)) {
-                        session.abort(ArchiveFamilySyncState.StopReason.BOUNDARY_GUARD_REACHED,
-                                "insufficient safe time before " + boundary.nextRawBoundary);
+                    boundary = policy.nextBoundary(preflight.rawMeterTime());
+                    if (boundary == null || !boundary.valid) {
+                        session.abort(ArchiveFamilySyncState.StopReason.TYPE_F_INVALID,
+                                "family boundary could not be derived from verified raw meter time");
+                    } else {
+                        long anchorElapsed = wire.elapsedRealtimeMs();
+                        boundaryDeadline = safeAdd(anchorElapsed, boundary.conservativeRemainingMs);
+                        watchdogDeadline = safeAdd(anchorElapsed, TECHNICAL_WATCHDOG_MS);
+                        if (!canIssueSelectedRequest(wire.elapsedRealtimeMs(), boundaryDeadline)) {
+                            session.abort(ArchiveFamilySyncState.StopReason.BOUNDARY_GUARD_REACHED,
+                                    "insufficient safe time before " + boundary.nextRawBoundary);
+                        }
                     }
+                }
+            }
+
+            // Frozen Research performed a fresh ST25 mailbox/addressing prepare after the protected
+            // Live preflight and before the archive M-Bus reset/select. QalcosonicReader uses the
+            // same physical mailbox independently, so re-establish this transport state explicitly
+            // instead of assuming the pre-Live prepare remains authoritative.
+            if (!session.stopped()) {
+                archivePrepareAttempted = true;
+                try {
+                    wire.prepare();
+                    archivePrepareSucceeded = true;
+                } catch (IOException error) {
+                    archivePrepareDiagnostic = safe(error);
+                    session.abort(ArchiveFamilySyncState.StopReason.IO_ERROR,
+                            "post-Live archive wire prepare failed: " + archivePrepareDiagnostic);
                 }
             }
 
@@ -388,7 +422,10 @@ final class ArchiveFamilyTransportAdapter {
                 diagnostic,
                 acceptedPeriodSink != null,
                 persistedAccepted,
-                persistenceDiagnostic);
+                persistenceDiagnostic,
+                archivePrepareAttempted,
+                archivePrepareSucceeded,
+                archivePrepareDiagnostic);
     }
 
     static ArchiveTraversalStateMachine.Candidate mapProductionResponse(
@@ -467,17 +504,22 @@ final class ArchiveFamilyTransportAdapter {
             String expectedMeterId,
             SafetyVerification initial) {
         SafetyVerification result = new SafetyVerification();
-        issueApplicationReset(wire, result, "ARCHIVE_SYNC_FINAL_RESET_DEFAULT");
+        boolean resetAccepted = issueApplicationReset(
+                wire, result, "ARCHIVE_SYNC_FINAL_RESET_DEFAULT");
+        if (!resetAccepted) return result;
+
         wire.coolDown(STABILIZATION_MS);
         verifyDefault(verifier, result, expectedMeterId, initial);
 
-        // Preserve the physically validated single reset retry only for an unverified default
-        // response while transport is still healthy. Never retry a meter mismatch or time-integrity
-        // failure as though it were just a structural restore miss.
+        // Preserve the existing single structural reset retry only for a healthy transport whose
+        // following default response is structurally unverified. Never retry a meter mismatch,
+        // missing reset host response, or time-integrity failure as a mere structural miss.
         if (!result.verified
                 && result.failureReason == ArchiveFamilySyncState.StopReason.DEFAULT_STATE_UNVERIFIED
                 && wire.transportHealthy()) {
-            issueApplicationReset(wire, result, "ARCHIVE_SYNC_FINAL_RESET_DEFAULT_RETRY");
+            resetAccepted = issueApplicationReset(
+                    wire, result, "ARCHIVE_SYNC_FINAL_RESET_DEFAULT_RETRY");
+            if (!resetAccepted) return result;
             wire.coolDown(STABILIZATION_MS);
             verifyDefault(verifier, result, expectedMeterId, initial);
         }
@@ -499,8 +541,12 @@ final class ArchiveFamilyTransportAdapter {
                 result.diagnostic = "default Live observation missing";
                 return;
             }
+            // Frozen Research treats the first healthy default structure as session evidence,
+            // not as a global firmware allow-list. Final verification must match that exact
+            // preflight structure when an initial anchor exists.
+            String expectedFingerprint = initial == null ? null : initial.structuralFingerprint();
             ArchiveFamilySyncState.StopReason failure = observation.familySafetyFailure(
-                    expectedMeterId, PROTECTED_DEFAULT_FINGERPRINT);
+                    expectedMeterId, expectedFingerprint);
             if (failure != ArchiveFamilySyncState.StopReason.NONE) {
                 result.verified = false;
                 result.failureReason = failure;
@@ -535,12 +581,26 @@ final class ArchiveFamilyTransportAdapter {
         }
     }
 
-    private static void issueApplicationReset(Wire wire, SafetyVerification result, String label) {
+    private static boolean issueApplicationReset(
+            Wire wire,
+            SafetyVerification result,
+            String label) {
         result.applicationResetCommands++;
         try {
-            wire.exchange(label, MbusFrameSupport.applicationResetDefault(), RESET_TIMEOUT_MS);
+            byte[] response = wire.exchange(
+                    label, MbusFrameSupport.applicationResetDefault(), RESET_TIMEOUT_MS);
+            if (response == null) {
+                result.verified = false;
+                result.failureReason = ArchiveFamilySyncState.StopReason.NO_HOST_RESPONSE;
+                result.diagnostic = "application reset returned no host response";
+                return false;
+            }
+            return true;
         } catch (IOException error) {
+            result.verified = false;
+            result.failureReason = ArchiveFamilySyncState.StopReason.IO_ERROR;
             result.diagnostic = safe(error);
+            return false;
         }
     }
 
