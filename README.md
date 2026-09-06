@@ -62,15 +62,34 @@ Useful compatibility reports are welcome, provided they do not publish private m
 
 ## Installation
 
-Public binaries are intended to be distributed through this repository's **GitHub Releases** page.
+W1 NFC Reader is distributed as a signed Android APK through this repository's **GitHub Releases** page. It is not distributed through Google Play, so installation is currently done manually ("sideloading").
 
-Each stable release should contain:
+### Requirements
+
+- Android 7.0 (API 24) or later;
+- an Android device with NFC support;
+- NFC-V / ISO 15693 support for communication with compatible Qalcosonic W1 meters.
+
+### Installing the APK
+
+1. Open this repository's **Releases** page on the Android device.
+2. Download the APK from the latest stable release, for example `w1-nfc-reader-1.0.0.apk`.
+3. Open the downloaded APK.
+4. Android may ask you to allow the browser or file manager you used to **install unknown apps**. Enable this permission for that app.
+5. Confirm the installation.
+6. After installation, you may disable the "install unknown apps" permission again.
+
+The exact wording and location of this Android setting can differ between Android versions and device manufacturers.
+
+Each stable release contains:
 
 - the signed APK;
 - a SHA-256 checksum;
 - source code matching the release tag.
 
-For security, install release APKs only from the official repository or verify the published checksum and signing certificate identity.
+For security, install W1 NFC Reader only from the official GitHub repository. Technically experienced users can additionally verify the downloaded APK against the published SHA-256 checksum and signing-certificate identity.
+
+Android or Google Play Protect may display an additional warning because the APK was downloaded outside Google Play. Such a warning can occur for sideloaded applications and does not by itself mean that the APK has been modified. Always verify that the file came from this repository before installing it.
 
 ## Building
 
