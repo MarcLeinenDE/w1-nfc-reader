@@ -68,6 +68,7 @@ android {
             // prevents a disposable runner debug key from ever requiring the user to uninstall
             // the signed stable installation merely to test an in-development protocol change.
             applicationIdSuffix = ".dev"
+            resValue("string", "app_name", "W1 NFC Reader Dev")
             // Local contributors can use Android's normal debug key. CI may inject a stable
             // development identity explicitly through environment variables when desired.
             signingConfigs.findByName("stable")?.let { signingConfig = it }
