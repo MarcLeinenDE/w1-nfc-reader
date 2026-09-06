@@ -45,7 +45,7 @@ public final class HistorySyncActivityRobolectricTest {
         }
     }
 
-    @Test public void knownActiveMeterEnablesOnlyFirstMonthBaseline() throws Exception {
+    @Test public void knownActiveMeterEnablesIndependentFirstBaselines() throws Exception {
         new MeterLifecycleStore(app).adoptInitialMeter("12345678");
 
         try (ActivityController<HistorySyncActivity> controller =
@@ -53,8 +53,37 @@ public final class HistorySyncActivityRobolectricTest {
             HistorySyncActivity activity = controller.get();
 
             assertTrue(button(activity, "monthButton").isEnabled());
+            assertTrue(button(activity, "dayButton").isEnabled());
+            assertTrue(button(activity, "hourButton").isEnabled());
+            assertFalse(button(activity, "allButton").isEnabled());
+        }
+    }
+
+    @Test public void completedFamilyDisablesOnlyThatBaselineAction() throws Exception {
+        String meter = "12345678";
+        new MeterLifecycleStore(app).adoptInitialMeter(meter);
+        new ArchiveFamilySyncStateStore(app).recordAttempt(
+                meter,
+                ArchiveFamilyPeriod.Family.DAY,
+                ArchiveFamilySyncState.SyncMode.INITIAL_FULL,
+                System.currentTimeMillis(),
+                ArchiveFamilySyncState.AttemptOutcome.COMPLETE,
+                ArchiveFamilySyncState.StopReason.PROTOCOL_TERMINAL,
+                true,
+                "2026-01-01 00:00",
+                "2026-09-06 00:00",
+                200,
+                200,
+                0,
+                0);
+
+        try (ActivityController<HistorySyncActivity> controller =
+                     Robolectric.buildActivity(HistorySyncActivity.class).setup()) {
+            HistorySyncActivity activity = controller.get();
+
+            assertTrue(button(activity, "monthButton").isEnabled());
             assertFalse(button(activity, "dayButton").isEnabled());
-            assertFalse(button(activity, "hourButton").isEnabled());
+            assertTrue(button(activity, "hourButton").isEnabled());
             assertFalse(button(activity, "allButton").isEnabled());
         }
     }
