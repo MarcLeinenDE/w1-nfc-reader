@@ -96,8 +96,23 @@ Minimum smoke test:
 
 Also verify the APK SHA-256 and signer certificate against the values produced/expected by the release workflow.
 
-If any release-blocking issue is found, do not publish the draft. Fix the issue, create a new version/tag as appropriate and produce a new signed draft candidate.
+If any release-blocking issue is found, do not publish the draft. Fix the issue and produce a new controlled signed draft candidate. Do not silently replace a physically tested APK asset.
 
-Only after the exact draft APK passes the physical and product smoke checks should the existing GitHub Release draft be changed to **Published**. Publishing the draft must not rebuild or replace the tested APK.
+## Final repository cleanup gate
+
+Before making the repository public or publishing a stable release:
+
+1. remove obsolete temporary, import, audit and already-merged fix branches; keep only branches that are intentionally active;
+2. verify that there are no open pull requests that depend on a branch planned for deletion;
+3. review `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `docs/`, licensing notices and issue templates against the actual release behavior;
+4. verify that private handoff/current-state files, real-device evidence, raw captures, backups, meter data, signing material and private research are absent from the public tree;
+5. verify that unreleased archive-family research is not exposed as a production feature;
+6. confirm the release tag still points to the exact physically tested source commit;
+7. confirm the draft release still contains the exact physically tested APK and published checksum;
+8. run normal CI after documentation/repository-cleanup commits on `main`.
+
+Documentation-only cleanup after the release tag may advance `main`; it must not move the already validated release tag or rebuild/replace the tested release APK.
+
+Only after the exact draft APK passes the physical/product checks and the repository cleanup gate is complete should the existing GitHub Release draft be changed to **Published**. Publishing the draft must not rebuild or replace the tested APK.
 
 If the public application ID differs from an old private development build, use the explicit backup/restore feature rather than assuming Android will migrate private-development app data automatically.
