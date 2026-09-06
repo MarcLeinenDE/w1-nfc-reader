@@ -20,15 +20,16 @@ final class ArchiveFamilyTransportAdapter {
     static final int SELECTED_TIMEOUT_MS = 2400;
     static final int RESET_TIMEOUT_MS = 1200;
     static final int STABILIZATION_MS = 1000;
+    static final int RESTORE_PRE_RESET_COOLDOWN_MS = 1000;
 
     // The protected Live reader waits up to 1.8 s for each of its M-Bus reset/read commands.
-    // Keep enough time before a raw archive boundary for one selected request, default restore,
-    // the two protected Live commands and transport overhead. This replaces old experiment-only
-    // minute thresholds with a technical safety budget tied to actual operation timeouts.
+    // Keep enough time before a raw archive boundary for one selected request, the Research-proven
+    // pre-restore cooldown, default restore, the two protected Live commands and transport overhead.
     static final long PROTECTED_LIVE_MBUS_BUDGET_MS = 2L * 1800L;
     static final long TRANSPORT_OVERHEAD_BUDGET_MS = 2000L;
     static final long BOUNDARY_GUARD_BUDGET_MS =
             SELECTED_TIMEOUT_MS
+                    + RESTORE_PRE_RESET_COOLDOWN_MS
                     + RESET_TIMEOUT_MS
                     + STABILIZATION_MS
                     + PROTECTED_LIVE_MBUS_BUDGET_MS
@@ -504,6 +505,11 @@ final class ArchiveFamilyTransportAdapter {
             String expectedMeterId,
             SafetyVerification initial) {
         SafetyVerification result = new SafetyVerification();
+
+        // Frozen physical Research deliberately gave the selected archive application one full
+        // second to settle before issuing Application Reset Default. Keep that exact ordering,
+        // then retain the product's post-reset stabilization before the protected Live verify.
+        wire.coolDown(RESTORE_PRE_RESET_COOLDOWN_MS);
         boolean resetAccepted = issueApplicationReset(
                 wire, result, "ARCHIVE_SYNC_FINAL_RESET_DEFAULT");
         if (!resetAccepted) return result;
@@ -517,6 +523,7 @@ final class ArchiveFamilyTransportAdapter {
         if (!result.verified
                 && result.failureReason == ArchiveFamilySyncState.StopReason.DEFAULT_STATE_UNVERIFIED
                 && wire.transportHealthy()) {
+            wire.coolDown(RESTORE_PRE_RESET_COOLDOWN_MS);
             resetAccepted = issueApplicationReset(
                     wire, result, "ARCHIVE_SYNC_FINAL_RESET_DEFAULT_RETRY");
             if (!resetAccepted) return result;
