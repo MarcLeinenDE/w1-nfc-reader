@@ -517,10 +517,17 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         content.addView(reading);
 
         if (row.delta != null && row.delta.consumptionM3 != null && row.delta.previous != null) {
-            TextView consumption = MaterialUi.body(this, getString(R.string.m3_consumption_since,
-                    formatM3(row.delta.consumptionM3),
-                    HistoryTimePresentation.formatPredecessor(locale(), observation,
-                            row.delta.previous)));
+            String consumptionText;
+            if (observation.live) {
+                consumptionText = getString(R.string.m3_consumption_since,
+                        formatM3(row.delta.consumptionM3),
+                        HistoryTimePresentation.formatPredecessor(locale(), observation,
+                                row.delta.previous));
+            } else {
+                consumptionText = getString(archiveConsumptionTextRes(observation.granularity),
+                        formatM3(row.delta.consumptionM3));
+            }
+            TextView consumption = MaterialUi.body(this, consumptionText);
             consumption.setTypeface(consumption.getTypeface(), Typeface.BOLD);
             consumption.setTextColor(MaterialUi.color(this,
                     com.google.android.material.R.attr.colorPrimary, getColor(R.color.app_primary)));
@@ -546,6 +553,14 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
             content.addView(warning);
         }
         card.addView(content);
+    }
+
+    private int archiveConsumptionTextRes(HistorySemanticTimeline.Granularity granularity) {
+        if (granularity == HistorySemanticTimeline.Granularity.HOUR) return R.string.v2_history_consumption_hour;
+        if (granularity == HistorySemanticTimeline.Granularity.DAY) return R.string.v2_history_consumption_day;
+        if (granularity == HistorySemanticTimeline.Granularity.MONTH) return R.string.v2_history_consumption_month;
+        if (granularity == HistorySemanticTimeline.Granularity.YEAR) return R.string.v2_history_consumption_year;
+        return R.string.v2_history_consumption_period;
     }
 
     private String alarmEventText(HistoryStatisticsAnalytics.AlarmEvent event) {
