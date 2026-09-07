@@ -7,13 +7,14 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
 
-/** Shared calendar-period model for v2 History and Statistics. */
+/** Shared calendar/range model for v2 History and Statistics. */
 final class HistoryPeriodNavigator {
     enum Scale { DAY, MONTH, YEAR }
 
     static final class Window {
         final Scale scale;
         final boolean allPeriods;
+        final boolean customRange;
         final int year;
         final int month0;
         final int day;
@@ -23,11 +24,13 @@ final class HistoryPeriodNavigator {
         final long deviceEndMs;
         final int expectedBuckets;
 
-        Window(Scale scale, boolean allPeriods, int year, int month0, int day,
+        Window(Scale scale, boolean allPeriods, boolean customRange,
+               int year, int month0, int day,
                String archiveStart, String archiveEnd, long deviceStartMs, long deviceEndMs,
                int expectedBuckets) {
             this.scale = scale;
             this.allPeriods = allPeriods;
+            this.customRange = customRange;
             this.year = year;
             this.month0 = month0;
             this.day = day;
@@ -44,6 +47,9 @@ final class HistoryPeriodNavigator {
     private int month0;
     private int day;
     private boolean allPeriods;
+    private boolean customRange;
+    private long customStartMs;
+    private long customEndMs;
 
     HistoryPeriodNavigator(Scale scale) {
         Calendar now = Calendar.getInstance();
@@ -68,26 +74,57 @@ final class HistoryPeriodNavigator {
     int month0() { return month0; }
     int day() { return day; }
     boolean allPeriods() { return allPeriods; }
+    boolean customRange() { return customRange; }
+    long customStartMs() { return customStartMs; }
+    long customEndMs() { return customEndMs; }
 
+    /** Changes the calendar navigation scale without destroying an active custom range. */
     void setScale(Scale value) {
         if (value == null || value == scale) return;
         scale = value;
-        allPeriods = false;
         normalizeDay();
     }
 
-    void setAllPeriods(boolean value) { allPeriods = value; }
+    /** Explicit user selection of Day/Month/Year exits All/custom-range mode. */
+    void selectScale(Scale value) {
+        if (value != null) scale = value;
+        allPeriods = false;
+        customRange = false;
+        normalizeDay();
+    }
+
+    void setAllPeriods(boolean value) {
+        allPeriods = value;
+        if (value) customRange = false;
+    }
 
     void setDate(int year, int month0, int day) {
         this.year = year;
         this.month0 = month0;
         this.day = day;
         allPeriods = false;
+        customRange = false;
+        normalizeDay();
+    }
+
+    void setCustomRange(long startMs, long endMs) {
+        if (startMs <= 0L || endMs <= startMs) {
+            throw new IllegalArgumentException("custom range end must be after start");
+        }
+        customStartMs = startMs;
+        customEndMs = endMs;
+        allPeriods = false;
+        customRange = true;
+        Calendar start = Calendar.getInstance();
+        start.setTimeInMillis(startMs);
+        year = start.get(Calendar.YEAR);
+        month0 = start.get(Calendar.MONTH);
+        day = start.get(Calendar.DAY_OF_MONTH);
         normalizeDay();
     }
 
     void move(int amount) {
-        if (amount == 0) return;
+        if (amount == 0 || customRange || allPeriods) return;
         Calendar calendar = localCalendar();
         if (scale == Scale.DAY) calendar.add(Calendar.DAY_OF_MONTH, amount);
         else if (scale == Scale.MONTH) calendar.add(Calendar.MONTH, amount);
@@ -95,14 +132,23 @@ final class HistoryPeriodNavigator {
         year = calendar.get(Calendar.YEAR);
         month0 = calendar.get(Calendar.MONTH);
         day = calendar.get(Calendar.DAY_OF_MONTH);
-        allPeriods = false;
         normalizeDay();
     }
 
     Window window() {
         if (allPeriods) {
-            return new Window(scale, true, year, month0, day,
+            return new Window(scale, true, false, year, month0, day,
                     null, null, 0L, Long.MAX_VALUE, 0);
+        }
+
+        if (customRange) {
+            Calendar start = Calendar.getInstance();
+            start.setTimeInMillis(customStartMs);
+            Calendar end = Calendar.getInstance();
+            end.setTimeInMillis(customEndMs);
+            return new Window(scale, false, true, year, month0, day,
+                    floatingCanonical(start), floatingCanonical(end),
+                    customStartMs, customEndMs, 0);
         }
 
         Calendar start = localPeriodStart();
@@ -119,7 +165,7 @@ final class HistoryPeriodNavigator {
             end.add(Calendar.YEAR, 1);
         }
 
-        return new Window(scale, false, year, month0, day,
+        return new Window(scale, false, false, year, month0, day,
                 floatingCanonical(start), floatingCanonical(end),
                 start.getTimeInMillis(), end.getTimeInMillis(), expected);
     }
@@ -127,6 +173,7 @@ final class HistoryPeriodNavigator {
     String label(Locale locale, String allPeriodsLabel) {
         if (allPeriods) return allPeriodsLabel == null ? "" : allPeriodsLabel;
         Locale use = locale == null ? Locale.getDefault() : locale;
+        if (customRange) return customLabel(use);
         Calendar floating = floatingCalendar(year, month0, day);
         Date date = floating.getTime();
         if (scale == Scale.DAY) {
@@ -140,6 +187,24 @@ final class HistoryPeriodNavigator {
             return format.format(date);
         }
         return String.format(use, "%04d", year);
+    }
+
+    private String customLabel(Locale locale) {
+        Date start = new Date(customStartMs);
+        Date end = new Date(customEndMs);
+        DateFormat date = DateFormat.getDateInstance(DateFormat.SHORT, locale);
+        DateFormat time = DateFormat.getTimeInstance(DateFormat.SHORT, locale);
+        Calendar first = Calendar.getInstance();
+        first.setTime(start);
+        Calendar second = Calendar.getInstance();
+        second.setTime(end);
+        boolean sameDay = first.get(Calendar.YEAR) == second.get(Calendar.YEAR)
+                && first.get(Calendar.DAY_OF_YEAR) == second.get(Calendar.DAY_OF_YEAR);
+        if (sameDay) {
+            return date.format(start) + " " + time.format(start) + " – " + time.format(end);
+        }
+        return date.format(start) + " " + time.format(start)
+                + " – " + date.format(end) + " " + time.format(end);
     }
 
     private void normalizeDay() {
