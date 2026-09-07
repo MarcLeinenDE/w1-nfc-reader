@@ -56,12 +56,13 @@ public final class HistoryPeriodNavigatorTest {
         assertTrue(month.contains("2026"));
     }
 
-    @Test public void hourlyPredecessorOnSameDayShowsActualHour() {
+    @Test public void archivePredecessorKeepsCompletedPeriodSemantics() {
         HistoryStatisticsRepository.Observation current = observation("now", "2026-09-06 18:00");
         HistoryStatisticsRepository.Observation previous = observation("prev", "2026-09-06 17:00");
 
-        assertEquals("17:00", HistoryTimePresentation.formatPredecessor(
-                Locale.GERMANY, current, previous));
+        String label = HistoryTimePresentation.formatPredecessor(Locale.GERMANY, current, previous);
+        assertTrue(label.contains("16:00"));
+        assertTrue(label.contains("17:00"));
     }
 
     private static HistoryStatisticsRepository.Observation observation(String id, String timestamp) {
