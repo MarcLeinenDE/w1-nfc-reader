@@ -222,7 +222,7 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
                     boolean saved = false;
                     try (OutputStream out = getContentResolver().openOutputStream(uri, "w")) {
                         if (out != null) {
-                            DataPortability.writeCsv(this, out);
+                            DataPortabilityCsvV3.writeCsv(this, out);
                             saved = true;
                         }
                     } catch (Exception ignored) { }
