@@ -10,7 +10,7 @@ import java.nio.file.Paths;
 
 import org.junit.Test;
 
-/** Source-level product contract for the transitional Settings History surface. */
+/** Source-level product contract for the Settings History synchronization surface. */
 public final class HistorySyncProductRouteTest {
     @Test public void settingsOwnsExplicitHistorySyncEntry() throws Exception {
         String settings = read("app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/SettingsActivity.java");
@@ -25,6 +25,8 @@ public final class HistorySyncProductRouteTest {
         assertTrue(activity.contains("ArchiveFamilyTransportAdapter.runMonth"));
         assertTrue(activity.contains("ArchiveFamilyProductionRunner.runDay"));
         assertTrue(activity.contains("ArchiveFamilyProductionRunner.runHour"));
+        assertTrue(activity.contains("ArchiveIncrementalProductionRunner.run("));
+        assertTrue(activity.contains("new ArchiveKnownRecordMatcher("));
         // The user-visible progress wrapper must still persist first and only then count the record
         // as safely stored. Do not regress this to delayed/batch persistence for UI convenience.
         assertTrue(activity.contains("persistence.accept(period);"));
@@ -33,11 +35,20 @@ public final class HistorySyncProductRouteTest {
         assertTrue(activity.contains("completeProductAttempt()"));
         assertTrue(activity.contains("FLAG_KEEP_SCREEN_ON"));
         assertTrue(activity.contains("SyncMode.INITIAL_FULL"));
+        assertTrue(activity.contains("SyncMode.INCREMENTAL"));
         assertFalse(activity.contains("SyncMode.FULL_RESYNC"));
-        assertFalse(activity.contains("SyncMode.INCREMENTAL"));
     }
 
-    @Test public void syncAllUsesValidatedFamilyOrderAndLogicalReconnect() throws Exception {
+    @Test public void incrementalSnapshotIsTakenBeforeCurrentAttemptPersistence() throws Exception {
+        String activity = read("app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncActivity.java");
+        int snapshot = activity.indexOf("new ArchiveKnownRecordMatcher(");
+        int persistence = activity.indexOf("ArchivePersistenceCoordinator.beginImmediate(", snapshot);
+        assertTrue(snapshot >= 0);
+        assertTrue(persistence > snapshot);
+        assertTrue(activity.contains("ArchiveIncrementalProductionRunner.REQUIRED_KNOWN_OVERLAP"));
+    }
+
+    @Test public void syncAllUsesValidatedFamilyOrderAndRemainsBaselineOnly() throws Exception {
         String activity = read("app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncActivity.java");
         int hour = activity.indexOf("ArchiveFamilyPeriod.Family.HOUR,\n            ArchiveFamilyPeriod.Family.DAY");
         int day = activity.indexOf("ArchiveFamilyPeriod.Family.DAY,\n            ArchiveFamilyPeriod.Family.MONTH");
@@ -49,6 +60,14 @@ public final class HistorySyncProductRouteTest {
         assertTrue(activity.contains("if (!attempt.complete)"));
         assertTrue(activity.contains("existing.baselineComplete()"));
         assertTrue(activity.contains("SKIPPED_BASELINE_COMPLETE"));
+        assertTrue(activity.contains("mode=ALL_BASELINES"));
+    }
+
+    @Test public void completedIndividualFamilyIsRoutedToIncrementalMode() throws Exception {
+        String activity = read("app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncActivity.java");
+        assertTrue(activity.contains("current.baselineComplete()\n                ? ArchiveFamilySyncState.SyncMode.INCREMENTAL"));
+        assertTrue(activity.contains("R.string.m3_sync_update_history"));
+        assertTrue(activity.contains("armFamily(meter, family, mode)"));
     }
 
     @Test public void syncAllIsAnExplicitUserAction() throws Exception {
@@ -59,7 +78,7 @@ public final class HistorySyncProductRouteTest {
         assertFalse(activity.contains("allButton.setEnabled(false);\n        MaterialUi.addTopMargin"));
     }
 
-    @Test public void exactValidatedMonthEntryPointIsStillUsed() throws Exception {
+    @Test public void exactValidatedMonthBaselineEntryPointIsStillUsed() throws Exception {
         String activity = read("app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncActivity.java");
         assertTrue(activity.contains("ArchiveFamilyTransportAdapter.runMonth("));
     }
