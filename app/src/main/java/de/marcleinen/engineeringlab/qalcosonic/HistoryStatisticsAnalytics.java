@@ -184,16 +184,18 @@ final class HistoryStatisticsAnalytics {
     static ConsumptionSummary consumption(List<HistoryStatisticsRepository.Observation> observations) {
         Map<String, Delta> deltas = deltas(observations);
         Map<String, BucketAccumulator> buckets = new TreeMap<>();
-        for (HistoryStatisticsRepository.Observation observation : observations) {
-            if (observation.contextOnly) continue;
-            Delta delta = deltas.get(observation.identity);
-            if (delta == null || delta.consumptionM3 == null) continue;
-            BucketAccumulator bucket = buckets.computeIfAbsent(observation.timestamp,
-                    ignored -> new BucketAccumulator(observation.timestamp, observation.granularity));
-            bucket.value += delta.consumptionM3;
-            bucket.count++;
-            if (bucket.segment.length() == 0) bucket.segment = observation.meterId;
-            else if (!bucket.segment.equals(observation.meterId)) bucket.segment = "MULTI";
+        if (observations != null) {
+            for (HistoryStatisticsRepository.Observation observation : observations) {
+                if (observation == null || observation.contextOnly) continue;
+                Delta delta = deltas.get(observation.identity);
+                if (delta == null || delta.consumptionM3 == null) continue;
+                BucketAccumulator bucket = buckets.computeIfAbsent(observation.timestamp,
+                        ignored -> new BucketAccumulator(observation.timestamp, observation.granularity));
+                bucket.value += delta.consumptionM3;
+                bucket.count++;
+                if (bucket.segment.length() == 0) bucket.segment = observation.meterId;
+                else if (!bucket.segment.equals(observation.meterId)) bucket.segment = "MULTI";
+            }
         }
 
         List<MetricPoint> points = new ArrayList<>();
@@ -257,21 +259,29 @@ final class HistoryStatisticsAnalytics {
         List<MetricPoint> points = new ArrayList<>();
         Integer start = null, end = null;
         String startAt = null, endAt = null;
+        String startMeter = null, endMeter = null;
         for (HistoryStatisticsRepository.Observation observation : selected) {
             Integer value = validBattery(observation.batteryPercent);
             if (value == null) continue;
             points.add(new MetricPoint(observation.timestamp, value.doubleValue(), false,
                     observation.meterId, observation.granularity));
-            if (start == null) { start = value; startAt = observation.timestamp; }
+            if (start == null) {
+                start = value;
+                startAt = observation.timestamp;
+                startMeter = observation.meterId;
+            }
             end = value;
             endAt = observation.timestamp;
+            endMeter = observation.meterId;
         }
-        return new BatterySummary(points, start, end,
-                start == null || end == null ? null : end - start, startAt, endAt);
+        Integer change = start == null || end == null || startMeter == null || endMeter == null
+                || !startMeter.equals(endMeter) ? null : end - start;
+        return new BatterySummary(points, start, end, change, startAt, endAt);
     }
 
     static AlarmSummary alarms(List<HistoryStatisticsRepository.Observation> observations) {
-        List<HistoryStatisticsRepository.Observation> sorted = new ArrayList<>(observations);
+        List<HistoryStatisticsRepository.Observation> sorted = new ArrayList<>(
+                observations == null ? Collections.emptyList() : observations);
         sorted.sort(Comparator.comparingLong((HistoryStatisticsRepository.Observation value) -> value.sortMs)
                 .thenComparing(value -> value.identity));
         Map<String, String> previousByMeter = new LinkedHashMap<>();
