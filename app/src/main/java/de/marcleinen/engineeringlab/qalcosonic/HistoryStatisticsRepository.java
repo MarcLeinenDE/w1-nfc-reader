@@ -170,8 +170,23 @@ final class HistoryStatisticsRepository implements AutoCloseable {
     }
 
     List<Observation> queryStatistics(HistoryPeriodNavigator.Window window) {
+        if (window == null) return new ArrayList<>();
         HistorySemanticTimeline.Granularity target = targetGranularity(window.scale);
-        return queryHistory(target, window, true);
+        List<Observation> result = queryHistory(target, window, true);
+
+        // Consumption belongs to the interval between two adjacent archive boundaries. The exact
+        // boundary at the end of the selected day/month/year is therefore needed as context so the
+        // final Hour/Day/Month bucket can be calculated without pulling unrelated future history.
+        if (!window.allPeriods && window.archiveEnd != null) {
+            ArchiveFamilyPeriod.Family family = family(target);
+            if (family != null) {
+                for (String meter : meterIds()) {
+                    queryArchiveExactContext(result, meter, family, window.archiveEnd);
+                }
+                result.sort(observationOrder());
+            }
+        }
+        return result;
     }
 
     List<MeterLifecycleStore.Transition> transitions(HistoryPeriodNavigator.Window window) {
@@ -220,6 +235,16 @@ final class HistoryStatisticsRepository implements AutoCloseable {
                 "meter_id = ? AND archive_family = ? AND logger_timestamp < ?",
                 new String[]{meter, family.name(), window.archiveStart}, null, null,
                 "logger_timestamp DESC", "1")) {
+            if (cursor.moveToFirst()) out.add(readArchive(cursor, true));
+        }
+    }
+
+    private void queryArchiveExactContext(List<Observation> out, String meter,
+                                          ArchiveFamilyPeriod.Family family, String timestamp) {
+        try (Cursor cursor = archiveStore.getReadableDatabase().query(
+                ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
+                "meter_id = ? AND archive_family = ? AND logger_timestamp = ?",
+                new String[]{meter, family.name(), timestamp}, null, null, null, "1")) {
             if (cursor.moveToFirst()) out.add(readArchive(cursor, true));
         }
     }
@@ -291,6 +316,14 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         if (filter == HistorySemanticTimeline.Granularity.MONTH)
             return Collections.singletonList(ArchiveFamilyPeriod.Family.MONTH);
         return Collections.emptyList();
+    }
+
+    private static ArchiveFamilyPeriod.Family family(HistorySemanticTimeline.Granularity granularity) {
+        if (granularity == HistorySemanticTimeline.Granularity.HOUR) return ArchiveFamilyPeriod.Family.HOUR;
+        if (granularity == HistorySemanticTimeline.Granularity.DAY) return ArchiveFamilyPeriod.Family.DAY;
+        if (granularity == HistorySemanticTimeline.Granularity.MONTH) return ArchiveFamilyPeriod.Family.MONTH;
+        if (granularity == HistorySemanticTimeline.Granularity.YEAR) return ArchiveFamilyPeriod.Family.YEAR;
+        return null;
     }
 
     private static HistorySemanticTimeline.Granularity granularity(ArchiveFamilyPeriod.Family family) {
