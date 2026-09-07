@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -186,17 +185,13 @@ final class HistoryStatisticsAnalytics {
         Map<String, BucketAccumulator> buckets = new TreeMap<>();
         if (observations != null) {
             for (HistoryStatisticsRepository.Observation observation : observations) {
-                if (observation == null) continue;
+                if (observation == null || observation.contextOnly) continue;
                 Delta delta = deltas.get(observation.identity);
                 if (delta == null || delta.consumptionM3 == null || delta.previous == null) continue;
 
-                // A delta belongs to the interval that starts at the previous archive boundary.
-                // The predecessor before a selected range is context only, so its interval ends at
-                // the first in-range boundary and must not be counted as part of the selected range.
-                // Conversely, an exact end-boundary context row is allowed because its predecessor
-                // is the start of the final in-range bucket.
+                // Archive rows are end boundaries. The exact window-start boundary may be context
+                // only, but it is still the valid start of the first displayed period.
                 HistoryStatisticsRepository.Observation start = delta.previous;
-                if (start.contextOnly) continue;
                 if (!HistoryTimePresentation.adjacent(start.timestamp, observation.timestamp,
                         observation.granularity)) continue;
 
@@ -233,12 +228,13 @@ final class HistoryStatisticsAnalytics {
         for (HistoryStatisticsRepository.Observation observation : selected) {
             Double value = validTemperature(observation.waterTemperatureC);
             if (value == null) continue;
-            points.add(new MetricPoint(observation.timestamp, value, false, observation.meterId,
+            String period = periodStart(observation);
+            points.add(new MetricPoint(period, value, false, observation.meterId,
                     observation.granularity));
             latest = value;
-            latestAt = observation.timestamp;
-            if (min == null || value < min) { min = value; minAt = observation.timestamp; }
-            if (max == null || value > max) { max = value; maxAt = observation.timestamp; }
+            latestAt = period;
+            if (min == null || value < min) { min = value; minAt = period; }
+            if (max == null || value > max) { max = value; maxAt = period; }
         }
         return new TemperatureSummary(points, latest, latestAt, min, minAt, max, maxAt,
                 min == null || max == null ? null : max - min);
@@ -254,13 +250,17 @@ final class HistoryStatisticsAnalytics {
         for (HistoryStatisticsRepository.Observation observation : selected) {
             Double value = finiteNonNegative(observation.maxFlowM3h);
             if (value == null) continue;
-            points.add(new MetricPoint(observation.timestamp, value, false, observation.meterId,
+            String period = periodStart(observation);
+            points.add(new MetricPoint(period, value, false, observation.meterId,
                     observation.granularity));
             latest = value;
-            latestAt = observation.timestamp;
+            latestAt = period;
             sum += value;
             count++;
-            if (max == null || value > max) { max = value; maxAt = observation.timestamp; }
+            if (max == null || value > max) {
+                max = value;
+                maxAt = nonEmpty(observation.maxFlowAt) ? observation.maxFlowAt : period;
+            }
         }
         return new FlowSummary(points, max, maxAt, count == 0 ? null : sum / count, latest, latestAt);
     }
@@ -274,15 +274,16 @@ final class HistoryStatisticsAnalytics {
         for (HistoryStatisticsRepository.Observation observation : selected) {
             Integer value = validBattery(observation.batteryPercent);
             if (value == null) continue;
-            points.add(new MetricPoint(observation.timestamp, value.doubleValue(), false,
+            String period = periodStart(observation);
+            points.add(new MetricPoint(period, value.doubleValue(), false,
                     observation.meterId, observation.granularity));
             if (start == null) {
                 start = value;
-                startAt = observation.timestamp;
+                startAt = period;
                 startMeter = observation.meterId;
             }
             end = value;
-            endAt = observation.timestamp;
+            endAt = period;
             endMeter = observation.meterId;
         }
         Integer change = start == null || end == null || startMeter == null || endMeter == null
@@ -291,38 +292,25 @@ final class HistoryStatisticsAnalytics {
     }
 
     static AlarmSummary alarms(List<HistoryStatisticsRepository.Observation> observations) {
-        List<HistoryStatisticsRepository.Observation> sorted = new ArrayList<>(
-                observations == null ? Collections.emptyList() : observations);
-        sorted.sort(Comparator.comparingLong((HistoryStatisticsRepository.Observation value) -> value.sortMs)
-                .thenComparing(value -> value.identity));
-        Map<String, String> previousByMeter = new LinkedHashMap<>();
+        List<HistoryStatisticsRepository.Observation> sorted = selected(observations);
         List<AlarmEvent> events = new ArrayList<>();
         int alarmObservations = 0;
         String finalRaw = "0x00000000";
         boolean finalActive = false;
 
+        // Historical ERROR_FLAGS are period evidence. Do not promote repeated rows to separate
+        // incidents and do not invent an exact activation/clear timestamp. Each non-zero row says
+        // only that the status was registered within the completed archive period.
         for (HistoryStatisticsRepository.Observation observation : sorted) {
             if (observation.live) continue;
             String raw = MeterStatusPresentation.historical(observation.archiveErrorFlags).raw;
             boolean active = !"0x00000000".equals(raw);
-            String previous = previousByMeter.get(observation.meterId);
-            if (!observation.contextOnly) {
-                if (active) alarmObservations++;
-                AlarmEventType type = null;
-                if (previous == null) {
-                    if (active) type = AlarmEventType.OBSERVED;
-                } else if (!previous.equals(raw)) {
-                    boolean previousActive = !"0x00000000".equals(previous);
-                    if (!previousActive && active) type = AlarmEventType.ACTIVATED;
-                    else if (previousActive && !active) type = AlarmEventType.CLEARED;
-                    else type = AlarmEventType.CHANGED;
-                }
-                if (type != null) events.add(new AlarmEvent(observation.timestamp,
-                        observation.meterId, raw, previous, type));
-                finalRaw = raw;
-                finalActive = active;
-            }
-            previousByMeter.put(observation.meterId, raw);
+            finalRaw = raw;
+            finalActive = active;
+            if (!active) continue;
+            alarmObservations++;
+            events.add(new AlarmEvent(periodStart(observation), observation.meterId, raw,
+                    null, AlarmEventType.OBSERVED));
         }
         return new AlarmSummary(events, finalActive, finalRaw, alarmObservations);
     }
@@ -346,6 +334,16 @@ final class HistoryStatisticsAnalytics {
         out.sort(Comparator.comparingLong((HistoryStatisticsRepository.Observation value) -> value.sortMs)
                 .thenComparing(value -> value.identity));
         return out;
+    }
+
+    private static String periodStart(HistoryStatisticsRepository.Observation observation) {
+        String value = HistoryTimePresentation.periodStartTimestamp(
+                observation.timestamp, observation.granularity);
+        return value == null ? observation.timestamp : value;
+    }
+
+    private static boolean nonEmpty(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     private static Integer validBattery(Integer value) {
