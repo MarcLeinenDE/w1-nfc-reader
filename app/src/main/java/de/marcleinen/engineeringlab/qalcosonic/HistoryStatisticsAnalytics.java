@@ -186,15 +186,26 @@ final class HistoryStatisticsAnalytics {
         Map<String, BucketAccumulator> buckets = new TreeMap<>();
         if (observations != null) {
             for (HistoryStatisticsRepository.Observation observation : observations) {
-                if (observation == null || observation.contextOnly) continue;
+                if (observation == null) continue;
                 Delta delta = deltas.get(observation.identity);
-                if (delta == null || delta.consumptionM3 == null) continue;
-                BucketAccumulator bucket = buckets.computeIfAbsent(observation.timestamp,
-                        ignored -> new BucketAccumulator(observation.timestamp, observation.granularity));
+                if (delta == null || delta.consumptionM3 == null || delta.previous == null) continue;
+
+                // A delta belongs to the interval that starts at the previous archive boundary.
+                // The predecessor before a selected range is context only, so its interval ends at
+                // the first in-range boundary and must not be counted as part of the selected range.
+                // Conversely, an exact end-boundary context row is allowed because its predecessor
+                // is the start of the final in-range bucket.
+                HistoryStatisticsRepository.Observation start = delta.previous;
+                if (start.contextOnly) continue;
+                if (!HistoryTimePresentation.adjacent(start.timestamp, observation.timestamp,
+                        observation.granularity)) continue;
+
+                String meter = start.meterId == null ? "" : start.meterId;
+                String key = start.timestamp + '\u0000' + meter;
+                BucketAccumulator bucket = buckets.computeIfAbsent(key,
+                        ignored -> new BucketAccumulator(start.timestamp, start.granularity, meter));
                 bucket.value += delta.consumptionM3;
                 bucket.count++;
-                if (bucket.segment.length() == 0) bucket.segment = observation.meterId;
-                else if (!bucket.segment.equals(observation.meterId)) bucket.segment = "MULTI";
             }
         }
 
@@ -352,13 +363,15 @@ final class HistoryStatisticsAnalytics {
     private static final class BucketAccumulator {
         final String timestamp;
         final HistorySemanticTimeline.Granularity granularity;
+        final String segment;
         double value;
         int count;
-        String segment = "";
 
-        BucketAccumulator(String timestamp, HistorySemanticTimeline.Granularity granularity) {
+        BucketAccumulator(String timestamp, HistorySemanticTimeline.Granularity granularity,
+                          String segment) {
             this.timestamp = timestamp;
             this.granularity = granularity;
+            this.segment = segment == null ? "" : segment;
         }
     }
 }
