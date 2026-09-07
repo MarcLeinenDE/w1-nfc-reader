@@ -86,7 +86,7 @@ public final class DataPortabilityCsvV3Test {
         assertFalse(value(header, liveRow, "retrieved_at_utc").isEmpty());
     }
 
-    @Test public void liveUsesNewestEarlierKnownSameMeterAcrossArchiveGranularities() throws Exception {
+    @Test public void liveUsesPreviousLiveEvenWhenNewerArchiveExists() throws Exception {
         try (ArchiveFamilyStore archive = new ArchiveFamilyStore(context)) {
             archive.upsert("M1", period(ArchiveFamilyPeriod.Family.HOUR,
                     "2026-09-06 17:00", "2026-09-06T18:01:00Z", 10.2));
@@ -97,9 +97,11 @@ public final class DataPortabilityCsvV3Test {
         }
         new MeterLifecycleStore(context).adoptInitialMeter("M1");
 
-        MbusParser.MeterData live = meter("M1", 10.8, "2026-09-06 18:05");
         try (MeterHistoryStore store = new MeterHistoryStore(context)) {
-            store.insertSuccessful(live, utcMs("2026-09-06 18:05"));
+            store.insertSuccessful(meter("M1", 10.3, "2026-09-06 17:30"),
+                    utcMs("2026-09-06 17:30"));
+            store.insertSuccessful(meter("M1", 10.8, "2026-09-06 18:05"),
+                    utcMs("2026-09-06 18:05"));
         }
 
         String csv = export();
@@ -107,12 +109,12 @@ public final class DataPortabilityCsvV3Test {
         List<String> liveRow = row(csv, header, "record_type", "LIVE", "meter_time", "2026-09-06 18:05");
         List<String> hour = row(csv, header, "record_type", "HOUR", "period_end", "2026-09-06 18:00");
 
-        assertEquals(0.3, number(header, liveRow, "consumption_m3"), 0.000001);
-        assertEquals("LATEST_STRICTLY_EARLIER_SAME_METER",
+        assertEquals(0.5, number(header, liveRow, "consumption_m3"), 0.000001);
+        assertEquals("PREVIOUS_SAME_METER_SAME_GRANULARITY",
                 value(header, liveRow, "consumption_reference_rule"));
-        assertEquals("HOUR", value(header, liveRow, "consumption_reference_type"));
-        assertEquals("2026-09-06 18:00", value(header, liveRow, "consumption_reference_time"));
-        assertEquals(10.5, number(header, liveRow, "consumption_reference_total_m3"), 0.000001);
+        assertEquals("LIVE", value(header, liveRow, "consumption_reference_type"));
+        assertEquals("2026-09-06 17:30", value(header, liveRow, "consumption_reference_time"));
+        assertEquals(10.3, number(header, liveRow, "consumption_reference_total_m3"), 0.000001);
 
         assertEquals("2026-09-06 17:00", value(header, hour, "period_start"));
         assertEquals(0.3, number(header, hour, "consumption_m3"), 0.000001);
