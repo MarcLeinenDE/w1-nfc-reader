@@ -10,7 +10,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public final class HistoryStatisticsAnalyticsTest {
-    @Test public void consumptionUsesContextPredecessorAndNeverCrossesMeterIdentity() {
+    @Test public void consumptionDoesNotCountPreRangeContextOrCrossMeterIdentity() {
         List<HistoryStatisticsRepository.Observation> values = List.of(
                 observation("a0", "A", "2026-09-06 09:00", true, 100.0,
                         null, null, null, null, "0x00000000"),
@@ -24,9 +24,30 @@ public final class HistoryStatisticsAnalyticsTest {
         HistoryStatisticsAnalytics.ConsumptionSummary summary =
                 HistoryStatisticsAnalytics.consumption(values);
 
-        assertEquals(1.0, summary.total, 0.000001);
-        assertEquals(2, summary.availableBuckets);
-        assertEquals(0.5, summary.average, 0.000001);
+        assertEquals(0.6, summary.total, 0.000001);
+        assertEquals(1, summary.availableBuckets);
+        assertEquals(0.6, summary.average, 0.000001);
+        assertEquals("2026-09-06 10:00", summary.points.get(0).timestamp);
+        assertEquals("A", summary.points.get(0).segment);
+    }
+
+    @Test public void consumptionUsesExactEndBoundaryButDoesNotCompressMissingBuckets() {
+        List<HistoryStatisticsRepository.Observation> values = List.of(
+                observation("h10", "A", "2026-09-06 10:00", false, 100.0,
+                        null, null, null, null, "0x00000000"),
+                observation("h12", "A", "2026-09-06 12:00", false, 101.0,
+                        null, null, null, null, "0x00000000"),
+                observation("h13", "A", "2026-09-06 13:00", true, 101.4,
+                        null, null, null, null, "0x00000000"));
+
+        HistoryStatisticsAnalytics.ConsumptionSummary summary =
+                HistoryStatisticsAnalytics.consumption(values);
+
+        // 10 -> 12 spans a missing Hour bucket and is intentionally not collapsed into one bar.
+        // 12 -> 13 is adjacent; the 13:00 context boundary closes the 12:00 bucket.
+        assertEquals(1, summary.availableBuckets);
+        assertEquals(0.4, summary.total, 0.000001);
+        assertEquals("2026-09-06 12:00", summary.points.get(0).timestamp);
     }
 
     @Test public void temperatureDropsEstablishedMinus100Sentinel() {
@@ -110,6 +131,7 @@ public final class HistoryStatisticsAnalyticsTest {
         assertEquals("B", temp.points.get(1).segment);
         assertEquals("A", battery.points.get(0).segment);
         assertEquals("B", battery.points.get(1).segment);
+        assertNull(battery.change);
     }
 
     private static HistoryStatisticsRepository.Observation observation(
