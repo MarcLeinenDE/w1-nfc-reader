@@ -20,7 +20,79 @@ final class HistoryTimePresentation {
         if (observation.live && observation.deviceTimeMs > 0L) {
             return formatDeviceDateTime(use, observation.deviceTimeMs);
         }
-        return formatFloatingPrimary(use, observation.granularity, observation.timestamp);
+        return formatArchivePeriod(use, observation.granularity, observation.timestamp);
+    }
+
+    /**
+     * Formats an archive logger boundary as the completed interval that ends at that boundary.
+     * Stored timestamps remain unchanged; only product presentation is shifted to the period they
+     * semantically close (for example 2025-10-01 00:00 MONTH -> September 2025).
+     */
+    static String formatArchivePeriod(Locale locale,
+                                      HistorySemanticTimeline.Granularity granularity,
+                                      String boundaryTimestamp) {
+        Locale use = locale == null ? Locale.getDefault() : locale;
+        String start = periodStartTimestamp(boundaryTimestamp, granularity);
+        if (start == null) return boundaryTimestamp == null ? "" : boundaryTimestamp;
+        return formatPeriodStart(use, granularity, start);
+    }
+
+    /** Formats a period whose supplied timestamp is already its start boundary. */
+    static String formatPeriodStart(Locale locale,
+                                    HistorySemanticTimeline.Granularity granularity,
+                                    String startTimestamp) {
+        Locale use = locale == null ? Locale.getDefault() : locale;
+        Date start = parseFloating(startTimestamp);
+        if (start == null) return startTimestamp == null ? "" : startTimestamp;
+        HistorySemanticTimeline.Granularity useGranularity = granularity == null
+                ? HistorySemanticTimeline.Granularity.HOUR : granularity;
+        switch (useGranularity) {
+            case HOUR: {
+                Date end = add(start, Calendar.HOUR_OF_DAY, 1);
+                if (sameFloatingDate(start, end)) {
+                    return formatFloatingDate(use, start) + " · "
+                            + formatFloatingTime(use, start) + "–" + formatFloatingTime(use, end);
+                }
+                return formatFloatingDate(use, start) + " · " + formatFloatingTime(use, start)
+                        + " – " + formatFloatingDate(use, end) + " · " + formatFloatingTime(use, end);
+            }
+            case DAY:
+                return formatFloatingDate(use, start);
+            case MONTH:
+                return formatFloatingMonth(use, start);
+            case YEAR:
+                return formatFloatingYear(use, start);
+            case LIVE:
+            default:
+                return formatFloatingDate(use, start) + " · " + formatFloatingTime(use, start);
+        }
+    }
+
+    /** Returns the canonical floating start boundary for the period ending at {@code boundary}. */
+    static String periodStartTimestamp(String boundaryTimestamp,
+                                       HistorySemanticTimeline.Granularity granularity) {
+        Date boundary = parseFloating(boundaryTimestamp);
+        if (boundary == null || granularity == null || granularity == HistorySemanticTimeline.Granularity.LIVE) {
+            return boundaryTimestamp;
+        }
+        Calendar c = Calendar.getInstance(FLOATING_ZONE, Locale.US);
+        c.setTime(boundary);
+        switch (granularity) {
+            case HOUR: c.add(Calendar.HOUR_OF_DAY, -1); break;
+            case DAY: c.add(Calendar.DAY_OF_MONTH, -1); break;
+            case MONTH: c.add(Calendar.MONTH, -1); break;
+            case YEAR: c.add(Calendar.YEAR, -1); break;
+            default: return boundaryTimestamp;
+        }
+        return canonicalFloating(c.getTime());
+    }
+
+    /** Raw floating archive time, for explicit extrema/event timestamps that are not period keys. */
+    static String formatExactFloatingDateTime(Locale locale, String timestamp) {
+        Locale use = locale == null ? Locale.getDefault() : locale;
+        Date floating = parseFloating(timestamp);
+        if (floating == null) return timestamp == null ? "" : timestamp;
+        return formatFloatingDate(use, floating) + " · " + formatFloatingTime(use, floating);
     }
 
     static String formatFloatingPrimary(Locale locale,
@@ -39,9 +111,7 @@ final class HistoryTimePresentation {
             case MONTH:
                 return formatFloatingMonth(use, floating);
             case YEAR:
-                SimpleDateFormat year = new SimpleDateFormat("yyyy", use);
-                year.setTimeZone(FLOATING_ZONE);
-                return year.format(floating);
+                return formatFloatingYear(use, floating);
             case LIVE:
             default:
                 return formatFloatingDate(use, floating) + " · " + formatFloatingTime(use, floating);
@@ -65,9 +135,7 @@ final class HistoryTimePresentation {
             case MONTH:
                 return formatFloatingMonth(use, floating);
             case YEAR:
-                SimpleDateFormat year = new SimpleDateFormat("yyyy", use);
-                year.setTimeZone(FLOATING_ZONE);
-                return year.format(floating);
+                return formatFloatingYear(use, floating);
             case LIVE:
             default:
                 return formatFloatingDate(use, floating) + " · " + formatFloatingTime(use, floating);
@@ -143,6 +211,25 @@ final class HistoryTimePresentation {
         return format.format(date);
     }
 
+    private static String formatFloatingYear(Locale locale, Date date) {
+        SimpleDateFormat year = new SimpleDateFormat("yyyy", locale);
+        year.setTimeZone(FLOATING_ZONE);
+        return year.format(date);
+    }
+
+    private static String canonicalFloating(Date date) {
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US);
+        format.setTimeZone(FLOATING_ZONE);
+        return format.format(date);
+    }
+
+    private static Date add(Date date, int field, int amount) {
+        Calendar c = Calendar.getInstance(FLOATING_ZONE);
+        c.setTime(date);
+        c.add(field, amount);
+        return c.getTime();
+    }
+
     private static Date parseFloating(String timestamp) {
         if (timestamp == null || timestamp.trim().isEmpty()) return null;
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US);
@@ -155,5 +242,14 @@ final class HistoryTimePresentation {
     private static boolean sameFloatingDate(String first, String second) {
         return first != null && second != null && first.length() >= 10 && second.length() >= 10
                 && first.substring(0, 10).equals(second.substring(0, 10));
+    }
+
+    private static boolean sameFloatingDate(Date first, Date second) {
+        Calendar a = Calendar.getInstance(FLOATING_ZONE);
+        Calendar b = Calendar.getInstance(FLOATING_ZONE);
+        a.setTime(first);
+        b.setTime(second);
+        return a.get(Calendar.YEAR) == b.get(Calendar.YEAR)
+                && a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR);
     }
 }
