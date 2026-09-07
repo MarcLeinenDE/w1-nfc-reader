@@ -6,4 +6,5 @@
     <string name="m3_sync_retry">Synchronize again</string>
     <string name="m3_sync_partial_family_detail">Last attempt: %1$d records processed. Saved data is kept — simply start again.</string>
     <string name="m3_state_sync_partial_body_v2">Synchronization stopped before completion. Saved data is kept. Start the same synchronization again; identical records are recognized and missing records are added.</string>
+    <string name="m3_history_baseline_complete">History baseline complete</string>
 </resources>
