@@ -44,6 +44,7 @@ final class QalcosonicReader {
 
     private static final byte[] RESET_APP = {(byte) 0x10, (byte) 0x40, (byte) 0xFE};
     private static final byte[] GET_DATA_1 = {(byte) 0x10, (byte) 0x7B, (byte) 0xFE};
+    private static final long APPLICATION_RESET_STABILIZATION_MS = 1000L;
 
     private final NfcV nfc;
     private final byte[] androidUid;
@@ -59,7 +60,27 @@ final class QalcosonicReader {
         return trace.toString();
     }
 
+    /**
+     * Normal product Live read.
+     *
+     * <p>A physical NFC recontact does not prove that a prior archive application was restored.
+     * Normalize the transient W1 application state first, then run the long-standing protected
+     * M-Bus reset + default data request sequence. If the reset cannot be confirmed through the
+     * mailbox, fail the read rather than accepting a parseable archive frame as Live data.</p>
+     */
     Readout read() throws IOException {
+        return readInternal(true);
+    }
+
+    /**
+     * Protected Live read for a caller that has already issued APPLICATION_RESET_DEFAULT and
+     * allowed the required stabilization interval as part of its own safety shell.
+     */
+    Readout readAssumingDefaultApplication() throws IOException {
+        return readInternal(false);
+    }
+
+    private Readout readInternal(boolean normalizeDefaultApplication) throws IOException {
         selectAddressing();
         trace("TRANSPORT_SELECTED=" + addressing.label);
 
@@ -83,6 +104,12 @@ final class QalcosonicReader {
             } catch (IOException oldMessageError) {
                 trace("MAILBOX_DRAIN_FAILED=" + safeCode(oldMessageError));
             }
+        }
+
+        if (normalizeDefaultApplication) {
+            byte[] defaultResetResponse = issueMeterFrame(MbusFrameSupport.applicationResetDefault());
+            trace("APPLICATION_RESET_DEFAULT_RESPONSE=" + hex(defaultResetResponse));
+            SystemClock.sleep(APPLICATION_RESET_STABILIZATION_MS);
         }
 
         byte[] resetResponse = issueMeterCommand(RESET_APP);
@@ -172,7 +199,20 @@ final class QalcosonicReader {
     }
 
     private byte[] issueMeterCommand(byte[] commandWithoutChecksum) throws IOException {
-        byte[] mbus = makeMbusShortFrame(commandWithoutChecksum);
+        return issueMeterFrame(makeMbusShortFrame(commandWithoutChecksum));
+    }
+
+    private byte[] issueMeterFrame(byte[] mbus) throws IOException {
+        if (mbus == null || mbus.length == 0) {
+            throw new IOException("MBUS_FRAME_MISSING");
+        }
+        boolean valid = (mbus[0] & 0xFF) == 0x68
+                ? MbusFrameSupport.isValidLongFrame(mbus)
+                : MbusFrameSupport.isValidShortFrame(mbus);
+        if (!valid) {
+            throw new IOException("MBUS_FRAME_INVALID");
+        }
+
         trace("MBUS_TX=" + hex(mbus));
         writeMailboxMessage(mbus);
 
