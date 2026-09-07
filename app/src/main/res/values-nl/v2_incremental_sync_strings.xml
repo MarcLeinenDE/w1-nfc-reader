@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m3_sync_update_history">Geschiedenis bijwerken</string>
+    <string name="m3_state_incremental_body_v2">Er is een volledige basis beschikbaar. De app leest de nieuwste records en stopt pas na twee opeenvolgende records die veilig als bekend zijn herkend. Als de update wordt onderbroken, blijft de opgeslagen basis behouden.</string>
+</resources>

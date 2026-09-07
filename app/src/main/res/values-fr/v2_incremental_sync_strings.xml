@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m3_sync_update_history">Mettre à jour l’historique</string>
+    <string name="m3_state_incremental_body_v2">Une base complète est disponible. L’application lit les enregistrements les plus récents et n’arrête la mise à jour qu’après deux enregistrements consécutifs reconnus de manière sûre. Si la mise à jour est interrompue, la base enregistrée est conservée.</string>
+</resources>

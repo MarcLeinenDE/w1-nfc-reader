@@ -9,86 +9,84 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 public final class LiveHistoryDeltaTest {
-    @Test public void liveUsesNewestEarlierKnownReadingAcrossGranularities() {
+    @Test public void liveUsesPreviousLiveEvenWhenNewerArchiveExists() {
         List<HistoryStatisticsRepository.Observation> values = List.of(
-                observation("month", "A", HistorySemanticTimeline.Granularity.MONTH,
-                        "2026-09-01 00:00", 196.000, false),
                 observation("day", "A", HistorySemanticTimeline.Granularity.DAY,
-                        "2026-09-06 00:00", 204.000, false),
+                        "2026-09-07 00:00", 205.200, false),
+                observation("live1", "A", HistorySemanticTimeline.Granularity.LIVE,
+                        "2026-09-06 19:23", 205.050, true),
                 observation("hour", "A", HistorySemanticTimeline.Granularity.HOUR,
-                        "2026-09-06 18:00", 205.000, false),
-                observation("live", "A", HistorySemanticTimeline.Granularity.LIVE,
-                        "2026-09-06 19:23", 205.126, true));
+                        "2026-09-07 20:00", 205.391, false),
+                observation("live2", "A", HistorySemanticTimeline.Granularity.LIVE,
+                        "2026-09-07 21:15", 205.391, true));
 
         HistoryStatisticsAnalytics.Delta delta =
-                HistoryStatisticsAnalytics.deltas(values).get("live");
+                HistoryStatisticsAnalytics.deltas(values).get("live2");
 
-        assertEquals(0.126, delta.consumptionM3, 0.000001);
-        assertEquals("hour", delta.previous.identity);
-        assertEquals(HistorySemanticTimeline.Granularity.HOUR, delta.previous.granularity);
+        assertEquals(0.341, delta.consumptionM3, 0.000001);
+        assertEquals("live1", delta.previous.identity);
+        assertEquals(HistorySemanticTimeline.Granularity.LIVE, delta.previous.granularity);
     }
 
-    @Test public void liveFallsBackToCoarserArchiveAndThenToNewerLive() {
+    @Test public void firstLiveHasNoDeltaEvenWhenArchiveHistoryExists() {
         List<HistoryStatisticsRepository.Observation> values = List.of(
                 observation("month", "A", HistorySemanticTimeline.Granularity.MONTH,
                         "2026-07-01 00:00", 190.000, false),
                 observation("day", "A", HistorySemanticTimeline.Granularity.DAY,
                         "2026-08-01 00:00", 195.000, false),
-                observation("live1", "A", HistorySemanticTimeline.Granularity.LIVE,
-                        "2026-08-02 10:00", 195.500, true),
-                observation("live2", "A", HistorySemanticTimeline.Granularity.LIVE,
-                        "2026-08-02 11:00", 195.700, true));
+                observation("hour", "A", HistorySemanticTimeline.Granularity.HOUR,
+                        "2026-08-02 09:00", 195.400, false),
+                observation("live", "A", HistorySemanticTimeline.Granularity.LIVE,
+                        "2026-08-02 10:00", 195.500, true));
 
-        Map<String, HistoryStatisticsAnalytics.Delta> deltas =
-                HistoryStatisticsAnalytics.deltas(values);
+        HistoryStatisticsAnalytics.Delta delta =
+                HistoryStatisticsAnalytics.deltas(values).get("live");
 
-        assertEquals("day", deltas.get("live1").previous.identity);
-        assertEquals(0.500, deltas.get("live1").consumptionM3, 0.000001);
-        assertEquals("live1", deltas.get("live2").previous.identity);
-        assertEquals(0.200, deltas.get("live2").consumptionM3, 0.000001);
+        assertNull(delta.consumptionM3);
+        assertNull(delta.previous);
     }
 
-    @Test public void closerReadingFromReplacementMeterIsNeverUsed() {
+    @Test public void liveSeriesDoesNotCrossReplacementMeter() {
         List<HistoryStatisticsRepository.Observation> values = List.of(
-                observation("aHour", "A", HistorySemanticTimeline.Granularity.HOUR,
-                        "2026-09-06 18:00", 205.000, false),
-                observation("bHour", "B", HistorySemanticTimeline.Granularity.HOUR,
-                        "2026-09-06 19:00", 4.000, false),
-                observation("aLive", "A", HistorySemanticTimeline.Granularity.LIVE,
+                observation("aLive1", "A", HistorySemanticTimeline.Granularity.LIVE,
+                        "2026-09-06 18:00", 205.000, true),
+                observation("bLive", "B", HistorySemanticTimeline.Granularity.LIVE,
+                        "2026-09-06 19:00", 4.000, true),
+                observation("aLive2", "A", HistorySemanticTimeline.Granularity.LIVE,
                         "2026-09-06 19:23", 205.126, true));
 
         HistoryStatisticsAnalytics.Delta delta =
-                HistoryStatisticsAnalytics.deltas(values).get("aLive");
+                HistoryStatisticsAnalytics.deltas(values).get("aLive2");
 
-        assertEquals("aHour", delta.previous.identity);
+        assertEquals("aLive1", delta.previous.identity);
         assertEquals(0.126, delta.consumptionM3, 0.000001);
     }
 
     @Test public void sameTimestampIsNotAcceptedAsPreviousLiveReference() {
         List<HistoryStatisticsRepository.Observation> values = List.of(
-                observation("day", "A", HistorySemanticTimeline.Granularity.DAY,
-                        "2026-09-06 00:00", 204.000, false),
-                observation("hourSame", "A", HistorySemanticTimeline.Granularity.HOUR,
-                        "2026-09-06 19:23", 205.120, false),
-                observation("live", "A", HistorySemanticTimeline.Granularity.LIVE,
+                observation("live1", "A", HistorySemanticTimeline.Granularity.LIVE,
+                        "2026-09-06 19:23", 205.120, true),
+                observation("live2", "A", HistorySemanticTimeline.Granularity.LIVE,
                         "2026-09-06 19:23", 205.126, true));
 
-        HistoryStatisticsAnalytics.Delta delta =
-                HistoryStatisticsAnalytics.deltas(values).get("live");
+        Map<String, HistoryStatisticsAnalytics.Delta> deltas =
+                HistoryStatisticsAnalytics.deltas(values);
 
-        assertEquals("day", delta.previous.identity);
-        assertEquals(1.126, delta.consumptionM3, 0.000001);
+        assertNull(deltas.get("live1").consumptionM3);
+        assertNull(deltas.get("live1").previous);
+        assertNull(deltas.get("live2").consumptionM3);
+        assertNull(deltas.get("live2").previous);
     }
 
     @Test public void negativeLiveDeltaIsRejected() {
         List<HistoryStatisticsRepository.Observation> values = List.of(
-                observation("hour", "A", HistorySemanticTimeline.Granularity.HOUR,
-                        "2026-09-06 18:00", 205.000, false),
-                observation("live", "A", HistorySemanticTimeline.Granularity.LIVE,
+                observation("live1", "A", HistorySemanticTimeline.Granularity.LIVE,
+                        "2026-09-06 18:00", 205.000, true),
+                observation("live2", "A", HistorySemanticTimeline.Granularity.LIVE,
                         "2026-09-06 19:23", 204.900, true));
 
         HistoryStatisticsAnalytics.Delta delta =
-                HistoryStatisticsAnalytics.deltas(values).get("live");
+                HistoryStatisticsAnalytics.deltas(values).get("live2");
 
         assertNull(delta.consumptionM3);
         assertNull(delta.previous);

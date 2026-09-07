@@ -102,7 +102,11 @@ final class MonthlyArchiveNfcWire implements MonthlyArchiveTransportAdapter.Wire
     @Override
     public DefaultReadObservation readDefault() throws IOException {
         try {
-            QalcosonicReader.Readout readout = new QalcosonicReader(nfc, androidUid).read();
+            // ArchiveFamilyTransportAdapter has already issued APPLICATION_RESET_DEFAULT and
+            // stabilized before calling this verifier. Preserve that physically validated shell
+            // and do not send the new normal-Live normalization reset a second time here.
+            QalcosonicReader.Readout readout = new QalcosonicReader(nfc, androidUid)
+                    .readAssumingDefaultApplication();
             healthy = true;
             return DefaultReadObservation.fromReadout(readout);
         } catch (IOException error) {

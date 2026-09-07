@@ -10,8 +10,6 @@ import java.util.TreeMap;
 
 /** Pure analytics for the bounded v2 History/Statistics data subset. */
 final class HistoryStatisticsAnalytics {
-    private static final double DELTA_EPSILON_M3 = 0.0005;
-
     static final class Delta {
         final Double consumptionM3;
         final HistoryStatisticsRepository.Observation previous;
@@ -164,7 +162,6 @@ final class HistoryStatisticsAnalytics {
     static Map<String, Delta> deltas(List<HistoryStatisticsRepository.Observation> observations) {
         List<WaterUsageAnalytics.Point> points = new ArrayList<>();
         Map<String, HistoryStatisticsRepository.Observation> byIdentity = new HashMap<>();
-        List<HistoryStatisticsRepository.Observation> ordered = new ArrayList<>();
         if (observations != null) {
             for (HistoryStatisticsRepository.Observation observation : observations) {
                 if (observation == null || observation.totalM3 == null) continue;
@@ -172,49 +169,17 @@ final class HistoryStatisticsAnalytics {
                         observation.timestamp, observation.sortMs, observation.granularity,
                         observation.totalM3));
                 byIdentity.put(observation.identity, observation);
-                ordered.add(observation);
             }
         }
 
-        // Archive cards keep the established same-meter + same-granularity predecessor contract.
+        // Every History card uses the previous observation from the same physical meter and the
+        // same semantic series. This keeps Live-to-Live, Hour-to-Hour, Day-to-Day and Month-to-Month
+        // deltas stable regardless of which other granularities happen to be visible or persisted.
         Map<String, Delta> out = new HashMap<>();
         for (WaterUsageAnalytics.HistoryDelta delta : WaterUsageAnalytics.historyNewestFirst(points)) {
             HistoryStatisticsRepository.Observation previous = delta.previousPoint == null
                     ? null : byIdentity.get(delta.previousPoint.identity);
             out.put(delta.point.identity, new Delta(delta.consumptionSincePreviousM3, previous));
-        }
-
-        // Live is intentionally different: it is a point-in-time read, not a completed archive
-        // period. Compare it with the newest strictly earlier known total for the same physical
-        // meter, regardless of whether that reference is Live, Hour, Day or Month.
-        ordered.sort(Comparator.comparingLong((HistoryStatisticsRepository.Observation value) -> value.sortMs)
-                .thenComparing(value -> value.identity));
-        Map<String, HistoryStatisticsRepository.Observation> latestByMeter = new HashMap<>();
-        int index = 0;
-        while (index < ordered.size()) {
-            long timestamp = ordered.get(index).sortMs;
-            int end = index + 1;
-            while (end < ordered.size() && ordered.get(end).sortMs == timestamp) end++;
-
-            for (int i = index; i < end; i++) {
-                HistoryStatisticsRepository.Observation current = ordered.get(i);
-                if (!current.live) continue;
-                HistoryStatisticsRepository.Observation previous = latestByMeter.get(meterKey(current));
-                Double value = validLiveDelta(previous, current);
-                out.put(current.identity, new Delta(value, value == null ? null : previous));
-            }
-
-            Map<String, HistoryStatisticsRepository.Observation> bestAtTimestamp = new HashMap<>();
-            for (int i = index; i < end; i++) {
-                HistoryStatisticsRepository.Observation candidate = ordered.get(i);
-                String meter = meterKey(candidate);
-                HistoryStatisticsRepository.Observation existing = bestAtTimestamp.get(meter);
-                if (existing == null || preferredLiveReference(candidate, existing)) {
-                    bestAtTimestamp.put(meter, candidate);
-                }
-            }
-            latestByMeter.putAll(bestAtTimestamp);
-            index = end;
         }
         return out;
     }
@@ -364,42 +329,6 @@ final class HistoryStatisticsAnalytics {
         // Exclude only that established sentinel instead of inventing a broad physical range.
         if (Math.abs(value + 100.0) < 0.01) return null;
         return value;
-    }
-
-    private static Double validLiveDelta(HistoryStatisticsRepository.Observation previous,
-                                         HistoryStatisticsRepository.Observation current) {
-        if (previous == null || current == null || previous.totalM3 == null || current.totalM3 == null) {
-            return null;
-        }
-        if (current.sortMs <= previous.sortMs) return null;
-        if (!meterKey(previous).equals(meterKey(current))) return null;
-        double delta = current.totalM3 - previous.totalM3;
-        if (delta < -DELTA_EPSILON_M3) return null;
-        return Math.max(0.0, delta);
-    }
-
-    private static boolean preferredLiveReference(HistoryStatisticsRepository.Observation candidate,
-                                                  HistoryStatisticsRepository.Observation existing) {
-        int candidatePriority = referencePriority(candidate.granularity);
-        int existingPriority = referencePriority(existing.granularity);
-        if (candidatePriority != existingPriority) return candidatePriority > existingPriority;
-        return candidate.identity.compareTo(existing.identity) > 0;
-    }
-
-    private static int referencePriority(HistorySemanticTimeline.Granularity granularity) {
-        if (granularity == HistorySemanticTimeline.Granularity.LIVE) return 5;
-        if (granularity == HistorySemanticTimeline.Granularity.HOUR) return 4;
-        if (granularity == HistorySemanticTimeline.Granularity.DAY) return 3;
-        if (granularity == HistorySemanticTimeline.Granularity.MONTH) return 2;
-        if (granularity == HistorySemanticTimeline.Granularity.YEAR) return 1;
-        return 0;
-    }
-
-    private static String meterKey(HistoryStatisticsRepository.Observation observation) {
-        if (observation == null || observation.meterId == null || observation.meterId.trim().isEmpty()) {
-            return "<unknown-meter>";
-        }
-        return observation.meterId.trim();
     }
 
     private static List<HistoryStatisticsRepository.Observation> selected(

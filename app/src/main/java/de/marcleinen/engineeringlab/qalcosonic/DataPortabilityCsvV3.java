@@ -35,7 +35,7 @@ final class DataPortabilityCsvV3 {
     static final int CSV_SCHEMA = 3;
     private static final double DELTA_EPSILON_M3 = 0.0005;
     private static final String RULE_ARCHIVE = "PREVIOUS_SAME_METER_SAME_GRANULARITY";
-    private static final String RULE_LIVE = "LATEST_STRICTLY_EARLIER_SAME_METER";
+    private static final String RULE_LIVE = "PREVIOUS_SAME_METER_SAME_GRANULARITY";
 
     private DataPortabilityCsvV3() { }
 
@@ -221,7 +221,8 @@ final class DataPortabilityCsvV3 {
         }
 
         // Archive consumption remains same meter + same granularity. This also initializes Live
-        // rows with their same-Live predecessor; Live is overridden below with its wider v2 rule.
+        // rows with their same-Live predecessor; Live references below intentionally keep that
+        // same-granularity contract even when newer archive observations exist.
         for (WaterUsageAnalytics.HistoryDelta delta : WaterUsageAnalytics.historyNewestFirst(points)) {
             ExportRow row = byIdentity.get(delta.point.identity);
             if (row == null || delta.point.granularity == HistorySemanticTimeline.Granularity.LIVE) continue;
@@ -325,10 +326,7 @@ final class DataPortabilityCsvV3 {
     }
 
     private static boolean supportedLiveReference(HistorySemanticTimeline.Granularity granularity) {
-        return granularity == HistorySemanticTimeline.Granularity.LIVE
-                || granularity == HistorySemanticTimeline.Granularity.HOUR
-                || granularity == HistorySemanticTimeline.Granularity.DAY
-                || granularity == HistorySemanticTimeline.Granularity.MONTH;
+        return granularity == HistorySemanticTimeline.Granularity.LIVE;
     }
 
     private static int referencePriority(HistorySemanticTimeline.Granularity granularity) {
