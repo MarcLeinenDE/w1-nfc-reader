@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m3_sync_update_history">Atnaujinti istoriją</string>
+    <string name="m3_state_incremental_body_v2">Yra išsami bazinė istorija. Programėlė skaito naujausius įrašus ir atnaujinimą baigia tik po dviejų iš eilės patikimai atpažintų jau žinomų įrašų. Jei atnaujinimas nutraukiamas, išsaugota bazė lieka nepakeista.</string>
+</resources>
