@@ -65,15 +65,12 @@ public final class HistoryStatisticsRepositoryTest {
             insert(store, ArchiveFamilyPeriod.Family.MONTH, "2026-11-01 00:00", "210.000");
         }
 
-        HistoryPeriodNavigator navigator = new HistoryPeriodNavigator(HistoryPeriodNavigator.Scale.YEAR);
-        navigator.setDate(2026, 8, 15);
-        HistoryPeriodNavigator.Window september = new HistoryPeriodNavigator(HistoryPeriodNavigator.Scale.MONTH) {{
-            setDate(2026, 8, 15);
-        }}.window();
+        HistoryPeriodNavigator month = new HistoryPeriodNavigator(HistoryPeriodNavigator.Scale.MONTH);
+        month.setDate(2026, 8, 15);
 
         try (HistoryStatisticsRepository repository = new HistoryStatisticsRepository(context)) {
             List<HistoryStatisticsRepository.Observation> rows = repository.queryHistory(
-                    HistorySemanticTimeline.Granularity.MONTH, september, true);
+                    HistorySemanticTimeline.Granularity.MONTH, month.window(), true);
 
             assertEquals(2, rows.size());
             assertEquals("2026-09-01 00:00", rows.get(0).timestamp);
