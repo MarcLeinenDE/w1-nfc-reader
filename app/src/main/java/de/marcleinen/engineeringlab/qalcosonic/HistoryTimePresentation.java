@@ -129,6 +129,24 @@ final class HistoryTimePresentation {
         if (!previous.live) {
             HistorySemanticTimeline.Granularity granularity = previous.granularity == null
                     ? current.granularity : previous.granularity;
+
+            // A Live delta references the actual previous cumulative-reading point. Keep Hour and
+            // Day references anchored to their logger boundary, while Month/Year use the same
+            // human period label users already see on those archive cards.
+            if (current.live) {
+                if (granularity == HistorySemanticTimeline.Granularity.HOUR) {
+                    return formatExactFloatingDateTime(use, previous.timestamp);
+                }
+                if (granularity == HistorySemanticTimeline.Granularity.DAY) {
+                    Date boundary = parseFloating(previous.timestamp);
+                    return boundary == null ? previous.timestamp : formatFloatingDate(use, boundary);
+                }
+                if (granularity == HistorySemanticTimeline.Granularity.MONTH
+                        || granularity == HistorySemanticTimeline.Granularity.YEAR) {
+                    return formatArchivePeriod(use, granularity, previous.timestamp);
+                }
+                return formatExactFloatingDateTime(use, previous.timestamp);
+            }
             return formatArchivePeriod(use, granularity, previous.timestamp);
         }
         Date floating = parseFloating(previous.timestamp);
