@@ -158,11 +158,20 @@ final class HistoryStatisticsRepository implements AutoCloseable {
                                    boolean includePredecessors) {
         List<Observation> result = new ArrayList<>();
         for (String meter : meterIds()) {
-            if (filter == null || filter == HistorySemanticTimeline.Granularity.LIVE) {
+            boolean includesLive = filter == null || filter == HistorySemanticTimeline.Granularity.LIVE;
+            if (includesLive) {
                 queryLive(result, meter, window, includePredecessors);
             }
             for (ArchiveFamilyPeriod.Family family : families(filter)) {
                 queryArchive(result, meter, family, window, includePredecessors);
+            }
+            if (includesLive && includePredecessors) {
+                // Live cards may use an archive row as their newest known previous total. When the
+                // Live filter hides archive cards, load the relevant archive rows as context only.
+                // In the All view, displayed archive rows already provide in-window references; we
+                // only need an older fallback before the selected window.
+                queryLiveArchiveContext(result, meter, window,
+                        filter == HistorySemanticTimeline.Granularity.LIVE);
             }
         }
         result.sort(observationOrder());
@@ -224,6 +233,51 @@ final class HistoryStatisticsRepository implements AutoCloseable {
                 "meter_id = ? AND archive_family = ? AND logger_timestamp = ?",
                 new String[]{meter, family.name(), window.archiveStart}, null, null, null, "1")) {
             if (cursor.moveToFirst()) out.add(readArchive(cursor, true));
+        }
+    }
+
+    private void queryLiveArchiveContext(List<Observation> out, String meter,
+                                         HistoryPeriodNavigator.Window window,
+                                         boolean includeInWindowRows) {
+        SQLiteDatabase db = archiveStore.getReadableDatabase();
+        List<ArchiveFamilyPeriod.Family> archiveFamilies = Arrays.asList(
+                ArchiveFamilyPeriod.Family.HOUR,
+                ArchiveFamilyPeriod.Family.DAY,
+                ArchiveFamilyPeriod.Family.MONTH);
+        for (ArchiveFamilyPeriod.Family family : archiveFamilies) {
+            if (window == null || window.allPeriods) {
+                if (!includeInWindowRows) continue;
+                try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
+                        "meter_id = ? AND archive_family = ?",
+                        new String[]{meter, family.name()}, null, null,
+                        "logger_timestamp ASC")) {
+                    while (cursor.moveToNext()) out.add(readArchive(cursor, true));
+                }
+                continue;
+            }
+
+            if (includeInWindowRows && window.archiveStart != null && window.archiveEnd != null) {
+                // A live read inside [start,end) may reference an archive boundary at start or any
+                // later boundary strictly before end. These rows remain hidden context in Live UI.
+                try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
+                        "meter_id = ? AND archive_family = ? AND logger_timestamp >= ?"
+                                + " AND logger_timestamp < ?",
+                        new String[]{meter, family.name(), window.archiveStart, window.archiveEnd},
+                        null, null, "logger_timestamp ASC")) {
+                    while (cursor.moveToNext()) out.add(readArchive(cursor, true));
+                }
+            }
+
+            if (window.archiveStart != null) {
+                // If no fine-grained observation exists at the selected window start, retain a
+                // coarser/older family as fallback for the first Live card.
+                try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
+                        "meter_id = ? AND archive_family = ? AND logger_timestamp < ?",
+                        new String[]{meter, family.name(), window.archiveStart}, null, null,
+                        "logger_timestamp DESC", "1")) {
+                    if (cursor.moveToFirst()) out.add(readArchive(cursor, true));
+                }
+            }
         }
     }
 
