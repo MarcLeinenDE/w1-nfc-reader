@@ -6,4 +6,5 @@
     <string name="m3_sync_retry">Opnieuw synchroniseren</string>
     <string name="m3_sync_partial_family_detail">Laatste poging: %1$d records verwerkt. Opgeslagen gegevens blijven behouden — start gewoon opnieuw.</string>
     <string name="m3_state_sync_partial_body_v2">De synchronisatie stopte voordat deze volledig was afgerond. Opgeslagen gegevens blijven behouden. Start dezelfde synchronisatie opnieuw; identieke records worden herkend en ontbrekende records worden toegevoegd.</string>
+    <string name="m3_history_baseline_complete">Historiebasis volledig</string>
 </resources>

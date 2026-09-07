@@ -6,4 +6,5 @@
     <string name="m3_sync_retry">Sinchronizuoti dar kartą</string>
     <string name="m3_sync_partial_family_detail">Paskutinis bandymas: apdorota %1$d įrašų. Išsaugoti duomenys lieka — tiesiog paleiskite dar kartą.</string>
     <string name="m3_state_sync_partial_body_v2">Sinchronizavimas sustojo nepasiekęs pabaigos. Išsaugoti duomenys lieka. Paleiskite tą patį sinchronizavimą dar kartą; identiški įrašai bus atpažinti, o trūkstami įrašai pridėti.</string>
+    <string name="m3_history_baseline_complete">Istorijos bazė užbaigta</string>
 </resources>

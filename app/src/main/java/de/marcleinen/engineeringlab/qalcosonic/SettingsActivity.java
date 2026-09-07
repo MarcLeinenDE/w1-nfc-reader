@@ -107,7 +107,7 @@ public final class SettingsActivity extends MaterialBaseActivity {
             if (uri == null) return;
             try (OutputStream out = getContentResolver().openOutputStream(uri, "w")) {
                 if (out == null) throw new IllegalStateException("no output stream");
-                DataPortability.writeCsv(this, out);
+                DataPortabilityCsvV3.writeCsv(this, out);
                 message(R.string.m3_export_success);
             } catch (Exception error) {
                 message(R.string.m3_export_failed);
@@ -164,7 +164,7 @@ public final class SettingsActivity extends MaterialBaseActivity {
 
     private String baselineLabel(ArchiveFamilySyncState.BaselineState state) {
         if (state == ArchiveFamilySyncState.BaselineState.COMPLETE) {
-            return getString(R.string.m3_state_sync_ok_title);
+            return getString(R.string.m3_history_baseline_complete);
         }
         if (state == ArchiveFamilySyncState.BaselineState.PARTIAL) {
             return getString(R.string.m3_state_sync_partial_title);
