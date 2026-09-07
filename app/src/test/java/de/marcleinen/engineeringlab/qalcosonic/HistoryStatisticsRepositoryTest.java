@@ -27,12 +27,13 @@ public final class HistoryStatisticsRepositoryTest {
         new MeterLifecycleStore(context).clear();
     }
 
-    @Test public void hourRangeLoadsOnlySelectedDayPlusOneSameFamilyPredecessor() {
+    @Test public void hourRangeUsesStartBoundaryAsContextAndIncludesDayEndBoundary() {
         try (ArchiveFamilyStore store = new ArchiveFamilyStore(context)) {
             insert(store, ArchiveFamilyPeriod.Family.HOUR, "2026-09-05 23:00", "100.000");
             insert(store, ArchiveFamilyPeriod.Family.HOUR, "2026-09-06 00:00", "100.100");
             insert(store, ArchiveFamilyPeriod.Family.HOUR, "2026-09-06 01:00", "100.250");
             insert(store, ArchiveFamilyPeriod.Family.HOUR, "2026-09-07 00:00", "101.000");
+            insert(store, ArchiveFamilyPeriod.Family.HOUR, "2026-09-07 01:00", "101.100");
             insert(store, ArchiveFamilyPeriod.Family.DAY, "2026-09-06 00:00", "100.100");
         }
 
@@ -44,11 +45,11 @@ public final class HistoryStatisticsRepositoryTest {
                     HistorySemanticTimeline.Granularity.HOUR, navigator.window(), true);
 
             assertEquals(3, rows.size());
-            assertEquals("2026-09-05 23:00", rows.get(0).timestamp);
+            assertEquals("2026-09-06 00:00", rows.get(0).timestamp);
             assertTrue(rows.get(0).contextOnly);
-            assertEquals("2026-09-06 00:00", rows.get(1).timestamp);
+            assertEquals("2026-09-06 01:00", rows.get(1).timestamp);
             assertFalse(rows.get(1).contextOnly);
-            assertEquals("2026-09-06 01:00", rows.get(2).timestamp);
+            assertEquals("2026-09-07 00:00", rows.get(2).timestamp);
             assertFalse(rows.get(2).contextOnly);
             for (HistoryStatisticsRepository.Observation row : rows) {
                 assertEquals(HistorySemanticTimeline.Granularity.HOUR, row.granularity);
@@ -56,14 +57,39 @@ public final class HistoryStatisticsRepositoryTest {
         }
     }
 
-    @Test public void statisticsUsesNaturalResolutionAndExactEndBoundaryContext() {
+    @Test public void selectedSeptemberMonthUsesOctoberFirstBoundaryAndNotSeptemberFirstAsData() {
+        try (ArchiveFamilyStore store = new ArchiveFamilyStore(context)) {
+            insert(store, ArchiveFamilyPeriod.Family.MONTH, "2026-08-01 00:00", "190.000");
+            insert(store, ArchiveFamilyPeriod.Family.MONTH, "2026-09-01 00:00", "196.000");
+            insert(store, ArchiveFamilyPeriod.Family.MONTH, "2026-10-01 00:00", "203.000");
+            insert(store, ArchiveFamilyPeriod.Family.MONTH, "2026-11-01 00:00", "210.000");
+        }
+
+        HistoryPeriodNavigator navigator = new HistoryPeriodNavigator(HistoryPeriodNavigator.Scale.YEAR);
+        navigator.setDate(2026, 8, 15);
+        HistoryPeriodNavigator.Window september = new HistoryPeriodNavigator(HistoryPeriodNavigator.Scale.MONTH) {{
+            setDate(2026, 8, 15);
+        }}.window();
+
+        try (HistoryStatisticsRepository repository = new HistoryStatisticsRepository(context)) {
+            List<HistoryStatisticsRepository.Observation> rows = repository.queryHistory(
+                    HistorySemanticTimeline.Granularity.MONTH, september, true);
+
+            assertEquals(2, rows.size());
+            assertEquals("2026-09-01 00:00", rows.get(0).timestamp);
+            assertTrue(rows.get(0).contextOnly);
+            assertEquals("2026-10-01 00:00", rows.get(1).timestamp);
+            assertFalse(rows.get(1).contextOnly);
+        }
+    }
+
+    @Test public void statisticsUsesNaturalResolutionAndPeriodEndBoundaryAsSelectedData() {
         try (ArchiveFamilyStore store = new ArchiveFamilyStore(context)) {
             insert(store, ArchiveFamilyPeriod.Family.DAY, "2026-08-31 00:00", "200.000");
             insert(store, ArchiveFamilyPeriod.Family.DAY, "2026-09-01 00:00", "200.300");
             insert(store, ArchiveFamilyPeriod.Family.DAY, "2026-09-02 00:00", "200.750");
             // Deliberate gap: no Day rows between Sep 2 and Sep 30.
             insert(store, ArchiveFamilyPeriod.Family.DAY, "2026-09-30 00:00", "209.500");
-            // Exact end boundary closes the Sep 30 bucket without importing future history.
             insert(store, ArchiveFamilyPeriod.Family.DAY, "2026-10-01 00:00", "210.000");
             insert(store, ArchiveFamilyPeriod.Family.HOUR, "2026-09-01 01:00", "200.350");
         }
@@ -74,11 +100,11 @@ public final class HistoryStatisticsRepositoryTest {
         try (HistoryStatisticsRepository repository = new HistoryStatisticsRepository(context)) {
             List<HistoryStatisticsRepository.Observation> rows = repository.queryStatistics(navigator.window());
 
-            assertEquals(5, rows.size());
-            assertEquals("2026-08-31 00:00", rows.get(0).timestamp);
+            assertEquals(4, rows.size());
+            assertEquals("2026-09-01 00:00", rows.get(0).timestamp);
             assertTrue(rows.get(0).contextOnly);
-            assertEquals("2026-10-01 00:00", rows.get(4).timestamp);
-            assertTrue(rows.get(4).contextOnly);
+            assertEquals("2026-10-01 00:00", rows.get(3).timestamp);
+            assertFalse(rows.get(3).contextOnly);
             for (HistoryStatisticsRepository.Observation row : rows) {
                 assertEquals(HistorySemanticTimeline.Granularity.DAY, row.granularity);
             }
@@ -92,7 +118,7 @@ public final class HistoryStatisticsRepositoryTest {
         }
     }
 
-    @Test public void allPeriodsDoesNotInjectSyntheticPredecessorRows() {
+    @Test public void allPeriodsDoesNotInjectSyntheticContextRows() {
         try (ArchiveFamilyStore store = new ArchiveFamilyStore(context)) {
             insert(store, ArchiveFamilyPeriod.Family.MONTH, "2026-07-01 00:00", "190.000");
             insert(store, ArchiveFamilyPeriod.Family.MONTH, "2026-08-01 00:00", "196.000");
