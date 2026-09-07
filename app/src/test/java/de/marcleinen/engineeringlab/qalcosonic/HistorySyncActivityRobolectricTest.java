@@ -59,7 +59,7 @@ public final class HistorySyncActivityRobolectricTest {
         }
     }
 
-    @Test public void completedFamilyDisablesOnlyThatBaselineAndKeepsSyncAllAvailable() throws Exception {
+    @Test public void completedFamilyStaysEnabledForIncrementalUpdate() throws Exception {
         String meter = "12345678";
         new MeterLifecycleStore(app).adoptInitialMeter(meter);
         complete(meter, ArchiveFamilyPeriod.Family.DAY);
@@ -69,13 +69,16 @@ public final class HistorySyncActivityRobolectricTest {
             HistorySyncActivity activity = controller.get();
 
             assertTrue(button(activity, "monthButton").isEnabled());
-            assertFalse(button(activity, "dayButton").isEnabled());
+            assertTrue(button(activity, "dayButton").isEnabled());
             assertTrue(button(activity, "hourButton").isEnabled());
             assertTrue(button(activity, "allButton").isEnabled());
+            assertTrue(button(activity, "dayButton").getText().toString()
+                    .contains(activity.getString(R.string.m3_sync_update_history)));
         }
     }
 
-    @Test public void allCompleteBaselinesDisableEveryInitialBaselineAction() throws Exception {
+    @Test public void allCompleteBaselinesKeepIndividualUpdatesEnabledButDisableBaselineSyncAll()
+            throws Exception {
         String meter = "12345678";
         new MeterLifecycleStore(app).adoptInitialMeter(meter);
         complete(meter, ArchiveFamilyPeriod.Family.HOUR);
@@ -86,10 +89,16 @@ public final class HistorySyncActivityRobolectricTest {
                      Robolectric.buildActivity(HistorySyncActivity.class).setup()) {
             HistorySyncActivity activity = controller.get();
 
-            assertFalse(button(activity, "monthButton").isEnabled());
-            assertFalse(button(activity, "dayButton").isEnabled());
-            assertFalse(button(activity, "hourButton").isEnabled());
+            assertTrue(button(activity, "monthButton").isEnabled());
+            assertTrue(button(activity, "dayButton").isEnabled());
+            assertTrue(button(activity, "hourButton").isEnabled());
             assertFalse(button(activity, "allButton").isEnabled());
+            assertTrue(button(activity, "monthButton").getText().toString()
+                    .contains(activity.getString(R.string.m3_sync_update_history)));
+            assertTrue(button(activity, "dayButton").getText().toString()
+                    .contains(activity.getString(R.string.m3_sync_update_history)));
+            assertTrue(button(activity, "hourButton").getText().toString()
+                    .contains(activity.getString(R.string.m3_sync_update_history)));
         }
     }
 
