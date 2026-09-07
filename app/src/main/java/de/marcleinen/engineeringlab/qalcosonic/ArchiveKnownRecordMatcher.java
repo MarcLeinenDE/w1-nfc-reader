@@ -1,8 +1,12 @@
 package de.marcleinen.engineeringlab.qalcosonic;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -66,6 +70,12 @@ final class ArchiveKnownRecordMatcher implements ArchiveTraversalStateMachine.Kn
         if (!same(known.source, candidate.source) || !same(known.validation, candidate.validation)) {
             return false;
         }
+
+        // The persisted SHA-256 is the strongest exact content equality check. Recompute it using
+        // the same canonical field order and extras encoding as ArchiveFamilyStore. The explicit
+        // field checks below remain as defense in depth and make future schema drift fail closed.
+        String candidateContentFingerprint = contentFingerprint(candidate.values);
+        if (!same(known.contentFingerprint, candidateContentFingerprint)) return false;
         if (!sameCanonicalContent(known, candidate.values)) return false;
 
         Long normalizedOnTimeSeconds = durationSeconds(candidate.values.onTime);
@@ -77,9 +87,9 @@ final class ArchiveKnownRecordMatcher implements ArchiveTraversalStateMachine.Kn
             ArchiveFamilyStore.StoredPeriod known,
             ArchiveNormalizedValues candidate) {
         if (known == null || candidate == null) return false;
-        // ArchiveFamilyStore deliberately exposes totalVolume without its display unit, while the
-        // remaining canonical values retain the decoder representation. Normalize that one field
-        // the same way and keep every other field exact.
+        // ArchiveFamilyStore exposes totalVolume without its display unit when reading a row. The
+        // exact fingerprint above preserves the original unit; normalize only this secondary field
+        // comparison to the same read representation.
         if (!same(known.totalVolume, ArchiveFamilyStore.measurementNumber(candidate.totalVolume))) return false;
         if (!same(known.positiveVolume, candidate.positiveVolume)) return false;
         if (!same(known.reverseVolume, candidate.reverseVolume)) return false;
@@ -100,6 +110,46 @@ final class ArchiveKnownRecordMatcher implements ArchiveTraversalStateMachine.Kn
         if (!same(known.onTime, candidate.onTime)) return false;
         if (!same(known.operatingTime, candidate.operatingTime)) return false;
         return known.extraValues.equals(candidate.extraValues);
+    }
+
+    private static String contentFingerprint(ArchiveNormalizedValues values) {
+        if (values == null) return null;
+        String extras = ArchiveFamilyStore.encodeExtraValues(values.extraValues);
+        StringBuilder canonical = new StringBuilder();
+        append(canonical, values.totalVolume);
+        append(canonical, values.positiveVolume);
+        append(canonical, values.reverseVolume);
+        append(canonical, values.tariff1Volume);
+        append(canonical, values.maxFlow);
+        append(canonical, values.maxFlowAt);
+        append(canonical, values.minFlow);
+        append(canonical, values.minFlowAt);
+        append(canonical, values.flow);
+        append(canonical, values.maxTemperature);
+        append(canonical, values.maxTemperatureAt);
+        append(canonical, values.minTemperature);
+        append(canonical, values.minTemperatureAt);
+        append(canonical, values.temperature);
+        append(canonical, values.externalTemperature);
+        append(canonical, values.batteryPercent);
+        append(canonical, values.errorFlags);
+        append(canonical, values.onTime);
+        append(canonical, values.operatingTime);
+        append(canonical, extras);
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = digest.digest(canonical.toString().getBytes(StandardCharsets.UTF_8));
+            StringBuilder out = new StringBuilder();
+            for (byte value : bytes) out.append(String.format(Locale.US, "%02x", value & 0xFF));
+            return out.toString();
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException(error);
+        }
+    }
+
+    private static void append(StringBuilder out, String value) {
+        String normalized = value == null ? "<null>" : value;
+        out.append(normalized.length()).append(':').append(normalized).append('|');
     }
 
     static Long durationSeconds(String value) {
