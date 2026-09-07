@@ -5,6 +5,11 @@
     <string name="v2_period_day">Day</string>
     <string name="v2_period_month">Month</string>
     <string name="v2_period_year">Year</string>
+    <string name="v2_history_consumption_hour">%1$s in this hour</string>
+    <string name="v2_history_consumption_day">%1$s on this day</string>
+    <string name="v2_history_consumption_month">%1$s in this month</string>
+    <string name="v2_history_consumption_year">%1$s in this year</string>
+    <string name="v2_history_consumption_period">%1$s in this period</string>
     <string name="v2_metric_temperature">Water temperature</string>
     <string name="v2_metric_flow">Flow</string>
     <string name="v2_metric_alarms">Alarms</string>
