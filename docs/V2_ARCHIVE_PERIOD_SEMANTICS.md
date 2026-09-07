@@ -42,6 +42,30 @@ Never subtract across meter replacement, archive granularity or a missing interm
 
 Positive volume, reverse volume and tariff volume must follow the same rule if a future UI presents them as period amounts rather than raw register readings.
 
+## Live consumption reference
+
+A Live reading is a point-in-time reading, not a completed archive period. Its History delta therefore follows a different predecessor rule from Hour/Day/Month archive cards.
+
+For a Live observation, compare the cumulative total with the **newest strictly earlier known cumulative reading from the same physical meter**, regardless of whether that previous observation came from:
+
+- Live;
+- Hour;
+- Day;
+- Month.
+
+This makes each Live reading join the chronological History stream instead of forming a separate Live-only delta series.
+
+Examples:
+
+- Hour boundary `2026-09-06 18:00` followed by Live at `19:23` -> Live may display consumption `since 06.09.2026 18:00`.
+- If no newer Hour/Live value exists and the newest reference is a Day boundary, the Live card may reference that Day boundary date.
+- If the newest available reference is a Month archive record, the Live card may use the human Month-period label of that record.
+- A later Live read should normally use the preceding Live read if it is now the newest known earlier reading.
+
+Live predecessor selection must never cross a meter replacement, must reject negative/reset-like cumulative deltas, and must not use an observation at the exact same timeline timestamp as a strictly earlier reference.
+
+This Live-specific rule does **not** relax the archive-period rule: Hour/Day/Month consumption remains same-meter + same-granularity + adjacent-period only.
+
 ## Historical alarm flags
 
 Historical alarm/error flags attached to an archive record are period evidence.
