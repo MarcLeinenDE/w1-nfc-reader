@@ -10,7 +10,7 @@ import java.nio.file.Paths;
 
 import org.junit.Test;
 
-/** Guards the intentionally temporary physical-validation UI. */
+/** Guards the intentionally temporary physical-validation UI and retired legacy sync route. */
 public final class HistorySyncTemporaryDebugUiTest {
     @Test public void temporaryDebugIsDebugOnlySelectableAndPrivacyBounded() throws Exception {
         String activity = read(projectFile(
@@ -38,17 +38,21 @@ public final class HistorySyncTemporaryDebugUiTest {
         assertFalse(debug.contains("mbusFrame"));
     }
 
-    @Test public void overviewLegacyHistoryActionIsHiddenDuringV2Migration() throws Exception {
+    @Test public void overviewLegacyHistoryRouteIsRemovedAfterV2Migration() throws Exception {
         String base = read(projectFile(
                 "src/main/java/de/marcleinen/engineeringlab/qalcosonic/MaterialBaseActivity.java"));
-        String hider = read(projectFile(
-                "src/main/java/de/marcleinen/engineeringlab/qalcosonic/LegacyOverviewHistoryActionHider.java"));
+        String dashboard = read(projectFile(
+                "src/main/java/de/marcleinen/engineeringlab/qalcosonic/ProductDashboardActivity.java"));
 
-        assertTrue(base.contains("LegacyOverviewHistoryActionHider.hide(this)"));
-        assertTrue(hider.contains("R.string.m3_sync_history"));
-        assertTrue(hider.contains("R.string.m3_calculated_note"));
-        assertTrue(hider.contains("View.GONE"));
-        assertTrue(hider.contains("instanceof MaterialButton"));
+        assertFalse(base.contains("LegacyOverviewHistoryActionHider"));
+        assertFalse(dashboard.contains("HistorySyncFlow"));
+        assertFalse(dashboard.contains("performHistoryContact("));
+        assertFalse(dashboard.contains("MonthlyArchiveNfcWire"));
+        assertFalse(dashboard.contains("MonthlyArchiveTransportAdapter"));
+        assertFalse(Files.exists(projectPath(
+                "src/main/java/de/marcleinen/engineeringlab/qalcosonic/LegacyOverviewHistoryActionHider.java")));
+        assertFalse(Files.exists(projectPath(
+                "src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncFlow.java")));
     }
 
     private static String read(Path path) throws Exception {
@@ -56,10 +60,13 @@ public final class HistorySyncTemporaryDebugUiTest {
     }
 
     private static Path projectFile(String relative) {
-        Path module = Paths.get(relative);
-        if (Files.exists(module)) return module;
-        Path root = Paths.get("app").resolve(relative);
-        if (Files.exists(root)) return root;
+        Path path = projectPath(relative);
+        if (Files.exists(path)) return path;
         throw new AssertionError(relative + " not found from " + Paths.get("").toAbsolutePath());
+    }
+
+    private static Path projectPath(String relative) {
+        if (Files.exists(Paths.get("src"))) return Paths.get(relative);
+        return Paths.get("app").resolve(relative);
     }
 }
