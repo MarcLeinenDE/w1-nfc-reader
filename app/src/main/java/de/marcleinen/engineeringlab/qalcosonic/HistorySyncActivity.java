@@ -652,9 +652,11 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
             TextView stateView) {
         ArchiveFamilySyncState state = syncStateStore.get(meter, family);
         if (state.baselineComplete()) {
+            String baseline = getString(R.string.m3_history_baseline_complete);
             stateView.setText(state.lastSuccessMs > 0L
-                    ? getString(R.string.m3_last_read, formatDateTime(state.lastSuccessMs))
-                    : getString(R.string.m3_state_sync_ok_title));
+                    ? baseline + " · " + getString(
+                    R.string.m3_last_read, formatDateTime(state.lastSuccessMs))
+                    : baseline);
         } else if (state.lastAttemptOutcome == ArchiveFamilySyncState.AttemptOutcome.PARTIAL) {
             stateView.setText(getString(R.string.m3_sync_partial_family_detail, state.accepted));
         } else if (state.lastAttemptOutcome == ArchiveFamilySyncState.AttemptOutcome.FAILED) {
