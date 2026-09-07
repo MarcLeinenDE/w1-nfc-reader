@@ -6,4 +6,5 @@
     <string name="m3_sync_retry">Synchronizuj ponownie</string>
     <string name="m3_sync_partial_family_detail">Ostatnia próba: przetworzono %1$d rekordów. Zapisane dane zostają zachowane — po prostu uruchom ponownie.</string>
     <string name="m3_state_sync_partial_body_v2">Synchronizacja została przerwana przed zakończeniem. Zapisane dane zostają zachowane. Uruchom tę samą synchronizację ponownie; identyczne rekordy zostaną rozpoznane, a brakujące rekordy dodane.</string>
+    <string name="m3_history_baseline_complete">Pełna baza historii</string>
 </resources>
