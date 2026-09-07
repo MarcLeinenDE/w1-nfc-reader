@@ -34,6 +34,7 @@ abstract class MaterialBaseActivity extends AppCompatActivity {
             LegacyOverviewHistoryActionHider.hide(this);
         }
         if (this instanceof ProductDashboardActivity
+                || this instanceof HistoryStatisticsActivity
                 || this instanceof MeterDetailsActivity
                 || this instanceof SettingsActivity) {
             ProductDrawerNavigation.attach(this);
