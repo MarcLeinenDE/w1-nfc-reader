@@ -5,6 +5,11 @@
     <string name="v2_period_day">Diena</string>
     <string name="v2_period_month">Mėnuo</string>
     <string name="v2_period_year">Metai</string>
+    <string name="v2_history_consumption_hour">%1$s per šią valandą</string>
+    <string name="v2_history_consumption_day">%1$s šią dieną</string>
+    <string name="v2_history_consumption_month">%1$s per šį mėnesį</string>
+    <string name="v2_history_consumption_year">%1$s per šiuos metus</string>
+    <string name="v2_history_consumption_period">%1$s per šį laikotarpį</string>
     <string name="v2_metric_temperature">Vandens temperatūra</string>
     <string name="v2_metric_flow">Srautas</string>
     <string name="v2_metric_alarms">Įspėjimai</string>
