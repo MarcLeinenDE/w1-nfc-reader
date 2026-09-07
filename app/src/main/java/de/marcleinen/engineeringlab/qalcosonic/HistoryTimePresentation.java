@@ -123,23 +123,17 @@ final class HistoryTimePresentation {
                                     HistoryStatisticsRepository.Observation previous) {
         if (current == null || previous == null) return "";
         Locale use = locale == null ? Locale.getDefault() : locale;
-        if (previous.live && previous.deviceTimeMs > 0L) return formatDeviceDateTime(use, previous.deviceTimeMs);
+        if (previous.live && previous.deviceTimeMs > 0L) {
+            return formatDeviceDateTime(use, previous.deviceTimeMs);
+        }
+        if (!previous.live) {
+            HistorySemanticTimeline.Granularity granularity = previous.granularity == null
+                    ? current.granularity : previous.granularity;
+            return formatArchivePeriod(use, granularity, previous.timestamp);
+        }
         Date floating = parseFloating(previous.timestamp);
         if (floating == null) return previous.timestamp == null ? "" : previous.timestamp;
-        switch (current.granularity) {
-            case HOUR:
-                if (sameFloatingDate(current.timestamp, previous.timestamp)) return formatFloatingTime(use, floating);
-                return formatFloatingDate(use, floating) + " · " + formatFloatingTime(use, floating);
-            case DAY:
-                return formatFloatingDate(use, floating);
-            case MONTH:
-                return formatFloatingMonth(use, floating);
-            case YEAR:
-                return formatFloatingYear(use, floating);
-            case LIVE:
-            default:
-                return formatFloatingDate(use, floating) + " · " + formatFloatingTime(use, floating);
-        }
+        return formatFloatingDate(use, floating) + " · " + formatFloatingTime(use, floating);
     }
 
     static String formatAxis(Locale locale, HistorySemanticTimeline.Granularity granularity,
@@ -237,11 +231,6 @@ final class HistoryTimePresentation {
         format.setTimeZone(FLOATING_ZONE);
         try { return format.parse(timestamp.trim()); }
         catch (ParseException ignored) { return null; }
-    }
-
-    private static boolean sameFloatingDate(String first, String second) {
-        return first != null && second != null && first.length() >= 10 && second.length() >= 10
-                && first.substring(0, 10).equals(second.substring(0, 10));
     }
 
     private static boolean sameFloatingDate(Date first, Date second) {
