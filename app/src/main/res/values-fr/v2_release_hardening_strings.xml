@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_filter_button_cd">Filtrer l’historique</string>
+    <string name="v2_filter_button_active_cd">Filtre d’historique actif</string>
+    <string name="v2_sync_settings_summary">Synchroniser et mettre à jour l’historique horaire, quotidien et mensuel</string>
+
+    <string name="v2_diag_signing_title">Signature de l’application</string>
+    <string name="v2_diag_signing_stable">L’identité de signature CI/release stable est configurée pour ce build</string>
+    <string name="v2_diag_signing_debug">Une identité de signature de développement/debug est utilisée pour ce build</string>
+    <string name="v2_diag_protocol_value">Validé physiquement : Live, Heure, Jour et Mois</string>
+    <string name="v2_diag_year_not_exposed">Année/Facturation n’est pas proposé comme contrôle de synchronisation de l’historique v2.</string>
+    <string name="v2_diag_data_title">État des données locales</string>
+    <string name="v2_diag_family_line">%1$s : %2$d enregistrements · %3$s</string>
+    <string name="v2_diag_privacy_title">Confidentialité du diagnostic</string>
+    <string name="v2_diag_privacy_body">Cet écran lit uniquement l’état local du produit. Il n’affiche ni trafic NFC brut, ni trames M-Bus brutes, ni traces de terrain privées.</string>
+
+    <string name="v2_about_privacy_sharing_body">Les données ne quittent l’application qu’après une action explicite de l’utilisateur. Les données produit normales, sauvegardes et exports restent locaux jusqu’à ce que vous choisissiez de les enregistrer ou de les partager. L’état de diagnostic affiché dans l’application est local et ne contient aucune trace NFC ou M-Bus brute.</string>
+    <string name="v2_about_research_lineage">Le projet upstream et son auteur sont crédités afin de conserver visible l’origine de la recherche protocolaire. Le comportement pertinent a aussi été vérifié indépendamment avec le projet open source AxiomaQalcosonicW1NFCReaderAndroid ; aucun code de ce projet n’est intégré à cette application.</string>
+</resources>
