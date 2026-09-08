@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_full_resync_title">Vollständiger Re-Sync</string>
+    <string name="v2_full_resync_body">Erweiterte Prüfung der vollständigen Stunden-, Tages- und Monatshistorie. Für normale Aktualisierungen die reguläre Synchronisierung verwenden. Der vollständige Re-Sync liest das verfügbare Archiv erneut von Anfang an, behält vorhandene Daten und kann so lange dauern wie die erste Synchronisierung. Verfügbar, sobald alle drei Historien-Baselines vollständig sind.</string>
+    <string name="v2_full_resync_action">Vollständigen Re-Sync starten</string>
+    <string name="v2_full_resync_confirm_title">Vollständigen Re-Sync starten?</string>
+    <string name="v2_full_resync_confirm_body">Dies kann so lange dauern wie die erste Historiensynchronisierung. Halte das Smartphone bis zum Abschluss auf demselben Zähler. Vorhandene Historie wird nicht gelöscht; übereinstimmende Zeiträume werden bestätigt und Abweichungen als Revisions- oder Konflikthinweise erhalten.</string>
+    <string name="v2_full_resync_confirm_action">Starten</string>
+    <string name="v2_full_resync_requires_baselines">Schließe zuerst die initiale Stunden-, Tages- und Monatshistorie vollständig ab.</string>
+    <string name="v2_full_resync_armed_body">Vollständiger Re-Sync ist vorgemerkt. Halte denselben Zähler erneut an das Smartphone. Der Archivzugriff startet erst nach verifizierter Zähleridentität.</string>
+    <string name="v2_full_resync_running_body">Der vollständige Re-Sync prüft Stunde, Tag und Monat. Smartphone ruhig halten; validierte Zeiträume werden sofort gespeichert.</string>
+</resources>
