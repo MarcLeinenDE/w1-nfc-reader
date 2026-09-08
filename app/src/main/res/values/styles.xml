@@ -1,19 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:colorBackground">@color/app_background</item>
+        <item name="colorOnBackground">@color/app_on_background</item>
+
         <item name="colorPrimary">@color/app_primary</item>
         <item name="colorOnPrimary">@color/app_on_primary</item>
         <item name="colorPrimaryContainer">@color/app_primary_container</item>
         <item name="colorOnPrimaryContainer">@color/app_on_primary_container</item>
+        <item name="colorPrimaryInverse">@color/app_inverse_primary</item>
+
         <item name="colorSecondary">@color/app_secondary</item>
         <item name="colorOnSecondary">@color/app_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/app_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/app_on_secondary_container</item>
+
+        <item name="colorTertiary">@color/app_tertiary</item>
+        <item name="colorOnTertiary">@color/app_on_tertiary</item>
+        <item name="colorTertiaryContainer">@color/app_tertiary_container</item>
+        <item name="colorOnTertiaryContainer">@color/app_on_tertiary_container</item>
+
         <item name="colorSurface">@color/app_surface</item>
         <item name="colorOnSurface">@color/app_on_surface</item>
         <item name="colorSurfaceVariant">@color/app_surface_variant</item>
         <item name="colorOnSurfaceVariant">@color/app_on_surface_variant</item>
+        <item name="colorSurfaceBright">@color/app_surface_bright</item>
+        <item name="colorSurfaceDim">@color/app_surface_dim</item>
+        <item name="colorSurfaceContainerLowest">@color/app_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/app_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/app_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/app_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/app_surface_container_highest</item>
+        <item name="colorSurfaceInverse">@color/app_inverse_surface</item>
+        <item name="colorOnSurfaceInverse">@color/app_inverse_on_surface</item>
+
         <item name="colorOutline">@color/app_outline</item>
+        <item name="colorOutlineVariant">@color/app_outline_variant</item>
+
         <item name="colorError">@color/app_error</item>
         <item name="colorOnError">@color/app_on_error</item>
+        <item name="colorErrorContainer">@color/app_error_container</item>
+        <item name="colorOnErrorContainer">@color/app_on_error_container</item>
+
+        <item name="scrimBackground">@color/app_scrim</item>
+
         <item name="android:fontFamily">sans</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>

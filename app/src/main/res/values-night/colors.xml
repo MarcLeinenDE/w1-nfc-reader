@@ -1,19 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="app_primary">#9ECAFF</color>
-    <color name="app_on_primary">#003258</color>
-    <color name="app_primary_container">#00497D</color>
-    <color name="app_on_primary_container">#D1E4FF</color>
-    <color name="app_secondary">#BBC7DB</color>
-    <color name="app_on_secondary">#253140</color>
-    <color name="app_surface">#111318</color>
-    <color name="app_on_surface">#E2E2E9</color>
-    <color name="app_surface_variant">#43474E</color>
-    <color name="app_on_surface_variant">#C3C7CF</color>
-    <color name="app_outline">#8D9199</color>
+    <!-- Shared Warm White + Graphite + Muted Red design system: Dark -->
+    <color name="app_background">#121010</color>
+
+    <color name="app_primary">#EF686B</color>
+    <color name="app_on_primary">#3A0509</color>
+    <color name="app_primary_container">#552629</color>
+    <color name="app_on_primary_container">#FFDAD9</color>
+
+    <color name="app_secondary">#D8CACA</color>
+    <color name="app_on_secondary">#392D2F</color>
+    <color name="app_secondary_container">#514345</color>
+    <color name="app_on_secondary_container">#F5DDDF</color>
+
+    <color name="app_tertiary">#E3BDB8</color>
+    <color name="app_on_tertiary">#442925</color>
+    <color name="app_tertiary_container">#5A3E3B</color>
+    <color name="app_on_tertiary_container">#F8DDD8</color>
+
+    <color name="app_surface">#121010</color>
+    <color name="app_on_surface">#FFF8F7</color>
+    <color name="app_surface_variant">#251E1F</color>
+    <color name="app_on_surface_variant">#D8CACA</color>
+    <color name="app_surface_bright">#3A3031</color>
+    <color name="app_surface_dim">#121010</color>
+    <color name="app_surface_container_lowest">#0D0B0B</color>
+    <color name="app_surface_container_low">#1B1717</color>
+    <color name="app_surface_container">#201A1B</color>
+    <color name="app_surface_container_high">#251E1F</color>
+    <color name="app_surface_container_highest">#302728</color>
+
+    <color name="app_on_background">#FFF8F7</color>
+    <color name="app_outline">#9A8586</color>
+    <color name="app_outline_variant">#594A4B</color>
+
     <color name="app_error">#FFB4AB</color>
     <color name="app_on_error">#690005</color>
+    <color name="app_error_container">#93000A</color>
+    <color name="app_on_error_container">#FFDAD6</color>
+
+    <!-- Semantic status colors stay separate from the red brand accent. -->
     <color name="app_success">#9CD49D</color>
+    <color name="app_on_success">#003910</color>
     <color name="app_success_container">#155126</color>
     <color name="app_on_success_container">#B9F0BA</color>
+
+    <color name="app_warning">#FFC56D</color>
+    <color name="app_on_warning">#472A00</color>
+    <color name="app_warning_container">#5B3A00</color>
+    <color name="app_on_warning_container">#FFE2A7</color>
+
+    <color name="app_inverse_surface">#E8DDDC</color>
+    <color name="app_inverse_on_surface">#332728</color>
+    <color name="app_inverse_primary">#B64A4D</color>
+    <color name="app_scrim">#000000</color>
 </resources>

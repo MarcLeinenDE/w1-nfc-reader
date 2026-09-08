@@ -36,8 +36,8 @@ android {
         applicationId = "de.marcleinen.w1nfcreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 43
-        versionName = "2.0.0"
+        versionCode = 44
+        versionName = "2.0.1-dev.1"
 
         buildConfigField("String", "BUILD_COMMIT", buildConfigString(buildCommit))
         buildConfigField("String", "SOURCE_REPOSITORY_URL", buildConfigString(sourceRepositoryUrl))

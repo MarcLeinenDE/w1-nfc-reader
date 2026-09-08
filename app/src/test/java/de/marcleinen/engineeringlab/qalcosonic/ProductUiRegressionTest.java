@@ -134,14 +134,14 @@ public final class ProductUiRegressionTest {
         assertFalse(share.contains("MonthlyArchive"));
     }
 
-    // This test intentionally guards release identity/privacy policy as source invariants.
-    @Test public void publicReleaseIdentityAndPrivacyBoundaryAreLocked() throws Exception {
+    // This test intentionally guards application identity/privacy policy as source invariants.
+    @Test public void publicApplicationIdentityAndPrivacyBoundaryAreLocked() throws Exception {
         String build = read(appBuildGradle());
         String manifest = read(projectFile("src/main/AndroidManifest.xml"));
 
         assertTrue(build.contains("applicationId = \"de.marcleinen.w1nfcreader\""));
-        assertTrue(build.contains("versionCode = 43"));
-        assertTrue(build.contains("versionName = \"2.0.0\""));
+        assertTrue(build.contains("versionCode = 44"));
+        assertTrue(build.contains("versionName = \"2.0.1-dev.1\""));
 
         assertTrue(manifest.contains("android.permission.NFC"));
         assertFalse(manifest.contains("android.permission.INTERNET"));
