@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_full_resync_title">Volledige her-synchronisatie</string>
+    <string name="v2_full_resync_body">Geavanceerde controle van de volledige uur-, dag- en maandgeschiedenis. Gebruik voor normale updates de gewone synchronisatie. De volledige her-synchronisatie leest het beschikbare archief opnieuw vanaf het begin, behoudt bestaande gegevens en kan even lang duren als de eerste synchronisatie. Beschikbaar zodra alle drie de geschiedenisbaselines compleet zijn.</string>
+    <string name="v2_full_resync_action">Volledige her-synchronisatie starten</string>
+    <string name="v2_full_resync_confirm_title">Volledige her-synchronisatie starten?</string>
+    <string name="v2_full_resync_confirm_body">Dit kan even lang duren als de eerste geschiedenissynchronisatie. Houd de telefoon tot het einde op dezelfde meter. Bestaande geschiedenis wordt niet verwijderd; overeenkomende perioden worden bevestigd en verschillen blijven bewaard als revisie- of conflictinformatie.</string>
+    <string name="v2_full_resync_confirm_action">Starten</string>
+    <string name="v2_full_resync_requires_baselines">Voltooi eerst de initiële uur-, dag- en maandgeschiedenis.</string>
+    <string name="v2_full_resync_armed_body">Volledige her-synchronisatie staat klaar. Houd dezelfde meter opnieuw bij de telefoon. Archieftoegang start pas nadat de meteridentiteit is geverifieerd.</string>
+    <string name="v2_full_resync_running_body">De volledige her-synchronisatie controleert Uur, Dag en Maand. Houd de telefoon stil; gevalideerde perioden worden direct opgeslagen.</string>
+</resources>
