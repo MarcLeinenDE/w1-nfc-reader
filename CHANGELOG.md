@@ -17,7 +17,7 @@ Development line for the next major public version.
 
 ### Added / changed in the current development line
 
-- Started the `2.0.0-dev` development identity (`versionCode 39`).
+- Advanced the side-by-side development identity to `2.0.0-dev.2` (`versionCode 40`) for release-hardening testing.
 - Introduced independent per-meter/per-family History state for Hour, Day and Month, with baseline completeness separate from the latest synchronization attempt.
 - Added validated initial full Hour, Day and Month family synchronization behind explicit Settings actions while keeping normal NFC contact Live-only.
 - Added synchronous immediate persistence for every accepted archive observation so interruption does not roll back already validated records.
@@ -27,6 +27,7 @@ Development line for the next major public version.
 - Live consumption deltas now reference only a strictly earlier Live observation on the same physical meter. Archive deltas remain same-meter and same-granularity.
 - Added combined `Sync All` orchestration for Hour -> reconnect -> Day -> reconnect -> Month. Each family independently selects initial-full or incremental mode from its own authoritative baseline state and still enters the complete per-family safety shell.
 - `Sync All` stops before a following family when the preceding family leaves default application state unverified. A partial family with a verified final restore may allow the next independently protected family session to start while the combined result remains non-complete.
+- Physically validated combined incremental `Sync All` across all three COMPLETE families, including secure known overlap, final restore verification and a normal Live read afterward.
 - Added bounded History and Statistics browsing over Hour, Day, Month and Live observations with completed-period semantics for archive logger boundaries.
 - Added custom History/Statistics start and end date/time ranges without rewriting stored raw logger timestamps.
 - Custom-range History may show overlapping boundary periods for context, while Statistics consumes only fully contained archive periods and never estimates partial Hour/Day/Month consumption.
@@ -36,7 +37,11 @@ Development line for the next major public version.
 - Consolidated History filters and Statistics selectors into a more compact Material product UI.
 - Moved the Live share control beside the existing meter/read-time metadata while keeping it strictly bound to the last successful Live read.
 - Added a two-step Back-to-exit guard on Overview while preserving drawer Back handling priority.
-- Added English, German, French, Polish, Dutch and Lithuanian product strings for the new v2 History, Statistics, custom-range and synchronization states.
+- Restored normal Android Back-stack navigation for History, Statistics, Settings and other secondary screens; Overview remains the single exit root.
+- Replaced fragile text-glyph period arrows with explicit chevron icons and replaced the overflowing History Filter label with a compact filter icon.
+- Removed the temporary physical-validation debug card from the visible History Sync UI in the release-hardening test surface.
+- Refreshed Diagnostics, Settings and About wording for the validated Live/Hour/Day/Month v2 scope and current public repository/privacy state.
+- Added English, German, French, Polish, Dutch and Lithuanian product strings for the new v2 History, Statistics, custom-range, synchronization and hardening states.
 
 ### Protocol/safety invariants retained
 
@@ -49,10 +54,9 @@ Development line for the next major public version.
 
 ### Remaining before stable 2.0.0
 
-- Combined incremental `Sync All` still requires its dedicated limited real-device validation gate before the current implementation is merged from Draft PR #14.
 - Advanced explicit Full Re-Sync UX remains to be finalized.
-- TEMP DEBUG and remaining development-only/experimental surfaces must be removed or cleaned up before stable release.
-- Final upgrade/portable-data verification, accessibility/state hardening, breaking-change guidance and release-candidate validation remain required.
+- The temporary debug formatter/backend that is no longer visible in the product UI should be removed completely before the stable release.
+- Final upgrade/portable-data verification, accessibility/rotation/state hardening, breaking-change guidance and release-candidate validation remain required.
 
 See `docs/V2_BREAKING_CHANGES.md` for the current major-version compatibility policy and `docs/V2_HISTORY_SYNC_ARCHITECTURE.md` for the History integration contract.
 
