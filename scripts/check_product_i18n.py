@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail when a bundled 0.8 normal-product translation drifts from the base resource contract."""
+"""Fail when bundled product/About/support translations drift from the base resource contract."""
 from __future__ import annotations
 
 import re
@@ -9,7 +9,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "app" / "src" / "main" / "res"
-RESOURCE_FILES = ("product_080_strings.xml", "about_080_strings.xml")
+RESOURCE_FILES = (
+    "product_080_strings.xml",
+    "about_080_strings.xml",
+    "v2_support_strings.xml",
+    "v2_full_resync_strings.xml",
+)
 LOCALES = ("de", "fr", "pl", "nl", "lt")
 FORMAT = re.compile(r"%(?!%)(?:(\d+)\$)?(?:[-#+ 0,(<]*)?(?:\d+)?(?:\.\d+)?([a-zA-Z])")
 
@@ -35,7 +40,7 @@ def read_contract(directory: Path) -> dict[str, str]:
             raise FileNotFoundError(path)
         for key, value in read_strings(path).items():
             if key in out:
-                raise ValueError(f"duplicate translated key {key!r} across 0.8 resource files in {directory}")
+                raise ValueError(f"duplicate translated key {key!r} across product resource files in {directory}")
             out[key] = value
     return out
 

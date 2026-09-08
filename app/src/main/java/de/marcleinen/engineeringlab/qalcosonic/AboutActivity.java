@@ -77,8 +77,22 @@ public final class AboutActivity extends MaterialBaseActivity {
                 commit.isEmpty() ? getString(R.string.m3_details_no_value) : commit);
         addDetail(box, R.string.about080_maintainer_label, getString(R.string.about080_maintainer_value));
         addButton(box, R.string.about080_open_maintainer, v -> openUrl(MAINTAINER_URL));
+        addSupportBlock(box);
         card.addView(box);
         MaterialUi.addTopMargin(parent, card, 14);
+    }
+
+    private void addSupportBlock(LinearLayout parent) {
+        TextView title = MaterialUi.title(this, getString(R.string.v2_support_developer_title));
+        title.setPadding(0, MaterialUi.dp(this, 14), 0, 0);
+        parent.addView(title);
+        addBody(parent, R.string.v2_support_developer_body);
+        addButton(parent, R.string.v2_support_developer_button, v -> {
+            if (!DeveloperSupport.openExternal(this)) {
+                Snackbar.make(root == null ? getWindow().getDecorView() : root,
+                        R.string.about080_open_link_failed, Snackbar.LENGTH_LONG).show();
+            }
+        });
     }
 
     private void addIndependentNotice(LinearLayout parent) {

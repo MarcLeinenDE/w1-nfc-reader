@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m3_sync_progress_preparing">%1$s · Synchronisierung wird vorbereitet…</string>
+    <string name="m3_sync_progress_single">%1$s · %2$d Datensätze sicher gespeichert</string>
+    <string name="m3_sync_progress_all">%1$d von %2$d · %3$s · %4$d Datensätze sicher gespeichert</string>
+    <string name="m3_sync_retry">Erneut synchronisieren</string>
+    <string name="m3_sync_partial_family_detail">Letzter Versuch: %1$d Datensätze verarbeitet. Gespeicherte Daten bleiben erhalten – einfach erneut starten.</string>
+    <string name="m3_state_sync_partial_body_v2">Die Synchronisierung wurde vor dem vollständigen Abschluss unterbrochen. Gespeicherte Daten bleiben erhalten. Starte dieselbe Synchronisierung erneut; identische Datensätze werden erkannt und fehlende Datensätze ergänzt.</string>
+    <string name="m3_history_baseline_complete">Historienbasis vollständig</string>
+</resources>

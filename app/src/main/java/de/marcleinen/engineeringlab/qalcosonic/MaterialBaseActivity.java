@@ -10,15 +10,13 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-/** Shared presentation-only base for the 0.8.0 Material 3 surface. */
+/** Shared presentation-only base for the Material 3 product surface. */
 abstract class MaterialBaseActivity extends AppCompatActivity {
     @Override protected void attachBaseContext(Context newBase) {
         super.attachBaseContext(UiPreferences.wrapContext(newBase));
     }
 
     @Override protected void onCreate(Bundle state) {
-        // Theme.Material3.DayNight follows AppCompat's night mode. Apply the persisted app choice
-        // before AppCompat creates the Activity decor so Light/Dark is deterministic on real phones.
         UiPreferences.applyThemeMode(this);
         super.onCreate(state);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
@@ -28,12 +26,18 @@ abstract class MaterialBaseActivity extends AppCompatActivity {
         super.onPostCreate(state);
         if (this instanceof ProductDashboardActivity) {
             LiveShareAction.attach(this);
+            // Register before the drawer callback. The later drawer callback therefore wins while
+            // the navigation drawer is open; otherwise Overview gets the double-back exit guard.
+            DashboardExitGuard.attach((ProductDashboardActivity) this);
+            SeasonalSupportPrompt.attach((ProductDashboardActivity) this);
         }
         if (this instanceof ProductDashboardActivity
+                || this instanceof HistoryStatisticsActivity
                 || this instanceof MeterDetailsActivity
                 || this instanceof SettingsActivity) {
             ProductDrawerNavigation.attach(this);
         }
+        ProductUiHardening.attach(this);
     }
 
     protected final void applySystemInsets(View root) {

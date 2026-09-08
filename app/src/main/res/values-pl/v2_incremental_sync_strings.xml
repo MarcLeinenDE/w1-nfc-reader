@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m3_sync_update_history">Aktualizuj historię</string>
+    <string name="m3_state_incremental_body_v2">Dostępna jest kompletna baza. Aplikacja odczytuje najnowsze rekordy i kończy aktualizację dopiero po dwóch kolejnych rekordach pewnie rozpoznanych jako już znane. Jeśli aktualizacja zostanie przerwana, zapisana baza pozostaje zachowana.</string>
+</resources>

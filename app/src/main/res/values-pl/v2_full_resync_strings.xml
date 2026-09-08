@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_full_resync_title">Pełna ponowna synchronizacja</string>
+    <string name="v2_full_resync_body">Zaawansowana kontrola pełnej historii godzinowej, dziennej i miesięcznej. Do zwykłych aktualizacji używaj standardowej synchronizacji. Pełna ponowna synchronizacja odczytuje dostępne archiwum ponownie od początku, zachowuje istniejące dane i może trwać tak długo jak pierwsza synchronizacja. Jest dostępna po ukończeniu wszystkich trzech baz historii.</string>
+    <string name="v2_full_resync_action">Uruchom pełną ponowną synchronizację</string>
+    <string name="v2_full_resync_confirm_title">Uruchomić pełną ponowną synchronizację?</string>
+    <string name="v2_full_resync_confirm_body">Może to potrwać tak długo jak pierwsza synchronizacja historii. Trzymaj telefon przy tym samym liczniku aż do zakończenia. Istniejąca historia nie jest usuwana; zgodne okresy są potwierdzane, a różnice pozostają zachowane jako informacje o rewizji lub konflikcie.</string>
+    <string name="v2_full_resync_confirm_action">Uruchom</string>
+    <string name="v2_full_resync_requires_baselines">Najpierw ukończ początkową synchronizację historii godzinowej, dziennej i miesięcznej.</string>
+    <string name="v2_full_resync_armed_body">Pełna ponowna synchronizacja jest przygotowana. Przyłóż ponownie ten sam licznik. Dostęp do archiwum rozpocznie się dopiero po zweryfikowaniu tożsamości licznika.</string>
+    <string name="v2_full_resync_running_body">Pełna ponowna synchronizacja sprawdza historię godzinową, dzienną i miesięczną. Trzymaj telefon nieruchomo; zweryfikowane okresy są zapisywane natychmiast.</string>
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m3_sync_update_history">Historie aktualisieren</string>
+    <string name="m3_state_incremental_body_v2">Eine vollständige Basis ist vorhanden. Die App liest die neuesten Datensätze und beendet die Aktualisierung erst nach zwei aufeinanderfolgenden sicher bekannten Datensätzen. Bei einer Unterbrechung bleibt die gespeicherte Basis erhalten.</string>
+</resources>

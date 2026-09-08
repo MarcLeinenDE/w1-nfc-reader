@@ -66,6 +66,10 @@ public final class SettingsActivity extends MaterialBaseActivity {
         addSectionTitle(content, R.string.m3_settings_data);
         MaterialCardView data = MaterialUi.card(this);
         LinearLayout dataContent = MaterialUi.vertical(this);
+        dataContent.addView(MaterialUi.settingRow(this, R.drawable.ic_m3_settings,
+                getString(R.string.m3_sync_history), getString(R.string.m3_history_subtitle),
+                v -> startActivity(new Intent(this, HistorySyncActivity.class))));
+        dataContent.addView(MaterialUi.divider(this));
         dataContent.addView(MaterialUi.settingRow(this, R.drawable.ic_m3_backup,
                 getString(R.string.m3_export_csv), getString(R.string.m3_export_csv_summary),
                 v -> csvCreate.launch(csvFileName())));
@@ -103,7 +107,7 @@ public final class SettingsActivity extends MaterialBaseActivity {
             if (uri == null) return;
             try (OutputStream out = getContentResolver().openOutputStream(uri, "w")) {
                 if (out == null) throw new IllegalStateException("no output stream");
-                DataPortability.writeCsv(this, out);
+                DataPortabilityCsvV3.writeCsv(this, out);
                 message(R.string.m3_export_success);
             } catch (Exception error) {
                 message(R.string.m3_export_failed);
@@ -133,7 +137,16 @@ public final class SettingsActivity extends MaterialBaseActivity {
 
     private void showRestorePreview(DataPortability.BackupPreview preview) {
         String body = getString(R.string.m3_backup_preview, preview.createdUtc, preview.activeMeterId,
-                preview.liveReadings, preview.archivePeriods);
+                preview.liveReadings, preview.archivePeriods)
+                + "\n\n"
+                + getString(R.string.m3_filter_hour) + ": " + preview.hourPeriods + " · "
+                + baselineLabel(preview.hourBaselineState)
+                + "\n"
+                + getString(R.string.m3_filter_day) + ": " + preview.dayPeriods + " · "
+                + baselineLabel(preview.dayBaselineState)
+                + "\n"
+                + getString(R.string.m3_filter_month) + ": " + preview.monthPeriods + " · "
+                + baselineLabel(preview.monthBaselineState);
         new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.m3_backup_preview_title)
                 .setMessage(body)
@@ -147,6 +160,16 @@ public final class SettingsActivity extends MaterialBaseActivity {
                         message(R.string.m3_restore_failed);
                     }
                 }).show();
+    }
+
+    private String baselineLabel(ArchiveFamilySyncState.BaselineState state) {
+        if (state == ArchiveFamilySyncState.BaselineState.COMPLETE) {
+            return getString(R.string.m3_history_baseline_complete);
+        }
+        if (state == ArchiveFamilySyncState.BaselineState.PARTIAL) {
+            return getString(R.string.m3_state_sync_partial_title);
+        }
+        return getString(R.string.m3_no_archive);
     }
 
     private void chooseTheme() {

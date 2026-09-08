@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_full_resync_title">Full Re-Sync</string>
+    <string name="v2_full_resync_body">Advanced check of the complete Hour, Day and Month history. Use the normal update for routine synchronization. Full Re-Sync rereads the exposed archive from the beginning, keeps existing data, and can take as long as the first synchronization. Available after all three history baselines are complete.</string>
+    <string name="v2_full_resync_action">Start full re-sync</string>
+    <string name="v2_full_resync_confirm_title">Start full re-sync?</string>
+    <string name="v2_full_resync_confirm_body">This can take as long as the first history synchronization. Keep the phone on the same meter until the process finishes. Existing history is not deleted; matching periods are confirmed and differences remain preserved as revision or conflict evidence.</string>
+    <string name="v2_full_resync_confirm_action">Start</string>
+    <string name="v2_full_resync_requires_baselines">Complete the initial Hour, Day and Month history synchronization first.</string>
+    <string name="v2_full_resync_armed_body">Full Re-Sync is armed. Present the same meter again. Archive access starts only after its identity is verified.</string>
+    <string name="v2_full_resync_running_body">Full Re-Sync is checking Hour, Day and Month. Keep the phone still; validated periods are saved immediately.</string>
+</resources>

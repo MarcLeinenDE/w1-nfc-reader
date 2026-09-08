@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_filter_button_cd">Historie filtern</string>
+    <string name="v2_filter_button_active_cd">Historienfilter aktiv</string>
+    <string name="v2_sync_settings_summary">Stunden-, Tages- und Monatshistorie synchronisieren und aktualisieren</string>
+
+    <string name="v2_diag_signing_title">App-Signatur</string>
+    <string name="v2_diag_signing_stable">Für diesen Build ist die stabile CI-/Release-Signatur eingerichtet</string>
+    <string name="v2_diag_signing_debug">Für diesen Build wird eine Entwicklungs-/Debugsignatur verwendet</string>
+    <string name="v2_diag_protocol_value">Physisch validiert: Live, Stunde, Tag und Monat</string>
+    <string name="v2_diag_year_not_exposed">Jahr/Billing wird in v2 nicht als Historiensynchronisierung angeboten.</string>
+    <string name="v2_diag_data_title">Lokaler Datenstatus</string>
+    <string name="v2_diag_family_line">%1$s: %2$d Datensätze · %3$s</string>
+    <string name="v2_diag_privacy_title">Datenschutz der Diagnose</string>
+    <string name="v2_diag_privacy_body">Diese Ansicht liest nur lokalen Produktstatus. Sie zeigt weder rohen NFC-Verkehr noch rohe M-Bus-Frames oder private Feldtraces an.</string>
+
+    <string name="v2_about_privacy_sharing_body">Daten verlassen die App nur nach einer ausdrücklichen Nutzeraktion. Normale Produktdaten, Backups und Exporte bleiben lokal, bis du sie bewusst speicherst oder teilst. Der in der App angezeigte Diagnosestatus ist lokal und enthält keine rohen NFC- oder M-Bus-Traces.</string>
+    <string name="v2_about_research_lineage">Das Upstream-Projekt und sein Autor werden genannt, damit die Herkunft der Protokollrecherche sichtbar bleibt. Relevantes Verhalten wurde zusätzlich unabhängig mit dem Open-Source-Projekt AxiomaQalcosonicW1NFCReaderAndroid gegengeprüft; Code dieses Projekts wird nicht in dieser App gebündelt.</string>
+</resources>

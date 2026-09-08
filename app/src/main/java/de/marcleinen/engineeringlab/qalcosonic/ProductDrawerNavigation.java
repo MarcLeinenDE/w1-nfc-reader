@@ -18,22 +18,13 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.navigation.NavigationView;
 
-/**
- * Shared visible product navigation for the Material 3 surface.
- *
- * All five normal product destinations expose one consistent Material navigation drawer.
- * Dashboard page selection is handled directly; no hidden secondary navigation surface remains.
- */
+/** Shared visible product navigation for the Material 3 surface. */
 final class ProductDrawerNavigation {
     private static final int NAV_OVERVIEW = 0x8101;
-    private static final int NAV_HISTORY = 0x8102;
-    private static final int NAV_STATS = 0x8103;
+    private static final int NAV_HISTORY = HistoryStatisticsActivity.NAV_HISTORY;
+    private static final int NAV_STATS = HistoryStatisticsActivity.NAV_STATS;
     private static final int DRAWER_DETAILS = 0x8301;
     private static final int DRAWER_SETTINGS = 0x8302;
-
-    // Used only while moving from a secondary product Activity back to the dashboard. CLEAR_TOP
-    // recreates the dashboard, so the requested page is consumed when its drawer is attached.
-    private static int pendingDashboardNavItem;
 
     private ProductDrawerNavigation() { }
 
@@ -47,6 +38,8 @@ final class ProductDrawerNavigation {
 
         ProductDashboardActivity dashboard = activity instanceof ProductDashboardActivity
                 ? (ProductDashboardActivity) activity : null;
+        HistoryStatisticsActivity historyStatistics = activity instanceof HistoryStatisticsActivity
+                ? (HistoryStatisticsActivity) activity : null;
 
         toolbar.getMenu().clear();
         toolbar.setTitle(R.string.app_name);
@@ -84,11 +77,6 @@ final class ProductDrawerNavigation {
         buildMenu(navigationView.getMenu());
         navigationView.getMenu().setGroupCheckable(1, true, true);
         navigationView.getMenu().setGroupCheckable(2, true, true);
-
-        if (dashboard != null && isDashboardNav(pendingDashboardNavItem)) {
-            dashboard.selectNavigationItem(pendingDashboardNavItem);
-            pendingDashboardNavItem = 0;
-        }
         syncCheckedItem(activity, navigationView);
         applyDrawerInsets(navigationView);
 
@@ -117,14 +105,25 @@ final class ProductDrawerNavigation {
 
         navigationView.setNavigationItemSelectedListener(item -> {
             int id = item.getItemId();
-            if (isDashboardNav(id)) {
+            if (id == NAV_OVERVIEW) {
                 navigationView.setCheckedItem(id);
                 if (dashboard != null) {
                     closeThenRun(drawerLayout, afterDrawerClose,
-                            () -> dashboard.selectNavigationItem(id));
+                            () -> dashboard.selectNavigationItem(NAV_OVERVIEW));
                 } else {
                     closeThenRun(drawerLayout, afterDrawerClose,
-                            () -> openDashboard(activity, id));
+                            () -> openDashboard(activity));
+                }
+                return true;
+            }
+            if (id == NAV_HISTORY || id == NAV_STATS) {
+                navigationView.setCheckedItem(id);
+                if (historyStatistics != null
+                        && historyStatistics.currentNavigationItemId() == id) {
+                    drawerLayout.closeDrawer(GravityCompat.START, true);
+                } else {
+                    closeThenRun(drawerLayout, afterDrawerClose,
+                            () -> openHistoryStatistics(activity, id));
                 }
                 return true;
             }
@@ -156,10 +155,6 @@ final class ProductDrawerNavigation {
         drawerLayout.closeDrawer(GravityCompat.START, true);
     }
 
-    private static boolean isDashboardNav(int id) {
-        return id == NAV_OVERVIEW || id == NAV_HISTORY || id == NAV_STATS;
-    }
-
     private static void buildMenu(Menu menu) {
         menu.add(1, NAV_OVERVIEW, 0, R.string.m3_nav_overview)
                 .setIcon(R.drawable.ic_m3_water).setCheckable(true);
@@ -188,20 +183,24 @@ final class ProductDrawerNavigation {
         navigationView.addHeaderView(header);
     }
 
-    private static void openDashboard(MaterialBaseActivity activity, int navItemId) {
-        pendingDashboardNavItem = navItemId;
+    /** Overview is the single task root. Returning to it clears only screens above it. */
+    private static void openDashboard(MaterialBaseActivity activity) {
         Intent intent = new Intent(activity, ProductDashboardActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        activity.startActivity(intent);
-        activity.finish();
-    }
-
-    private static void openSecondary(MaterialBaseActivity activity,
-                                      Class<? extends MaterialBaseActivity> target) {
-        Intent intent = new Intent(activity, target)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         activity.startActivity(intent);
-        activity.finish();
+    }
+
+    /** History/Statistics are normal destinations so Android Back can return to the prior screen. */
+    private static void openHistoryStatistics(MaterialBaseActivity activity, int navItemId) {
+        Intent intent = new Intent(activity, HistoryStatisticsActivity.class)
+                .putExtra(HistoryStatisticsActivity.EXTRA_NAV_ITEM, navItemId);
+        activity.startActivity(intent);
+    }
+
+    /** Secondary destinations stay on the task stack instead of replacing their caller. */
+    private static void openSecondary(MaterialBaseActivity activity,
+                                      Class<? extends MaterialBaseActivity> target) {
+        activity.startActivity(new Intent(activity, target));
     }
 
     private static void applyDrawerInsets(NavigationView navigationView) {
@@ -229,9 +228,13 @@ final class ProductDrawerNavigation {
             navigationView.setCheckedItem(DRAWER_SETTINGS);
             return;
         }
-        if (activity instanceof ProductDashboardActivity) {
+        if (activity instanceof HistoryStatisticsActivity) {
             navigationView.setCheckedItem(
-                    ((ProductDashboardActivity) activity).currentNavigationItemId());
+                    ((HistoryStatisticsActivity) activity).currentNavigationItemId());
+            return;
+        }
+        if (activity instanceof ProductDashboardActivity) {
+            navigationView.setCheckedItem(NAV_OVERVIEW);
             return;
         }
         navigationView.setCheckedItem(NAV_OVERVIEW);

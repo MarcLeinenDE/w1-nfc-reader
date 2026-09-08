@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_custom_range">Aangepaste periode</string>
+    <string name="v2_choose_calendar_period">Kalenderperiode kiezen</string>
+    <string name="v2_apply">Toepassen</string>
+    <string name="v2_range_from">Van: %1$s</string>
+    <string name="v2_range_to">Tot: %1$s</string>
+    <string name="v2_range_end_after_start">Het einde moet na het begin liggen.</string>
+    <string name="v2_filter">Filter</string>
+    <string name="v2_filter_active_count">Filter · %1$d</string>
+    <string name="v2_metric_choose">Meting kiezen</string>
+    <string name="v2_resolution">Resolutie</string>
+    <string name="v2_resolution_auto_value">Automatisch · %1$s</string>
+    <string name="v2_resolution_value">Resolutie · %1$s</string>
+    <string name="v2_resolution_with_count">%1$s · %2$d volledige perioden</string>
+    <string name="v2_available_data_format">Beschikbaar: Live %1$d · Uur %2$d · Dag %3$d · Maand %4$d</string>
+    <string name="v2_range_no_full_buckets">Er ligt geen volledige %1$s-archiefperiode volledig binnen dit bereik. Met deze resolutie kan geen nauwkeuriger totaal worden afgeleid.</string>
+    <string name="v2_range_edges_not_exact">Begin of einde valt niet op %1$s-archiefgrenzen. Statistieken gebruiken alleen volledig ingesloten perioden (%2$s – %3$s); verbruik van deelperioden wordt niet geschat.</string>
+    <string name="v2_range_archive_coverage">%1$s-archiefdekking: %2$d van %3$d volledige perioden opgeslagen.</string>
+    <string name="v2_kpi_contained_total">Ingesloten perioden</string>
+    <string name="v2_kpi_known_total">Bekend totaal</string>
+    <string name="v2_back_again_to_exit">Druk nogmaals op Terug om af te sluiten</string>
+    <string name="v2_sync_all_body">Elke historiefamilie wordt afzonderlijk bijgewerkt. Volledige baselines gebruiken incrementele synchronisatie; andere families gebruiken de volledige baseline-synchronisatie.</string>
+    <string name="v2_sync_all_update">Alle historie bijwerken</string>
+</resources>

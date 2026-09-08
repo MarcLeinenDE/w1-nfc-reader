@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m3_sync_progress_preparing">%1$s · Ruošiamas sinchronizavimas…</string>
+    <string name="m3_sync_progress_single">%1$s · saugiai išsaugota %2$d įrašų</string>
+    <string name="m3_sync_progress_all">%1$d iš %2$d · %3$s · saugiai išsaugota %4$d įrašų</string>
+    <string name="m3_sync_retry">Sinchronizuoti dar kartą</string>
+    <string name="m3_sync_partial_family_detail">Paskutinis bandymas: apdorota %1$d įrašų. Išsaugoti duomenys lieka — tiesiog paleiskite dar kartą.</string>
+    <string name="m3_state_sync_partial_body_v2">Sinchronizavimas sustojo nepasiekęs pabaigos. Išsaugoti duomenys lieka. Paleiskite tą patį sinchronizavimą dar kartą; identiški įrašai bus atpažinti, o trūkstami įrašai pridėti.</string>
+    <string name="m3_history_baseline_complete">Istorijos bazė užbaigta</string>
+</resources>

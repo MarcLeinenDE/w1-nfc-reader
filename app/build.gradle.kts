@@ -20,14 +20,15 @@ val buildCommit = providers.environmentVariable("GITHUB_SHA").orNull
     ?: "local"
 val sourceRepositoryUrl = providers.environmentVariable("QALCOSONIC_SOURCE_REPOSITORY_URL").orNull
     ?.trim()
-    .orEmpty()
+    ?.takeIf { it.isNotEmpty() }
+    ?: "https://github.com/MarcLeinenDE/w1-nfc-reader"
 
 fun buildConfigString(value: String): String =
     "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
 android {
-    // Keep the established Java namespace for the first public release to avoid a large
-    // mechanical package refactor. The public Android app identity is the applicationId below.
+    // Keep the established Java namespace to avoid a large mechanical package refactor. The
+    // public Android app identity is the applicationId below and remains stable across v2.
     namespace = "de.marcleinen.engineeringlab.qalcosonic"
     compileSdk = 35
 
@@ -35,8 +36,8 @@ android {
         applicationId = "de.marcleinen.w1nfcreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 38
-        versionName = "1.0.0"
+        versionCode = 43
+        versionName = "2.0.0"
 
         buildConfigField("String", "BUILD_COMMIT", buildConfigString(buildCommit))
         buildConfigField("String", "SOURCE_REPOSITORY_URL", buildConfigString(sourceRepositoryUrl))
@@ -64,8 +65,13 @@ android {
 
     buildTypes {
         debug {
+            // Development/test APKs must be installable next to the stable public app. This also
+            // prevents a disposable runner debug key from ever requiring the user to uninstall
+            // the signed stable installation merely to test an in-development protocol change.
+            applicationIdSuffix = ".dev"
+            resValue("string", "app_name", "W1 NFC Reader Dev")
             // Local contributors can use Android's normal debug key. CI may inject a stable
-            // development/release identity explicitly through environment variables.
+            // development identity explicitly through environment variables when desired.
             signingConfigs.findByName("stable")?.let { signingConfig = it }
         }
         release {

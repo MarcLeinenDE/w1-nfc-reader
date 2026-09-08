@@ -1,0 +1,853 @@
+package de.marcleinen.engineeringlab.qalcosonic;
+
+import android.nfc.NfcAdapter;
+import android.nfc.Tag;
+import android.nfc.tech.NfcV;
+import android.os.Bundle;
+import android.os.SystemClock;
+import android.view.Gravity;
+import android.view.View;
+import android.view.WindowManager;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.ScrollView;
+import android.widget.TextView;
+
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.snackbar.Snackbar;
+
+import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/**
+ * Explicit History synchronization surface reached from Settings.
+ *
+ * <p>Normal NFC contact elsewhere in the product remains Live-only. Hour, Day and Month initial
+ * baselines use their individually physically validated v2 safety-shell entry points. Once one
+ * family has a complete baseline, that family uses the conservative incremental path: newest-first
+ * traversal stops only after two consecutive securely known records. Normal Sync All independently
+ * selects INITIAL_FULL or INCREMENTAL for each family. Full Re-Sync is a separate advanced action
+ * that is offered only after all three baselines are complete and deliberately uses FULL_RESYNC for
+ * every family. Both combined actions close/reconnect between families and keep the same family
+ * safety shell: Reset/Live preflight, boundary guard, immediate persistence and final Reset/Live
+ * verification. A failed later attempt never erases an already complete baseline, and a following
+ * family is never started while the default application remains unverified.</p>
+ */
+public final class HistorySyncActivity extends MaterialBaseActivity implements NfcAdapter.ReaderCallback {
+    private static final long BETWEEN_FAMILY_RECONNECT_MS = 1500L;
+    private static final int PROGRESS_RECORD_STEP = 8;
+    private static final long PROGRESS_MIN_INTERVAL_MS = 350L;
+    private static final ArchiveFamilyPeriod.Family[] SYNC_ALL_ORDER = {
+            ArchiveFamilyPeriod.Family.HOUR,
+            ArchiveFamilyPeriod.Family.DAY,
+            ArchiveFamilyPeriod.Family.MONTH
+    };
+
+    private final AtomicBoolean reading = new AtomicBoolean(false);
+
+    private NfcAdapter nfcAdapter;
+    private ArchiveFamilyStore archiveStore;
+    private ArchiveFamilySyncStateStore syncStateStore;
+    private MeterLifecycleStore lifecycleStore;
+
+    private View root;
+    private TextView meterText;
+    private TextView statusTitle;
+    private TextView statusBody;
+    private LinearLayout syncProgressRow;
+    private ProgressBar syncProgressIndicator;
+    private TextView syncProgressText;
+    private TextView monthState;
+    private TextView dayState;
+    private TextView hourState;
+    private MaterialButton monthButton;
+    private MaterialButton dayButton;
+    private MaterialButton hourButton;
+    private MaterialButton allButton;
+    private MaterialButton fullResyncButton;
+
+    private volatile ArchiveFamilyPeriod.Family armedFamily;
+    private volatile ArchiveFamilySyncState.SyncMode armedMode;
+    private volatile boolean armedAll;
+    private volatile boolean armedFullResync;
+    private volatile String targetMeterId;
+
+    @Override protected void onCreate(Bundle state) {
+        super.onCreate(state);
+        archiveStore = new ArchiveFamilyStore(getApplicationContext());
+        syncStateStore = new ArchiveFamilySyncStateStore(getApplicationContext());
+        lifecycleStore = new MeterLifecycleStore(getApplicationContext());
+        nfcAdapter = NfcAdapter.getDefaultAdapter(this);
+        buildUi();
+        refreshState();
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (nfcAdapter != null && nfcAdapter.isEnabled()) {
+            Bundle options = new Bundle();
+            options.putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 200);
+            nfcAdapter.enableReaderMode(this, this,
+                    NfcAdapter.FLAG_READER_NFC_V
+                            | NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK
+                            | NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS,
+                    options);
+        }
+        refreshState();
+    }
+
+    @Override protected void onPause() {
+        if (nfcAdapter != null) nfcAdapter.disableReaderMode(this);
+        if (!reading.get()) disarmSync();
+        super.onPause();
+    }
+
+    @Override protected void onDestroy() {
+        if (archiveStore != null) archiveStore.close();
+        super.onDestroy();
+    }
+
+    @Override public void onTagDiscovered(Tag tag) {
+        final boolean runAll = armedAll;
+        final boolean fullResync = armedFullResync;
+        final ArchiveFamilyPeriod.Family family = armedFamily;
+        final ArchiveFamilySyncState.SyncMode mode = armedMode;
+        final String expectedMeter = targetMeterId;
+        if ((!runAll && (family == null || mode == null)) || expectedMeter == null) return;
+        if (!reading.compareAndSet(false, true)) return;
+
+        if (NfcV.get(tag) == null) {
+            reading.set(false);
+            disarmSync();
+            hideSyncProgress();
+            runOnUiThread(() -> setStatus(
+                    R.string.m3_state_wrong_tag_title,
+                    R.string.m3_state_wrong_tag_body));
+            return;
+        }
+
+        try {
+            runOnUiThread(() -> setStatus(
+                    R.string.m3_state_sync_title,
+                    runAll
+                            ? (fullResync
+                            ? R.string.v2_full_resync_running_body
+                            : R.string.v2_sync_all_body)
+                            : (mode == ArchiveFamilySyncState.SyncMode.INCREMENTAL
+                            ? R.string.m3_state_incremental_body_v2
+                            : R.string.m3_state_sync_body)));
+            if (runAll) {
+                runAllFamilies(tag, expectedMeter, fullResync);
+            } else {
+                runSingleSync(tag, family, expectedMeter, mode);
+            }
+        } catch (Exception error) {
+            runOnUiThread(() -> {
+                hideSyncProgress();
+                setStatus(R.string.m3_state_sync_failed_title, R.string.m3_state_sync_failed_body);
+            });
+        } finally {
+            reading.set(false);
+            disarmSync();
+            hideSyncProgress();
+            runOnUiThread(this::refreshState);
+        }
+    }
+
+    private void runSingleSync(
+            Tag tag,
+            ArchiveFamilyPeriod.Family family,
+            String expectedMeter,
+            ArchiveFamilySyncState.SyncMode mode) throws Exception {
+        showSyncProgress(family, 0, false, 0);
+        NfcV nfcv = NfcV.get(tag);
+        if (nfcv == null) throw new IOException("NFC_V_MISSING");
+        try {
+            nfcv.connect();
+            FamilyAttempt attempt = performFamilyAttempt(
+                    nfcv, tag, family, expectedMeter, mode, false, 0);
+            runOnUiThread(() -> {
+                showAttemptStatus(attempt.complete, attempt.partial);
+                refreshState();
+            });
+        } finally {
+            closeQuietly(nfcv);
+        }
+    }
+
+    private void runAllFamilies(Tag tag, String expectedMeter, boolean fullResync) {
+        boolean anyProgress = false;
+        boolean previousFamilyRan = false;
+        boolean allComplete = true;
+        int attemptedFamilies = 0;
+
+        for (int familyIndex = 0; familyIndex < SYNC_ALL_ORDER.length; familyIndex++) {
+            ArchiveFamilyPeriod.Family family = SYNC_ALL_ORDER[familyIndex];
+            int step = familyIndex + 1;
+            ArchiveFamilySyncState existing = syncStateStore.get(expectedMeter, family);
+            ArchiveFamilySyncState.SyncMode mode =
+                    HistorySyncAllPlanner.modeFor(existing, fullResync);
+
+            showSyncProgress(family, 0, true, step);
+            if (previousFamilyRan) {
+                SystemClock.sleep(BETWEEN_FAMILY_RECONNECT_MS);
+            }
+
+            previousFamilyRan = true;
+            attemptedFamilies++;
+
+            NfcV nfcv = NfcV.get(tag);
+            if (nfcv == null) {
+                allComplete = false;
+                break;
+            }
+
+            FamilyAttempt attempt;
+            try {
+                nfcv.connect();
+                runOnUiThread(() -> setStatus(
+                        R.string.m3_state_sync_title,
+                        mode == ArchiveFamilySyncState.SyncMode.INCREMENTAL
+                                ? R.string.m3_state_incremental_body_v2
+                                : (mode == ArchiveFamilySyncState.SyncMode.FULL_RESYNC
+                                ? R.string.v2_full_resync_running_body
+                                : R.string.m3_state_sync_body)));
+                attempt = performFamilyAttempt(
+                        nfcv,
+                        tag,
+                        family,
+                        expectedMeter,
+                        mode,
+                        true,
+                        step);
+            } catch (Exception error) {
+                allComplete = false;
+                break;
+            } finally {
+                closeQuietly(nfcv);
+            }
+
+            anyProgress = anyProgress
+                    || attempt.complete
+                    || attempt.partial
+                    || attempt.persisted.committed > 0;
+            runOnUiThread(this::refreshState);
+
+            if (!attempt.complete) {
+                allComplete = false;
+                if (!HistorySyncAllPlanner.mayContinue(
+                        attempt.complete, attempt.finalRestoreVerified)) {
+                    break;
+                }
+            }
+        }
+
+        final boolean finalComplete = allComplete && attemptedFamilies == SYNC_ALL_ORDER.length;
+        final boolean finalPartial = !finalComplete && anyProgress;
+        runOnUiThread(() -> {
+            showAttemptStatus(finalComplete, finalPartial);
+            refreshState();
+        });
+    }
+
+    private FamilyAttempt performFamilyAttempt(
+            NfcV nfcv,
+            Tag tag,
+            ArchiveFamilyPeriod.Family family,
+            String expectedMeter,
+            ArchiveFamilySyncState.SyncMode mode,
+            boolean allMode,
+            int allStep) {
+        String retrievedAtUtc = utcNow();
+        MonthlyArchiveNfcWire wire = new MonthlyArchiveNfcWire(nfcv, tag.getId());
+
+        // Snapshot known records before this attempt can persist anything. Records inserted by the
+        // current run must never become their own incremental overlap evidence.
+        ArchiveKnownRecordMatcher knownMatcher = mode == ArchiveFamilySyncState.SyncMode.INCREMENTAL
+                ? new ArchiveKnownRecordMatcher(archiveStore, expectedMeter, family)
+                : null;
+
+        ArchivePersistenceCoordinator.ImmediateSession persistence =
+                ArchivePersistenceCoordinator.beginImmediate(
+                        archiveStore,
+                        expectedMeter,
+                        family);
+
+        final int[] safelyStored = {0};
+        final long[] lastProgressAt = {0L};
+        ArchiveFamilyTransportAdapter.AcceptedPeriodSink progressSink = period -> {
+            persistence.accept(period);
+            int count = ++safelyStored[0];
+            long now = SystemClock.elapsedRealtime();
+            if (count == 1
+                    || count % PROGRESS_RECORD_STEP == 0
+                    || now - lastProgressAt[0] >= PROGRESS_MIN_INTERVAL_MS) {
+                lastProgressAt[0] = now;
+                showSyncProgress(family, count, allMode, allStep);
+            }
+        };
+
+        ArchiveFamilyTransportAdapter.Result transport;
+        if (mode == ArchiveFamilySyncState.SyncMode.INCREMENTAL) {
+            transport = ArchiveIncrementalProductionRunner.run(
+                    family,
+                    wire,
+                    wire,
+                    expectedMeter,
+                    retrievedAtUtc,
+                    knownMatcher,
+                    progressSink);
+        } else if (mode == ArchiveFamilySyncState.SyncMode.INITIAL_FULL
+                || mode == ArchiveFamilySyncState.SyncMode.FULL_RESYNC) {
+            transport = runFullTraversal(
+                    family,
+                    wire,
+                    expectedMeter,
+                    retrievedAtUtc,
+                    mode,
+                    progressSink);
+        } else {
+            throw new IllegalArgumentException("unsupported product sync mode: " + mode);
+        }
+
+        ArchivePersistenceCoordinator.Result persisted = persistence.result();
+        showSyncProgress(family, persisted.committed, allMode, allStep);
+
+        boolean complete = transport.completeProductAttempt();
+        boolean partial = !complete
+                && (!transport.traversal.periods.isEmpty() || persisted.committed > 0);
+        recordFamilyAttempt(expectedMeter, family, mode, transport, persisted, complete, partial);
+        return new FamilyAttempt(
+                complete, partial, transport.finalRestoreVerified(), persisted);
+    }
+
+    private void recordFamilyAttempt(
+            String expectedMeter,
+            ArchiveFamilyPeriod.Family family,
+            ArchiveFamilySyncState.SyncMode mode,
+            ArchiveFamilyTransportAdapter.Result transport,
+            ArchivePersistenceCoordinator.Result persisted,
+            boolean complete,
+            boolean partial) {
+        ArchiveFamilySyncState.AttemptOutcome outcome = complete
+                ? ArchiveFamilySyncState.AttemptOutcome.COMPLETE
+                : (partial
+                ? ArchiveFamilySyncState.AttemptOutcome.PARTIAL
+                : ArchiveFamilySyncState.AttemptOutcome.FAILED);
+
+        String oldest = null;
+        String newest = null;
+        for (ArchiveTraversalStateMachine.PeriodEvidence evidence : transport.traversal.periods) {
+            if (evidence == null || evidence.period == null) continue;
+            String timestamp = evidence.period.loggerTimestamp;
+            if (oldest == null || timestamp.compareTo(oldest) < 0) oldest = timestamp;
+            if (newest == null || timestamp.compareTo(newest) > 0) newest = timestamp;
+        }
+
+        syncStateStore.recordAttempt(
+                expectedMeter,
+                family,
+                mode,
+                System.currentTimeMillis(),
+                outcome,
+                transport.effectiveStopReason(),
+                transport.finalRestoreVerified(),
+                oldest,
+                newest,
+                transport.traversal.periods.size(),
+                persisted.inserted,
+                persisted.confirmed,
+                persisted.conflicts);
+    }
+
+    private ArchiveFamilyTransportAdapter.Result runFullTraversal(
+            ArchiveFamilyPeriod.Family family,
+            MonthlyArchiveNfcWire wire,
+            String expectedMeter,
+            String retrievedAtUtc,
+            ArchiveFamilySyncState.SyncMode mode,
+            ArchiveFamilyTransportAdapter.AcceptedPeriodSink sink) {
+        if (mode != ArchiveFamilySyncState.SyncMode.INITIAL_FULL
+                && mode != ArchiveFamilySyncState.SyncMode.FULL_RESYNC) {
+            throw new IllegalArgumentException("full traversal mode required: " + mode);
+        }
+        switch (family) {
+            case MONTH:
+                // Keep the exact physically validated Month entry point; only the state-machine
+                // mode differs between first baseline and explicit Full Re-Sync.
+                return ArchiveFamilyTransportAdapter.runMonth(
+                        wire,
+                        wire,
+                        expectedMeter,
+                        retrievedAtUtc,
+                        mode,
+                        sink);
+            case DAY:
+                return ArchiveFamilyProductionRunner.runDay(
+                        wire,
+                        wire,
+                        expectedMeter,
+                        retrievedAtUtc,
+                        mode,
+                        sink);
+            case HOUR:
+                return ArchiveFamilyProductionRunner.runHour(
+                        wire,
+                        wire,
+                        expectedMeter,
+                        retrievedAtUtc,
+                        mode,
+                        sink);
+            default:
+                throw new IllegalArgumentException("family is not product-enabled: " + family);
+        }
+    }
+
+    private void buildUi() {
+        LinearLayout shell = MaterialUi.vertical(this);
+        shell.setBackgroundColor(MaterialUi.color(this,
+                com.google.android.material.R.attr.colorSurface, 0xFFFFFFFF));
+
+        MaterialToolbar toolbar = new MaterialToolbar(this);
+        toolbar.setTitle(R.string.m3_sync_history);
+        toolbar.setNavigationIcon(R.drawable.ic_m3_back);
+        toolbar.setNavigationContentDescription(R.string.m3_back);
+        toolbar.setNavigationOnClickListener(v -> finish());
+        shell.addView(toolbar, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        LinearLayout content = MaterialUi.vertical(this);
+        int p = MaterialUi.dp(this, 16);
+        content.setPadding(p, p, p, MaterialUi.dp(this, 32));
+
+        meterText = MaterialUi.body(this, getString(R.string.m3_no_meter));
+        content.addView(meterText);
+
+        MaterialCardView statusCard = MaterialUi.card(this);
+        LinearLayout statusContent = MaterialUi.cardContent(this);
+        statusTitle = MaterialUi.title(this, getString(R.string.m3_sync_history));
+        statusBody = MaterialUi.body(this, getString(R.string.m3_state_sync_body));
+        statusBody.setPadding(0, MaterialUi.dp(this, 5), 0, 0);
+        statusContent.addView(statusTitle);
+        statusContent.addView(statusBody);
+
+        syncProgressRow = MaterialUi.horizontal(this);
+        syncProgressRow.setGravity(Gravity.CENTER_VERTICAL);
+        syncProgressRow.setPadding(0, MaterialUi.dp(this, 10), 0, 0);
+        syncProgressIndicator = new ProgressBar(this);
+        syncProgressIndicator.setIndeterminate(true);
+        syncProgressRow.addView(syncProgressIndicator, new LinearLayout.LayoutParams(
+                MaterialUi.dp(this, 30), MaterialUi.dp(this, 30)));
+        syncProgressText = MaterialUi.body(this, "");
+        syncProgressText.setPadding(MaterialUi.dp(this, 10), 0, 0, 0);
+        syncProgressRow.addView(syncProgressText, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        syncProgressRow.setVisibility(View.GONE);
+        statusContent.addView(syncProgressRow);
+
+        statusCard.addView(statusContent);
+        MaterialUi.addTopMargin(content, statusCard, 12);
+
+        MaterialCardView monthCard = MaterialUi.card(this);
+        LinearLayout monthContent = MaterialUi.cardContent(this);
+        monthContent.addView(MaterialUi.title(this, getString(R.string.m3_filter_month)));
+        monthState = MaterialUi.body(this, getString(R.string.m3_no_archive));
+        monthState.setPadding(0, MaterialUi.dp(this, 4), 0, 0);
+        monthContent.addView(monthState);
+        monthButton = actionButton(R.string.m3_filter_month,
+                v -> offerFamilySync(ArchiveFamilyPeriod.Family.MONTH));
+        MaterialUi.addTopMargin(monthContent, monthButton, 8);
+        monthCard.addView(monthContent);
+        MaterialUi.addTopMargin(content, monthCard, 12);
+
+        MaterialCardView dayCard = MaterialUi.card(this);
+        LinearLayout dayContent = MaterialUi.cardContent(this);
+        dayContent.addView(MaterialUi.title(this, getString(R.string.m3_filter_day)));
+        dayState = MaterialUi.body(this, getString(R.string.m3_no_archive));
+        dayState.setPadding(0, MaterialUi.dp(this, 4), 0, 0);
+        dayContent.addView(dayState);
+        dayButton = actionButton(R.string.m3_filter_day,
+                v -> offerFamilySync(ArchiveFamilyPeriod.Family.DAY));
+        MaterialUi.addTopMargin(dayContent, dayButton, 8);
+        dayCard.addView(dayContent);
+        MaterialUi.addTopMargin(content, dayCard, 10);
+
+        MaterialCardView hourCard = MaterialUi.card(this);
+        LinearLayout hourContent = MaterialUi.cardContent(this);
+        hourContent.addView(MaterialUi.title(this, getString(R.string.m3_filter_hour)));
+        hourState = MaterialUi.body(this, getString(R.string.m3_no_archive));
+        hourState.setPadding(0, MaterialUi.dp(this, 4), 0, 0);
+        hourContent.addView(hourState);
+        hourButton = actionButton(R.string.m3_filter_hour,
+                v -> offerFamilySync(ArchiveFamilyPeriod.Family.HOUR));
+        MaterialUi.addTopMargin(hourContent, hourButton, 8);
+        hourCard.addView(hourContent);
+        MaterialUi.addTopMargin(content, hourCard, 10);
+
+        allButton = actionButton(R.string.m3_filter_all, v -> offerAllSync());
+        MaterialUi.addTopMargin(content, allButton, 12);
+
+        MaterialCardView fullResyncCard = MaterialUi.card(this);
+        LinearLayout fullResyncContent = MaterialUi.cardContent(this);
+        fullResyncContent.addView(MaterialUi.title(this, getString(R.string.v2_full_resync_title)));
+        TextView fullResyncBody = MaterialUi.body(this, getString(R.string.v2_full_resync_body));
+        fullResyncBody.setPadding(0, MaterialUi.dp(this, 6), 0, 0);
+        fullResyncContent.addView(fullResyncBody);
+        fullResyncButton = new MaterialButton(this, null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        fullResyncButton.setText(R.string.v2_full_resync_action);
+        fullResyncButton.setMinHeight(MaterialUi.dp(this, 48));
+        fullResyncButton.setOnClickListener(v -> offerFullResync());
+        MaterialUi.addTopMargin(fullResyncContent, fullResyncButton, 8);
+        fullResyncCard.addView(fullResyncContent);
+        MaterialUi.addTopMargin(content, fullResyncCard, 18);
+
+        scroll.addView(content, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT));
+        shell.addView(scroll, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        root = shell;
+        setContentView(shell);
+        applySystemInsets(shell);
+    }
+
+    private MaterialButton actionButton(int familyLabel, View.OnClickListener listener) {
+        MaterialButton button = new MaterialButton(this);
+        button.setText(getString(familyLabel) + " · " + getString(R.string.m3_sync_history));
+        button.setMinHeight(MaterialUi.dp(this, 48));
+        button.setOnClickListener(listener);
+        return button;
+    }
+
+    private void offerFamilySync(ArchiveFamilyPeriod.Family family) {
+        if (family == null || reading.get() || armedFamily != null || armedAll) return;
+        if (family != ArchiveFamilyPeriod.Family.MONTH
+                && family != ArchiveFamilyPeriod.Family.DAY
+                && family != ArchiveFamilyPeriod.Family.HOUR) {
+            return;
+        }
+        String meter = lifecycleStore.activeMeterId();
+        if (meter == null || meter.trim().isEmpty()) {
+            Snackbar.make(root, R.string.m3_no_meter, Snackbar.LENGTH_LONG).show();
+            return;
+        }
+
+        ArchiveFamilySyncState current = syncStateStore.get(meter, family);
+        ArchiveFamilySyncState.SyncMode mode = current.baselineComplete()
+                ? ArchiveFamilySyncState.SyncMode.INCREMENTAL
+                : ArchiveFamilySyncState.SyncMode.INITIAL_FULL;
+        int positiveAction;
+        int message;
+        if (mode == ArchiveFamilySyncState.SyncMode.INCREMENTAL) {
+            positiveAction = R.string.m3_sync_update_history;
+            message = R.string.m3_state_incremental_body_v2;
+        } else {
+            positiveAction = current.hasAttempt() ? R.string.m3_sync_retry : R.string.m3_sync_history;
+            message = current.hasAttempt()
+                    ? R.string.m3_state_sync_partial_body_v2
+                    : R.string.m3_state_sync_body;
+        }
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.m3_sync_history)
+                .setMessage(message)
+                .setNegativeButton(R.string.m3_cancel, null)
+                .setPositiveButton(positiveAction,
+                        (dialog, which) -> armFamily(meter, family, mode))
+                .show();
+    }
+
+    private void offerAllSync() {
+        if (reading.get() || armedFamily != null || armedAll) return;
+        String meter = lifecycleStore.activeMeterId();
+        if (meter == null || meter.trim().isEmpty()) {
+            Snackbar.make(root, R.string.m3_no_meter, Snackbar.LENGTH_LONG).show();
+            return;
+        }
+
+        ArchiveFamilySyncState hour = syncStateStore.get(meter, ArchiveFamilyPeriod.Family.HOUR);
+        ArchiveFamilySyncState day = syncStateStore.get(meter, ArchiveFamilyPeriod.Family.DAY);
+        ArchiveFamilySyncState month = syncStateStore.get(meter, ArchiveFamilyPeriod.Family.MONTH);
+        boolean retry = hasRetryableAttempt(hour) || hasRetryableAttempt(day) || hasRetryableAttempt(month);
+        boolean complete = HistorySyncAllPlanner.fullResyncAvailable(hour, day, month);
+        int positiveAction = complete
+                ? R.string.v2_sync_all_update
+                : (retry ? R.string.m3_sync_retry : R.string.m3_sync_history);
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.m3_sync_history)
+                .setMessage(R.string.v2_sync_all_body)
+                .setNegativeButton(R.string.m3_cancel, null)
+                .setPositiveButton(positiveAction, (dialog, which) -> armAll(meter, false))
+                .show();
+    }
+
+    private void offerFullResync() {
+        if (reading.get() || armedFamily != null || armedAll) return;
+        String meter = lifecycleStore.activeMeterId();
+        if (meter == null || meter.trim().isEmpty()) {
+            Snackbar.make(root, R.string.m3_no_meter, Snackbar.LENGTH_LONG).show();
+            return;
+        }
+
+        ArchiveFamilySyncState hour = syncStateStore.get(meter, ArchiveFamilyPeriod.Family.HOUR);
+        ArchiveFamilySyncState day = syncStateStore.get(meter, ArchiveFamilyPeriod.Family.DAY);
+        ArchiveFamilySyncState month = syncStateStore.get(meter, ArchiveFamilyPeriod.Family.MONTH);
+        if (!HistorySyncAllPlanner.fullResyncAvailable(hour, day, month)) {
+            Snackbar.make(root, R.string.v2_full_resync_requires_baselines, Snackbar.LENGTH_LONG).show();
+            return;
+        }
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.v2_full_resync_confirm_title)
+                .setMessage(R.string.v2_full_resync_confirm_body)
+                .setNegativeButton(R.string.m3_cancel, null)
+                .setPositiveButton(R.string.v2_full_resync_confirm_action,
+                        (dialog, which) -> armAll(meter, true))
+                .show();
+    }
+
+    private void armFamily(
+            String meterId,
+            ArchiveFamilyPeriod.Family family,
+            ArchiveFamilySyncState.SyncMode mode) {
+        targetMeterId = meterId;
+        armedFamily = family;
+        armedMode = mode;
+        armedAll = false;
+        armedFullResync = false;
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        hideSyncProgress();
+        setStatus(R.string.m3_state_verify_title,
+                mode == ArchiveFamilySyncState.SyncMode.INCREMENTAL
+                        ? R.string.m3_state_incremental_body_v2
+                        : R.string.m3_state_verify_body);
+        refreshState();
+    }
+
+    private void armAll(String meterId, boolean fullResync) {
+        targetMeterId = meterId;
+        armedFamily = null;
+        armedMode = null;
+        armedAll = true;
+        armedFullResync = fullResync;
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        hideSyncProgress();
+        setStatus(R.string.m3_state_verify_title,
+                fullResync ? R.string.v2_full_resync_armed_body : R.string.v2_sync_all_body);
+        refreshState();
+    }
+
+    private void disarmSync() {
+        armedFamily = null;
+        armedMode = null;
+        armedAll = false;
+        armedFullResync = false;
+        targetMeterId = null;
+        runOnUiThread(() -> getWindow().clearFlags(
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON));
+    }
+
+    private void refreshState() {
+        if (meterText == null) return;
+        String meter = lifecycleStore == null ? null : lifecycleStore.activeMeterId();
+        if (meter == null || meter.trim().isEmpty()) {
+            meterText.setText(R.string.m3_no_meter);
+            monthState.setText(R.string.m3_no_archive);
+            dayState.setText(R.string.m3_no_archive);
+            hourState.setText(R.string.m3_no_archive);
+            monthButton.setEnabled(false);
+            dayButton.setEnabled(false);
+            hourButton.setEnabled(false);
+            allButton.setEnabled(false);
+            fullResyncButton.setEnabled(false);
+            return;
+        }
+
+        meterText.setText(getString(R.string.m3_meter_id, meter));
+        ArchiveFamilySyncState month = updateFamilyState(
+                meter, ArchiveFamilyPeriod.Family.MONTH, monthState);
+        ArchiveFamilySyncState day = updateFamilyState(
+                meter, ArchiveFamilyPeriod.Family.DAY, dayState);
+        ArchiveFamilySyncState hour = updateFamilyState(
+                meter, ArchiveFamilyPeriod.Family.HOUR, hourState);
+
+        updateActionButton(monthButton, ArchiveFamilyPeriod.Family.MONTH, month);
+        updateActionButton(dayButton, ArchiveFamilyPeriod.Family.DAY, day);
+        updateActionButton(hourButton, ArchiveFamilyPeriod.Family.HOUR, hour);
+        boolean retryAll = hasRetryableAttempt(hour)
+                || hasRetryableAttempt(day)
+                || hasRetryableAttempt(month);
+        boolean completeAll = HistorySyncAllPlanner.fullResyncAvailable(hour, day, month);
+        if (completeAll) {
+            allButton.setText(R.string.v2_sync_all_update);
+        } else {
+            allButton.setText(getString(R.string.m3_filter_all) + " · "
+                    + getString(retryAll ? R.string.m3_sync_retry : R.string.m3_sync_history));
+        }
+
+        boolean idle = armedFamily == null && !armedAll && !reading.get();
+        monthButton.setEnabled(idle);
+        dayButton.setEnabled(idle);
+        hourButton.setEnabled(idle);
+        allButton.setEnabled(idle);
+        fullResyncButton.setEnabled(idle && completeAll);
+    }
+
+    private ArchiveFamilySyncState updateFamilyState(
+            String meter,
+            ArchiveFamilyPeriod.Family family,
+            TextView stateView) {
+        ArchiveFamilySyncState state = syncStateStore.get(meter, family);
+        if (state.baselineComplete()) {
+            String baseline = getString(R.string.m3_history_baseline_complete);
+            if (state.lastAttemptOutcome == ArchiveFamilySyncState.AttemptOutcome.PARTIAL
+                    || state.lastAttemptOutcome == ArchiveFamilySyncState.AttemptOutcome.FAILED) {
+                int lastState = state.lastAttemptOutcome == ArchiveFamilySyncState.AttemptOutcome.PARTIAL
+                        ? R.string.m3_state_sync_partial_title
+                        : R.string.m3_state_sync_failed_title;
+                stateView.setText(baseline + " · " + getString(lastState));
+            } else {
+                stateView.setText(state.lastSuccessMs > 0L
+                        ? baseline + " · " + getString(
+                        R.string.m3_last_read, formatDateTime(state.lastSuccessMs))
+                        : baseline);
+            }
+        } else if (state.lastAttemptOutcome == ArchiveFamilySyncState.AttemptOutcome.PARTIAL) {
+            stateView.setText(getString(R.string.m3_sync_partial_family_detail, state.accepted));
+        } else if (state.lastAttemptOutcome == ArchiveFamilySyncState.AttemptOutcome.FAILED) {
+            stateView.setText(R.string.m3_state_sync_failed_title);
+        } else {
+            stateView.setText(R.string.m3_no_archive);
+        }
+        return state;
+    }
+
+    private void updateActionButton(
+            MaterialButton button,
+            ArchiveFamilyPeriod.Family family,
+            ArchiveFamilySyncState state) {
+        if (button == null || family == null || state == null) return;
+        int action = state.baselineComplete()
+                ? R.string.m3_sync_update_history
+                : (hasRetryableAttempt(state) ? R.string.m3_sync_retry : R.string.m3_sync_history);
+        button.setText(familyLabel(family) + " · " + getString(action));
+    }
+
+    private static boolean hasRetryableAttempt(ArchiveFamilySyncState state) {
+        return state != null && !state.baselineComplete() && state.hasAttempt();
+    }
+
+    private void showAttemptStatus(boolean complete, boolean partial) {
+        hideSyncProgress();
+        if (complete) {
+            setStatus(R.string.m3_state_sync_ok_title, R.string.m3_state_sync_ok_body);
+        } else if (partial) {
+            setStatus(R.string.m3_state_sync_partial_title, R.string.m3_state_sync_partial_body_v2);
+        } else {
+            setStatus(R.string.m3_state_sync_failed_title, R.string.m3_state_sync_failed_body);
+        }
+    }
+
+    private void showSyncProgress(
+            ArchiveFamilyPeriod.Family family,
+            int safelyStored,
+            boolean allMode,
+            int allStep) {
+        if (family == null) return;
+        runOnUiThread(() -> {
+            if (syncProgressRow == null || syncProgressText == null) return;
+            syncProgressRow.setVisibility(View.VISIBLE);
+            String label = familyLabel(family);
+            if (allMode) {
+                syncProgressText.setText(getString(
+                        R.string.m3_sync_progress_all,
+                        allStep,
+                        SYNC_ALL_ORDER.length,
+                        label,
+                        Math.max(0, safelyStored)));
+            } else if (safelyStored <= 0) {
+                syncProgressText.setText(getString(R.string.m3_sync_progress_preparing, label));
+            } else {
+                syncProgressText.setText(getString(
+                        R.string.m3_sync_progress_single,
+                        label,
+                        safelyStored));
+            }
+        });
+    }
+
+    private void hideSyncProgress() {
+        runOnUiThread(() -> {
+            if (syncProgressRow != null) syncProgressRow.setVisibility(View.GONE);
+            if (syncProgressText != null) syncProgressText.setText("");
+        });
+    }
+
+    private String familyLabel(ArchiveFamilyPeriod.Family family) {
+        switch (family) {
+            case HOUR: return getString(R.string.m3_filter_hour);
+            case DAY: return getString(R.string.m3_filter_day);
+            case MONTH: return getString(R.string.m3_filter_month);
+            case YEAR: return getString(R.string.m3_filter_year);
+            default: return family.name();
+        }
+    }
+
+    private void setStatus(int titleRes, int bodyRes) {
+        if (statusTitle != null) statusTitle.setText(titleRes);
+        if (statusBody != null) statusBody.setText(bodyRes);
+    }
+
+    private String formatDateTime(long atMs) {
+        DateFormat format = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT,
+                getResources().getConfiguration().getLocales().get(0));
+        return format.format(new Date(atMs));
+    }
+
+    private static void closeQuietly(NfcV nfcv) {
+        if (nfcv == null) return;
+        try {
+            nfcv.close();
+        } catch (IOException ignored) {
+            // Best effort only. Every next family obtains a new NfcV technology instance.
+        }
+    }
+
+    private static String utcNow() {
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
+        format.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return format.format(new Date());
+    }
+
+    private static final class FamilyAttempt {
+        final boolean complete;
+        final boolean partial;
+        final boolean finalRestoreVerified;
+        final ArchivePersistenceCoordinator.Result persisted;
+
+        FamilyAttempt(
+                boolean complete,
+                boolean partial,
+                boolean finalRestoreVerified,
+                ArchivePersistenceCoordinator.Result persisted) {
+            this.complete = complete;
+            this.partial = partial;
+            this.finalRestoreVerified = finalRestoreVerified;
+            this.persisted = persisted;
+        }
+    }
+}

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_support_developer_title">☕ Paremkite kūrėją</string>
+    <string name="v2_support_developer_body">Pavaišinkite mane kava (savanoriškai)</string>
+    <string name="v2_support_developer_button">Pavaišinti kava</string>
+    <string name="v2_christmas_support_title">🎄 Linksmų Kalėdų nuo W1 NFC Reader! ☕</string>
+    <string name="v2_christmas_support_body">W1 NFC Reader yra nemokama ir tokia išliks.\n\nJei ši programėlė šiemet jums buvo naudinga ir norėtumėte per Kalėdas maloniai padėkoti, galite savanoriškai pavaišinti mane kava. 🎁☕</string>
+    <string name="v2_christmas_support_positive">Pavaišinti kava</string>
+    <string name="v2_christmas_support_negative">Ne, ačiū</string>
+</resources>
