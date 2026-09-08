@@ -118,9 +118,9 @@ final class ProductDrawerNavigation {
             }
             if (id == NAV_HISTORY || id == NAV_STATS) {
                 navigationView.setCheckedItem(id);
-                if (historyStatistics != null) {
-                    closeThenRun(drawerLayout, afterDrawerClose,
-                            () -> historyStatistics.selectNavigationItem(id));
+                if (historyStatistics != null
+                        && historyStatistics.currentNavigationItemId() == id) {
+                    drawerLayout.closeDrawer(GravityCompat.START, true);
                 } else {
                     closeThenRun(drawerLayout, afterDrawerClose,
                             () -> openHistoryStatistics(activity, id));
@@ -183,27 +183,24 @@ final class ProductDrawerNavigation {
         navigationView.addHeaderView(header);
     }
 
+    /** Overview is the single task root. Returning to it clears only screens above it. */
     private static void openDashboard(MaterialBaseActivity activity) {
         Intent intent = new Intent(activity, ProductDashboardActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         activity.startActivity(intent);
-        activity.finish();
     }
 
+    /** History/Statistics are normal destinations so Android Back can return to the prior screen. */
     private static void openHistoryStatistics(MaterialBaseActivity activity, int navItemId) {
         Intent intent = new Intent(activity, HistoryStatisticsActivity.class)
-                .putExtra(HistoryStatisticsActivity.EXTRA_NAV_ITEM, navItemId)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                .putExtra(HistoryStatisticsActivity.EXTRA_NAV_ITEM, navItemId);
         activity.startActivity(intent);
-        activity.finish();
     }
 
+    /** Secondary destinations stay on the task stack instead of replacing their caller. */
     private static void openSecondary(MaterialBaseActivity activity,
                                       Class<? extends MaterialBaseActivity> target) {
-        Intent intent = new Intent(activity, target)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        activity.startActivity(intent);
-        activity.finish();
+        activity.startActivity(new Intent(activity, target));
     }
 
     private static void applyDrawerInsets(NavigationView navigationView) {
