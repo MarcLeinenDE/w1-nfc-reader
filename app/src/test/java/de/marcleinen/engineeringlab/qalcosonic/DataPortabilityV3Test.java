@@ -2,6 +2,8 @@ package de.marcleinen.engineeringlab.qalcosonic;
 
 import android.content.Context;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -12,8 +14,11 @@ import org.robolectric.annotation.Config;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.TimeZone;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -84,6 +89,45 @@ public final class DataPortabilityV3Test {
         }
     }
 
+    @Test public void schema3ArchiveEnvelopePromotesV2OnTimeWithoutInventingTypeF() throws Exception {
+        new MeterLifecycleStore(context).adoptInitialMeter("M1");
+        try (ArchiveFamilyStore archive = new ArchiveFamilyStore(context)) {
+            ArchiveNormalizedValues values = ArchiveNormalizedValues.builder()
+                    .totalVolume("10.000 m3")
+                    .onTime("80734200 s")
+                    .build();
+            ArchiveFamilyPeriod period = new ArchiveFamilyPeriod(
+                    ArchiveFamilyPeriod.Family.HOUR,
+                    "2026-09-08 04:00",
+                    "2026-09-08T04:01:00Z",
+                    "FP-HOUR",
+                    "NFC_ARCHIVE",
+                    "COMPLETE",
+                    values);
+            assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED,
+                    archive.upsert("M1", period));
+        }
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        DataPortabilityV3.writeBackup(context, out);
+        byte[] backup = out.toByteArray();
+        JSONObject data = dataJson(backup);
+        JSONArray periods = data.getJSONArray("archive_periods_v2");
+
+        assertEquals(1, periods.length());
+        JSONObject row = periods.getJSONObject(0);
+        assertEquals("OT:80734200", row.getString("occurrence_key"));
+        assertEquals(80_734_200L, row.getLong("on_time_seconds"));
+        assertTrue(row.isNull("raw_type_f_hex"));
+        assertTrue(row.isNull("type_f_iv"));
+        assertTrue(row.isNull("type_f_su"));
+
+        DataPortability.BackupPreview preview = DataPortabilityV3.inspectBackup(
+                new ByteArrayInputStream(backup));
+        assertEquals(1, preview.archivePeriods);
+        assertEquals(1, preview.hourPeriods);
+    }
+
     @Test public void legacySchema2RestoreDoesNotInventTimeModelEvidence() throws Exception {
         new MeterLifecycleStore(context).adoptInitialMeter("M1");
         ByteArrayOutputStream legacy = new ByteArrayOutputStream();
@@ -137,5 +181,21 @@ public final class DataPortabilityV3Test {
         DataPortability.BackupPreview preview = DataPortabilityV3.inspectBackup(
                 new ByteArrayInputStream(legacy.toByteArray()));
         assertEquals("M1", preview.activeMeterId);
+    }
+
+    private static JSONObject dataJson(byte[] backup) throws Exception {
+        try (ZipInputStream zip = new ZipInputStream(
+                new ByteArrayInputStream(backup), StandardCharsets.UTF_8)) {
+            ZipEntry entry;
+            byte[] buffer = new byte[4096];
+            while ((entry = zip.getNextEntry()) != null) {
+                if (!"data.json".equals(entry.getName())) continue;
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                int n;
+                while ((n = zip.read(buffer)) != -1) out.write(buffer, 0, n);
+                return new JSONObject(out.toString(StandardCharsets.UTF_8));
+            }
+        }
+        throw new AssertionError("data.json missing");
     }
 }
