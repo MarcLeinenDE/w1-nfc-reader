@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_filter_button_cd">Filtruoti istoriją</string>
+    <string name="v2_filter_button_active_cd">Istorijos filtras aktyvus</string>
+    <string name="v2_sync_settings_summary">Sinchronizuoti ir atnaujinti valandų, dienų ir mėnesių istoriją</string>
+
+    <string name="v2_diag_signing_title">Programos parašas</string>
+    <string name="v2_diag_signing_stable">Šiai versijai sukonfigūruotas stabilus CI/release pasirašymo identitetas</string>
+    <string name="v2_diag_signing_debug">Šiai versijai naudojamas kūrimo/debug pasirašymo identitetas</string>
+    <string name="v2_diag_protocol_value">Fiziškai patvirtinta: Live, Valanda, Diena ir Mėnuo</string>
+    <string name="v2_diag_year_not_exposed">Metai/Atsiskaitymas v2 nėra pateikiamas kaip istorijos sinchronizavimo valdiklis.</string>
+    <string name="v2_diag_data_title">Vietinių duomenų būsena</string>
+    <string name="v2_diag_family_line">%1$s: %2$d įrašų · %3$s</string>
+    <string name="v2_diag_privacy_title">Diagnostikos privatumas</string>
+    <string name="v2_diag_privacy_body">Šis ekranas skaito tik vietinę produkto būseną. Jis nerodo neapdoroto NFC srauto, neapdorotų M-Bus kadrų ar privačių lauko diagnostikos pėdsakų.</string>
+
+    <string name="v2_about_privacy_sharing_body">Duomenys palieka programą tik po aiškaus naudotojo veiksmo. Įprasti produkto duomenys, atsarginės kopijos ir eksportai lieka vietiniai, kol sąmoningai juos išsaugote ar bendrinate. Programoje rodoma diagnostikos būsena yra vietinė ir joje nėra neapdorotų NFC ar M-Bus pėdsakų.</string>
+    <string name="v2_about_research_lineage">Upstream projektas ir jo autorius nurodomi, kad protokolo tyrimų kilmė liktų matoma. Svarbus veikimas taip pat nepriklausomai palygintas su atvirojo kodo projektu AxiomaQalcosonicW1NFCReaderAndroid; šio projekto kodas į programą neįtraukiamas.</string>
+</resources>
