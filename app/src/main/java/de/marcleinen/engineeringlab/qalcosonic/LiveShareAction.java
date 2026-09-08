@@ -30,10 +30,26 @@ final class LiveShareAction {
         View productRoot = androidContent.getChildAt(0);
         LinearLayout heroContent = findLiveHeroContent(productRoot,
                 activity.getString(R.string.m3_meter_reading));
-        if (heroContent == null) return;
+        if (heroContent == null || heroContent.getChildCount() < 4) return;
+
+        // Dashboard builds the hero as label, main reading, meter id and last-read timestamp.
+        // Reuse those existing metadata views instead of appending a dedicated share row that
+        // makes the hero card unnecessarily tall.
+        View meter = heroContent.getChildAt(2);
+        View lastRead = heroContent.getChildAt(3);
+        heroContent.removeView(lastRead);
+        heroContent.removeView(meter);
+
+        LinearLayout metadata = MaterialUi.vertical(activity);
+        metadata.addView(meter, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        metadata.addView(lastRead, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         LinearLayout row = MaterialUi.horizontal(activity);
-        row.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(metadata, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         AppCompatImageButton button = new AppCompatImageButton(activity);
         button.setImageResource(R.drawable.ic_m3_share);
@@ -54,10 +70,9 @@ final class LiveShareAction {
             button.setBackgroundColor(Color.TRANSPARENT);
         }
         button.setOnClickListener(v -> shareLatestLive(activity, productRoot));
-
         LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(
                 MaterialUi.dp(activity, 48), MaterialUi.dp(activity, 48));
-        buttonParams.topMargin = MaterialUi.dp(activity, 2);
+        buttonParams.setMarginStart(MaterialUi.dp(activity, 8));
         row.addView(button, buttonParams);
         heroContent.addView(row, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));

@@ -1,10 +1,10 @@
 package de.marcleinen.engineeringlab.qalcosonic;
 
-import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,6 +20,7 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -47,6 +48,9 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
     private HistorySemanticTimeline.Granularity historyFilter;
     private boolean historyAlarmsOnly;
     private Metric metric = Metric.CONSUMPTION;
+    private HistorySemanticTimeline.Granularity statsResolutionOverride;
+    private HistorySemanticTimeline.Granularity statsDisplayGranularity =
+            HistorySemanticTimeline.Granularity.DAY;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -118,34 +122,21 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
 
         ChipGroup filters = new ChipGroup(this);
         filters.setSingleSelection(true);
+        filters.setSingleLine(true);
         addHistoryChip(filters, null, R.string.m3_filter_all);
         addHistoryChip(filters, HistorySemanticTimeline.Granularity.LIVE, R.string.m3_filter_live);
         addHistoryChip(filters, HistorySemanticTimeline.Granularity.HOUR, R.string.m3_filter_hour);
         addHistoryChip(filters, HistorySemanticTimeline.Granularity.DAY, R.string.m3_filter_day);
         addHistoryChip(filters, HistorySemanticTimeline.Granularity.MONTH, R.string.m3_filter_month);
-        MaterialUi.addTopMargin(root, filters, 14);
+        MaterialUi.addTopMargin(root, filters, 12);
 
         HistoryPeriodNavigator.Scale expectedScale = HistoryPeriodNavigator.forHistory(historyFilter);
         if (historyPeriod.scale() != expectedScale) historyPeriod.setScale(expectedScale);
         addPeriodNavigator(root, historyPeriod, true);
 
-        ChipGroup quick = new ChipGroup(this);
-        Chip alarms = new Chip(this);
-        alarms.setText(R.string.v2_only_alarms);
-        alarms.setCheckable(true);
-        alarms.setChecked(historyAlarmsOnly);
-        alarms.setOnClickListener(v -> { historyAlarmsOnly = alarms.isChecked(); render(); });
-        quick.addView(alarms);
-
-        Chip allPeriods = new Chip(this);
-        allPeriods.setText(R.string.v2_all_periods);
-        allPeriods.setCheckable(true);
-        allPeriods.setChecked(historyPeriod.allPeriods());
-        allPeriods.setOnClickListener(v -> { historyPeriod.setAllPeriods(true); render(); });
-        quick.addView(allPeriods);
-        MaterialUi.addTopMargin(root, quick, 6);
-
         HistoryPeriodNavigator.Window window = historyPeriod.window();
+        if (window.customRange) addAvailabilityLine(root, repository.availability(window));
+
         List<HistoryStatisticsRepository.Observation> observations =
                 repository.queryHistory(historyFilter, window, true);
         Map<String, HistoryStatisticsAnalytics.Delta> deltas =
@@ -156,7 +147,7 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         list.setDividerHeight(MaterialUi.dp(this, 8));
         list.setDivider(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
         list.setClipToPadding(false);
-        list.setPadding(0, MaterialUi.dp(this, 10), 0, 0);
+        list.setPadding(0, MaterialUi.dp(this, 8), 0, 0);
         list.setAdapter(new HistoryAdapter(rows));
         root.addView(list, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
@@ -172,26 +163,29 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         subtitle.setPadding(0, MaterialUi.dp(this, 4), 0, 0);
         content.addView(subtitle);
 
-        ChipGroup periodScale = new ChipGroup(this);
-        periodScale.setSingleSelection(true);
-        addScaleChip(periodScale, HistoryPeriodNavigator.Scale.DAY, R.string.v2_period_day);
-        addScaleChip(periodScale, HistoryPeriodNavigator.Scale.MONTH, R.string.v2_period_month);
-        addScaleChip(periodScale, HistoryPeriodNavigator.Scale.YEAR, R.string.v2_period_year);
-        MaterialUi.addTopMargin(content, periodScale, 14);
         addPeriodNavigator(content, statsPeriod, false);
-
-        ChipGroup metrics = new ChipGroup(this);
-        metrics.setSingleSelection(true);
-        addMetricChip(metrics, Metric.CONSUMPTION, R.string.m3_chart_consumption);
-        addMetricChip(metrics, Metric.TEMPERATURE, R.string.v2_metric_temperature);
-        addMetricChip(metrics, Metric.FLOW, R.string.v2_metric_flow);
-        addMetricChip(metrics, Metric.BATTERY, R.string.m3_battery);
-        addMetricChip(metrics, Metric.ALARMS, R.string.v2_metric_alarms);
-        MaterialUi.addTopMargin(content, metrics, 8);
-
         HistoryPeriodNavigator.Window window = statsPeriod.window();
-        List<HistoryStatisticsRepository.Observation> observations = repository.queryStatistics(window);
-        addStatisticsMetric(content, observations, window);
+        HistoryStatisticsRepository.Availability availability = window.customRange
+                ? repository.availability(window) : null;
+        HistorySemanticTimeline.Granularity automatic = window.customRange
+                ? HistoryCustomRangeSemantics.automaticResolution(window, availability)
+                : HistoryStatisticsRepository.targetGranularity(window.scale);
+        HistorySemanticTimeline.Granularity effective = window.customRange
+                && statsResolutionOverride != null ? statsResolutionOverride : automatic;
+        statsDisplayGranularity = effective;
+
+        addStatisticsSelectors(content, window, availability, automatic, effective);
+        if (window.customRange) {
+            addAvailabilityLine(content, availability);
+            addCustomRangePrecision(content, window, availability, effective);
+        }
+
+        List<HistoryStatisticsRepository.Observation> observations =
+                repository.queryStatistics(window, effective);
+        int expected = window.customRange
+                ? HistoryCustomRangeSemantics.expectedFullBuckets(window, effective)
+                : window.expectedBuckets;
+        addStatisticsMetric(content, observations, window, effective, expected);
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
@@ -200,46 +194,81 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         return scroll;
     }
 
+    private void addStatisticsSelectors(LinearLayout parent,
+                                        HistoryPeriodNavigator.Window window,
+                                        HistoryStatisticsRepository.Availability availability,
+                                        HistorySemanticTimeline.Granularity automatic,
+                                        HistorySemanticTimeline.Granularity effective) {
+        LinearLayout row = MaterialUi.horizontal(this);
+        MaterialButton metricButton = outlinedButton(metricLabel(metric) + " ▾");
+        metricButton.setOnClickListener(v -> showMetricDialog());
+        row.addView(metricButton, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        if (window.customRange) {
+            String resolutionText = statsResolutionOverride == null
+                    ? getString(R.string.v2_resolution_auto_value, typeLabel(automatic))
+                    : getString(R.string.v2_resolution_value, typeLabel(effective));
+            MaterialButton resolution = outlinedButton(resolutionText + " ▾");
+            resolution.setOnClickListener(v -> showResolutionDialog(window, availability));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            lp.setMarginStart(MaterialUi.dp(this, 8));
+            row.addView(resolution, lp);
+        }
+        MaterialUi.addTopMargin(parent, row, 8);
+    }
+
     private void addStatisticsMetric(LinearLayout parent,
                                      List<HistoryStatisticsRepository.Observation> observations,
-                                     HistoryPeriodNavigator.Window window) {
+                                     HistoryPeriodNavigator.Window window,
+                                     HistorySemanticTimeline.Granularity granularity,
+                                     int expected) {
         switch (metric) {
             case TEMPERATURE:
-                addTemperature(parent, observations, window);
+                addTemperature(parent, observations, expected);
                 break;
             case FLOW:
-                addFlow(parent, observations, window);
+                addFlow(parent, observations, expected);
                 break;
             case BATTERY:
-                addBattery(parent, observations, window);
+                addBattery(parent, observations, expected);
                 break;
             case ALARMS:
-                addAlarms(parent, observations, window);
+                addAlarms(parent, observations, expected);
                 break;
             case CONSUMPTION:
             default:
-                addConsumption(parent, observations, window);
+                addConsumption(parent, observations, window, granularity, expected);
                 break;
         }
     }
 
     private void addConsumption(LinearLayout parent,
                                 List<HistoryStatisticsRepository.Observation> observations,
-                                HistoryPeriodNavigator.Window window) {
+                                HistoryPeriodNavigator.Window window,
+                                HistorySemanticTimeline.Granularity granularity,
+                                int expected) {
         HistoryStatisticsAnalytics.ConsumptionSummary summary =
                 HistoryStatisticsAnalytics.consumption(observations);
+        int totalLabel = R.string.v2_kpi_total;
+        if (window.customRange && !HistoryCustomRangeSemantics.exactEdges(window, granularity)) {
+            totalLabel = R.string.v2_kpi_contained_total;
+        } else if (expected > 0 && summary.availableBuckets < expected) {
+            totalLabel = R.string.v2_kpi_known_total;
+        }
         addKpis(parent,
-                getString(R.string.v2_kpi_total), formatM3(summary.total),
+                getString(totalLabel), formatM3(summary.total),
                 getString(R.string.v2_kpi_average), formatM3(summary.average),
                 getString(R.string.v2_kpi_highest), formatMetricWithTime(summary.maximum, summary.maximumAt, "m³"),
                 getString(R.string.v2_kpi_lowest), formatMetricWithTime(summary.minimum, summary.minimumAt, "m³"));
         addChart(parent, summary.points, V2MetricChartView.Mode.BARS, "m³",
-                R.string.v2_consumption_note, summary.availableBuckets, window.expectedBuckets);
+                R.string.v2_consumption_note, summary.availableBuckets, expected);
     }
 
     private void addTemperature(LinearLayout parent,
                                 List<HistoryStatisticsRepository.Observation> observations,
-                                HistoryPeriodNavigator.Window window) {
+                                int expected) {
         HistoryStatisticsAnalytics.TemperatureSummary summary =
                 HistoryStatisticsAnalytics.temperature(observations);
         addKpis(parent,
@@ -249,12 +278,12 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
                 getString(R.string.v2_kpi_span), summary.span == null ? getString(R.string.m3_not_available)
                         : String.format(locale(), "%.1f K", summary.span));
         addChart(parent, summary.points, V2MetricChartView.Mode.LINE, "°C",
-                R.string.v2_temperature_note, summary.points.size(), window.expectedBuckets);
+                R.string.v2_temperature_note, summary.points.size(), expected);
     }
 
     private void addFlow(LinearLayout parent,
                          List<HistoryStatisticsRepository.Observation> observations,
-                         HistoryPeriodNavigator.Window window) {
+                         int expected) {
         HistoryStatisticsAnalytics.FlowSummary summary = HistoryStatisticsAnalytics.flow(observations);
         addKpis(parent,
                 getString(R.string.v2_kpi_highest_peak), formatFlowWithTime(summary.maximum, summary.maximumAt),
@@ -262,26 +291,27 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
                 getString(R.string.v2_kpi_latest_peak), formatFlowWithTime(summary.latest, summary.latestAt),
                 getString(R.string.v2_kpi_data_points), Integer.toString(summary.points.size()));
         addChart(parent, summary.points, V2MetricChartView.Mode.BARS, "m³/h",
-                R.string.v2_flow_note, summary.points.size(), window.expectedBuckets);
+                R.string.v2_flow_note, summary.points.size(), expected);
     }
 
     private void addBattery(LinearLayout parent,
                             List<HistoryStatisticsRepository.Observation> observations,
-                            HistoryPeriodNavigator.Window window) {
+                            int expected) {
         HistoryStatisticsAnalytics.BatterySummary summary = HistoryStatisticsAnalytics.battery(observations);
         addKpis(parent,
                 getString(R.string.v2_kpi_start), formatPercentWithTime(summary.start, summary.startAt),
                 getString(R.string.v2_kpi_end), formatPercentWithTime(summary.end, summary.endAt),
                 getString(R.string.v2_kpi_change), summary.change == null ? getString(R.string.m3_not_available)
-                        : String.format(locale(), "%+d pp", summary.change),
+                        : String.format(locale(), "%+d %s", summary.change,
+                        getString(R.string.v2_percentage_points_short)),
                 getString(R.string.v2_kpi_data_points), Integer.toString(summary.points.size()));
         addChart(parent, summary.points, V2MetricChartView.Mode.LINE, "%",
-                R.string.v2_battery_note, summary.points.size(), window.expectedBuckets);
+                R.string.v2_battery_note, summary.points.size(), expected);
     }
 
     private void addAlarms(LinearLayout parent,
                            List<HistoryStatisticsRepository.Observation> observations,
-                           HistoryPeriodNavigator.Window window) {
+                           int expected) {
         HistoryStatisticsAnalytics.AlarmSummary summary = HistoryStatisticsAnalytics.alarms(observations);
         String first = summary.events.isEmpty() ? getString(R.string.m3_not_available)
                 : formatFloatingEvent(summary.events.get(0).timestamp);
@@ -312,7 +342,7 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         TextView note = MaterialUi.body(this, getString(R.string.v2_alarm_note));
         note.setPadding(0, MaterialUi.dp(this, 10), 0, 0);
         inside.addView(note);
-        addCoverage(inside, countSelected(observations), window.expectedBuckets);
+        addCoverage(inside, countSelected(observations), expected);
         card.addView(inside);
         MaterialUi.addTopMargin(parent, card, 10);
     }
@@ -363,6 +393,44 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         parent.addView(coverage);
     }
 
+    private void addAvailabilityLine(LinearLayout parent,
+                                     HistoryStatisticsRepository.Availability availability) {
+        if (availability == null) return;
+        TextView value = MaterialUi.body(this, getString(R.string.v2_available_data_format,
+                availability.live, availability.hour, availability.day, availability.month));
+        value.setPadding(0, MaterialUi.dp(this, 6), 0, 0);
+        parent.addView(value);
+    }
+
+    private void addCustomRangePrecision(LinearLayout parent,
+                                         HistoryPeriodNavigator.Window window,
+                                         HistoryStatisticsRepository.Availability availability,
+                                         HistorySemanticTimeline.Granularity granularity) {
+        int expected = HistoryCustomRangeSemantics.expectedFullBuckets(window, granularity);
+        TextView note;
+        if (expected <= 0) {
+            note = MaterialUi.body(this, getString(R.string.v2_range_no_full_buckets,
+                    typeLabel(granularity)));
+            note.setTextColor(MaterialUi.color(this,
+                    com.google.android.material.R.attr.colorError, getColor(R.color.app_error)));
+        } else if (!HistoryCustomRangeSemantics.exactEdges(window, granularity)) {
+            String start = HistoryCustomRangeSemantics.exactInteriorStart(window, granularity);
+            String end = HistoryCustomRangeSemantics.exactInteriorEnd(window, granularity);
+            note = MaterialUi.body(this, getString(R.string.v2_range_edges_not_exact,
+                    typeLabel(granularity),
+                    HistoryTimePresentation.formatExactFloatingDateTime(locale(), start),
+                    HistoryTimePresentation.formatExactFloatingDateTime(locale(), end)));
+            note.setTextColor(MaterialUi.color(this,
+                    com.google.android.material.R.attr.colorError, getColor(R.color.app_error)));
+        } else {
+            int available = availability == null ? 0 : availability.count(granularity);
+            note = MaterialUi.body(this, getString(R.string.v2_range_archive_coverage,
+                    typeLabel(granularity), available, expected));
+        }
+        note.setPadding(0, MaterialUi.dp(this, 4), 0, 0);
+        parent.addView(note);
+    }
+
     private void addKpis(LinearLayout parent,
                          String l1, String v1, String l2, String v2,
                          String l3, String v3, String l4, String v4) {
@@ -399,34 +467,99 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         LinearLayout row = MaterialUi.horizontal(this);
         MaterialButton previous = outlinedButton("‹");
         previous.setContentDescription(getString(R.string.v2_previous_period));
-        previous.setEnabled(!navigator.allPeriods());
+        previous.setEnabled(!navigator.allPeriods() && !navigator.customRange());
         previous.setOnClickListener(v -> { navigator.move(-1); render(); });
         row.addView(previous, new LinearLayout.LayoutParams(
-                MaterialUi.dp(this, 56), LinearLayout.LayoutParams.WRAP_CONTENT));
+                MaterialUi.dp(this, 48), LinearLayout.LayoutParams.WRAP_CONTENT));
 
         MaterialButton center = outlinedButton(navigator.label(locale(), getString(R.string.v2_all_periods)));
         center.setContentDescription(getString(R.string.v2_choose_period));
-        center.setOnClickListener(v -> showDatePicker(navigator));
+        center.setSingleLine(true);
+        center.setEllipsize(TextUtils.TruncateAt.END);
+        center.setOnClickListener(v -> HistoryRangePickerUi.show(this, navigator, !history, () -> {
+            if (!history && !navigator.customRange()) statsResolutionOverride = null;
+            render();
+        }));
         LinearLayout.LayoutParams centerLp = new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        centerLp.setMarginStart(MaterialUi.dp(this, 8));
-        centerLp.setMarginEnd(MaterialUi.dp(this, 8));
+        centerLp.setMarginStart(MaterialUi.dp(this, 6));
+        centerLp.setMarginEnd(MaterialUi.dp(this, 6));
         row.addView(center, centerLp);
 
         MaterialButton next = outlinedButton("›");
         next.setContentDescription(getString(R.string.v2_next_period));
-        next.setEnabled(!navigator.allPeriods());
+        next.setEnabled(!navigator.allPeriods() && !navigator.customRange());
         next.setOnClickListener(v -> { navigator.move(1); render(); });
         row.addView(next, new LinearLayout.LayoutParams(
-                MaterialUi.dp(this, 56), LinearLayout.LayoutParams.WRAP_CONTENT));
+                MaterialUi.dp(this, 48), LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        if (history) {
+            MaterialButton filter = outlinedButton(historyAlarmsOnly
+                    ? getString(R.string.v2_filter_active_count, 1)
+                    : getString(R.string.v2_filter));
+            filter.setOnClickListener(v -> showHistoryFilterDialog());
+            LinearLayout.LayoutParams filterLp = new LinearLayout.LayoutParams(
+                    MaterialUi.dp(this, 78), LinearLayout.LayoutParams.WRAP_CONTENT);
+            filterLp.setMarginStart(MaterialUi.dp(this, 6));
+            row.addView(filter, filterLp);
+        }
         MaterialUi.addTopMargin(parent, row, 8);
     }
 
-    private void showDatePicker(HistoryPeriodNavigator navigator) {
-        new DatePickerDialog(this, (view, year, month, day) -> {
-            navigator.setDate(year, month, day);
-            render();
-        }, navigator.year(), navigator.month0(), navigator.day()).show();
+    private void showHistoryFilterDialog() {
+        final boolean[] selected = {historyAlarmsOnly};
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.v2_filter)
+                .setMultiChoiceItems(new CharSequence[]{getString(R.string.v2_only_alarms)},
+                        new boolean[]{historyAlarmsOnly},
+                        (dialog, which, checked) -> selected[0] = checked)
+                .setNegativeButton(R.string.m3_cancel, null)
+                .setPositiveButton(R.string.v2_apply, (dialog, which) -> {
+                    historyAlarmsOnly = selected[0];
+                    render();
+                })
+                .show();
+    }
+
+    private void showMetricDialog() {
+        Metric[] values = Metric.values();
+        CharSequence[] labels = new CharSequence[values.length];
+        for (int i = 0; i < values.length; i++) labels[i] = metricLabel(values[i]);
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.v2_metric_choose)
+                .setItems(labels, (dialog, which) -> {
+                    metric = values[which];
+                    render();
+                })
+                .show();
+    }
+
+    private void showResolutionDialog(HistoryPeriodNavigator.Window window,
+                                      HistoryStatisticsRepository.Availability availability) {
+        HistorySemanticTimeline.Granularity automatic =
+                HistoryCustomRangeSemantics.automaticResolution(window, availability);
+        CharSequence[] labels = {
+                getString(R.string.v2_resolution_auto_value, typeLabel(automatic)),
+                getString(R.string.v2_resolution_with_count,
+                        typeLabel(HistorySemanticTimeline.Granularity.HOUR),
+                        availability == null ? 0 : availability.hour),
+                getString(R.string.v2_resolution_with_count,
+                        typeLabel(HistorySemanticTimeline.Granularity.DAY),
+                        availability == null ? 0 : availability.day),
+                getString(R.string.v2_resolution_with_count,
+                        typeLabel(HistorySemanticTimeline.Granularity.MONTH),
+                        availability == null ? 0 : availability.month)
+        };
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.v2_resolution)
+                .setItems(labels, (dialog, which) -> {
+                    if (which == 0) statsResolutionOverride = null;
+                    else if (which == 1) statsResolutionOverride = HistorySemanticTimeline.Granularity.HOUR;
+                    else if (which == 2) statsResolutionOverride = HistorySemanticTimeline.Granularity.DAY;
+                    else statsResolutionOverride = HistorySemanticTimeline.Granularity.MONTH;
+                    render();
+                })
+                .show();
     }
 
     private void addHistoryChip(ChipGroup group, HistorySemanticTimeline.Granularity value,
@@ -437,18 +570,6 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
             historyPeriod.setScale(HistoryPeriodNavigator.forHistory(value));
             render();
         });
-        group.addView(chip);
-    }
-
-    private void addScaleChip(ChipGroup group, HistoryPeriodNavigator.Scale value, int labelRes) {
-        Chip chip = choiceChip(labelRes, statsPeriod.scale() == value);
-        chip.setOnClickListener(v -> { statsPeriod.setScale(value); render(); });
-        group.addView(chip);
-    }
-
-    private void addMetricChip(ChipGroup group, Metric value, int labelRes) {
-        Chip chip = choiceChip(labelRes, metric == value);
-        chip.setOnClickListener(v -> { metric = value; render(); });
         group.addView(chip);
     }
 
@@ -574,9 +695,16 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         return getString(R.string.v2_alarm_observed, summary);
     }
 
+    private String metricLabel(Metric value) {
+        if (value == Metric.TEMPERATURE) return getString(R.string.v2_metric_temperature);
+        if (value == Metric.FLOW) return getString(R.string.v2_metric_flow);
+        if (value == Metric.BATTERY) return getString(R.string.m3_battery);
+        if (value == Metric.ALARMS) return getString(R.string.v2_metric_alarms);
+        return getString(R.string.m3_chart_consumption);
+    }
+
     private String formatFloatingEvent(String timestamp) {
-        return HistoryTimePresentation.formatFloatingPrimary(locale(),
-                HistoryStatisticsRepository.targetGranularity(statsPeriod.scale()), timestamp);
+        return HistoryTimePresentation.formatFloatingPrimary(locale(), statsDisplayGranularity, timestamp);
     }
 
     private String formatM3(Double value) {

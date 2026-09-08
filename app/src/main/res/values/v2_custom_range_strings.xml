@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_custom_range">Custom range</string>
+    <string name="v2_choose_calendar_period">Choose calendar period</string>
+    <string name="v2_apply">Apply</string>
+    <string name="v2_range_from">From: %1$s</string>
+    <string name="v2_range_to">To: %1$s</string>
+    <string name="v2_range_end_after_start">End must be after start.</string>
+    <string name="v2_filter">Filter</string>
+    <string name="v2_filter_active_count">Filter · %1$d</string>
+    <string name="v2_metric_choose">Choose metric</string>
+    <string name="v2_resolution">Resolution</string>
+    <string name="v2_resolution_auto_value">Auto · %1$s</string>
+    <string name="v2_resolution_value">Resolution · %1$s</string>
+    <string name="v2_resolution_with_count">%1$s · %2$d complete periods</string>
+    <string name="v2_available_data_format">Available: Live %1$d · Hour %2$d · Day %3$d · Month %4$d</string>
+    <string name="v2_range_no_full_buckets">No complete %1$s archive period lies fully inside this range. A more precise total cannot be derived from this resolution.</string>
+    <string name="v2_range_edges_not_exact">The selected start/end do not align with %1$s archive boundaries. Statistics use only fully contained periods (%2$s – %3$s); no partial-period consumption is estimated.</string>
+    <string name="v2_range_archive_coverage">%1$s archive coverage: %2$d of %3$d complete periods stored.</string>
+    <string name="v2_kpi_contained_total">Contained periods</string>
+    <string name="v2_kpi_known_total">Known total</string>
+    <string name="v2_back_again_to_exit">Press Back again to exit</string>
+    <string name="v2_sync_all_body">Each history family is updated independently. Complete baselines use incremental synchronization; families without a complete baseline use the full baseline path.</string>
+    <string name="v2_sync_all_update">Update all history</string>
+</resources>
