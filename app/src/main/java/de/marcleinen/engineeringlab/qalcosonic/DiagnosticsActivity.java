@@ -40,8 +40,6 @@ public final class DiagnosticsActivity extends MaterialBaseActivity {
                 getString(R.string.v2_diag_protocol_value) + "\n"
                         + getString(R.string.v2_diag_year_not_exposed));
         addCard(content, R.string.v2_diag_data_title, localDataStatus());
-        addCard(content, R.string.v2_diag_privacy_title,
-                getString(R.string.v2_diag_privacy_body));
 
         setContentView(shell);
         applySystemInsets(shell);

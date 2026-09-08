@@ -84,6 +84,7 @@ public final class ProductUiRegressionTest {
         assertTrue(base.contains("this instanceof SettingsActivity"));
         assertTrue(base.contains("ProductDrawerNavigation.attach(this)"));
         assertTrue(base.contains("ProductUiHardening.attach(this)"));
+        assertTrue(base.contains("SeasonalSupportPrompt.attach((ProductDashboardActivity) this)"));
 
         assertFalse(settings.contains("setNavigationIcon(R.drawable.ic_m3_back)"));
         assertFalse(settings.contains("setNavigationOnClickListener(v -> finish())"));
@@ -139,8 +140,8 @@ public final class ProductUiRegressionTest {
         String manifest = read(projectFile("src/main/AndroidManifest.xml"));
 
         assertTrue(build.contains("applicationId = \"de.marcleinen.w1nfcreader\""));
-        assertTrue(build.contains("versionCode = 40"));
-        assertTrue(build.contains("versionName = \"2.0.0-dev.2\""));
+        assertTrue(build.contains("versionCode = 41"));
+        assertTrue(build.contains("versionName = \"2.0.0-dev.3\""));
 
         assertTrue(manifest.contains("android.permission.NFC"));
         assertFalse(manifest.contains("android.permission.INTERNET"));

@@ -17,7 +17,7 @@ Development line for the next major public version.
 
 ### Added / changed in the current development line
 
-- Advanced the side-by-side development identity to `2.0.0-dev.2` (`versionCode 40`) for release-hardening testing.
+- Advanced the side-by-side development identity to `2.0.0-dev.3` (`versionCode 41`) for release-hardening testing.
 - Introduced independent per-meter/per-family History state for Hour, Day and Month, with baseline completeness separate from the latest synchronization attempt.
 - Added validated initial full Hour, Day and Month family synchronization behind explicit Settings actions while keeping normal NFC contact Live-only.
 - Added synchronous immediate persistence for every accepted archive observation so interruption does not roll back already validated records.
@@ -39,9 +39,12 @@ Development line for the next major public version.
 - Added a two-step Back-to-exit guard on Overview while preserving drawer Back handling priority.
 - Restored normal Android Back-stack navigation for History, Statistics, Settings and other secondary screens; Overview remains the single exit root.
 - Replaced fragile text-glyph period arrows with explicit chevron icons and replaced the overflowing History Filter label with a compact filter icon.
+- Preserved History/Statistics selection state, including exact custom date/time ranges, when the device rotates between portrait and landscape.
 - Removed the temporary physical-validation debug card from the visible History Sync UI in the release-hardening test surface.
-- Refreshed Diagnostics, Settings and About wording for the validated Live/Hour/Day/Month v2 scope and current public repository/privacy state.
-- Added English, German, French, Polish, Dutch and Lithuanian product strings for the new v2 History, Statistics, custom-range, synchronization and hardening states.
+- Refreshed Diagnostics, Settings and About wording for the validated Live/Hour/Day/Month v2 scope and current public repository/privacy state, and removed a redundant generic privacy card from Diagnostics.
+- Added an optional developer-support entry in About that opens `https://www.paypal.me/ccaa/` through the external browser only. The app does not process payments, unlock features or add an Internet permission.
+- Added a restrained seasonal Christmas support prompt for 1–26 December. It becomes eligible only after a successful normal Live read during that same Christmas window, appears only on a later normal launcher cold start, and is capped at one display per season regardless of dismissal or support action.
+- Added English, German, French, Polish, Dutch and Lithuanian product strings for the new v2 History, Statistics, custom-range, synchronization, hardening and optional-support states.
 
 ### Protocol/safety invariants retained
 
@@ -56,7 +59,7 @@ Development line for the next major public version.
 
 - Advanced explicit Full Re-Sync UX remains to be finalized.
 - The temporary debug formatter/backend that is no longer visible in the product UI should be removed completely before the stable release.
-- Final upgrade/portable-data verification, accessibility/rotation/state hardening, breaking-change guidance and release-candidate validation remain required.
+- Final upgrade/portable-data verification, accessibility/state hardening, breaking-change guidance and release-candidate validation remain required.
 
 See `docs/V2_BREAKING_CHANGES.md` for the current major-version compatibility policy and `docs/V2_HISTORY_SYNC_ARCHITECTURE.md` for the History integration contract.
 

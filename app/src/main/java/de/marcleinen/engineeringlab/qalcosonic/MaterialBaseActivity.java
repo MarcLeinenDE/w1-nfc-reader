@@ -29,6 +29,7 @@ abstract class MaterialBaseActivity extends AppCompatActivity {
             // Register before the drawer callback. The later drawer callback therefore wins while
             // the navigation drawer is open; otherwise Overview gets the double-back exit guard.
             DashboardExitGuard.attach((ProductDashboardActivity) this);
+            SeasonalSupportPrompt.attach((ProductDashboardActivity) this);
         }
         if (this instanceof ProductDashboardActivity
                 || this instanceof HistoryStatisticsActivity
