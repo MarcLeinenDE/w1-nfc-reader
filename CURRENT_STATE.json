@@ -12,6 +12,16 @@
     "main_ci_job": 102204036451,
     "main_ci_conclusion": "success"
   },
+  "branch_state": {
+    "verified_after_post_release_cleanup": true,
+    "remaining_branches": [
+      "main",
+      "handoff/v2.1.0-current"
+    ],
+    "open_pull_requests": 0,
+    "obsolete_v2_0_handoff_deleted": true,
+    "post_v2_0_cleanup_branch_deleted": true
+  },
   "stable_release": {
     "version": "2.0.0",
     "tag": "v2.0.0",
