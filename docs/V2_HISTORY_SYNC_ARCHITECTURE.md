@@ -1,6 +1,6 @@
 # W1 NFC Reader 2.0 — History synchronization architecture
 
-Status: implementation contract for the `2.0.0-dev` development line.
+Status: released/current v2.0 architecture contract. Repository, release evidence and real-device validation remain authoritative for implementation details. The future real-time/UTC presentation model is tracked separately in `docs/product-decisions/v2.1-real-time-timeline-and-coverage.md`.
 
 This document defines the public product architecture for transferring the validated archive behavior into W1 NFC Reader 2.0. It is intentionally implementation-focused and contains no private meter identifiers or raw field captures.
 
@@ -200,6 +200,8 @@ The normal UI may render the derived absolute instant in the user's timezone. Ra
 
 Boundary safety continues to use raw meter time, not the derived UI time.
 
+W1 NFC Reader 2.0.0 intentionally still presents archive periods on the raw meter logger wall-clock basis. The separately documented v2.1 time-model decision defines the evidence/coverage work required before a derived UTC timeline becomes the primary user-facing and integration timeline.
+
 ## Stable archive identity
 
 Native archive identity remains:
@@ -218,9 +220,9 @@ Raw Type-F/ON_TIME evidence is extracted by an additional read-only evidence com
 
 No persistent meter/radio/calibration/firmware write is authorized by this architecture.
 
-## Validation gates
+## Validation evidence
 
-Before stable 2.0 release, off-meter CI must cover at least:
+The stable v2.0.0 release completed the required off-meter and limited real-device validation for the implemented scope, including:
 
 - exact family select frames;
 - FCB alternation and no ambiguous retry;
@@ -232,14 +234,11 @@ Before stable 2.0 release, off-meter CI must cover at least:
 - incremental known-overlap behavior;
 - partial-success persistence;
 - per-family state independence;
-- time/provenance storage and mapping;
 - DB/backup/export schema behavior;
-- localized UI/state strings.
+- localized UI/state strings;
+- initial integrated Month/Day/Hour synchronization;
+- incremental known-overlap behavior;
+- default restore/final Live verification;
+- final History/Statistics/export/backup presentation.
 
-Final product code then requires limited real-device validation for:
-
-1. initial integrated Month/Day/Hour synchronization;
-2. incremental known-overlap behavior;
-3. interrupted synchronization/resume with already accepted records retained;
-4. default restore/final Live verification;
-5. final History/Statistics/export/backup presentation.
+Repository, CI and recorded real-device evidence remain authoritative over this summary.

@@ -4,6 +4,19 @@ All notable public changes to W1 NFC Reader will be documented here.
 
 The public changelog starts with the first public release. Earlier private development iterations and protocol-research builds are intentionally not reproduced as public release history.
 
+## Unreleased
+
+### Maintenance / documentation
+
+- Archived the final `2.0.0-dev.4` checkpoint out of the current product-integration documentation path.
+- Marked the v2 History synchronization, navigation and archive-period documents as released/current v2.0 contracts.
+- Added the canonical v2.1 real-time/UTC timeline and coverage UX decision for future History/Statistics and Home Assistant work.
+- Removed unused `WaterUsageChartView` and the obsolete intermediate `UnifiedHistoryModel`/test after repository-wide reference review.
+- Hardened the future stable-release workflow to require curated release notes and create the draft release directly with the GitHub CLI instead of relying on generated PR notes/third-party release-action runtime behavior.
+- Documented the v2.0.0 publication lesson so future draft-to-public API updates explicitly preserve and verify the intended release tag.
+
+No NFC/M-Bus/archive traversal behavior is changed by this post-v2.0.0 maintenance work.
+
 ## 2.0.0 — 2026-09-08
 
 Major History synchronization and product-hardening release.
@@ -62,7 +75,7 @@ Major History synchronization and product-hardening release.
 
 ### Release validation
 
-The release is produced as a signed draft GitHub Release first. That exact APK must pass the limited final real-device smoke defined in `docs/RELEASING.md` before the draft is published. The release tag and tested APK must not be replaced after physical validation begins.
+The stable `v2.0.0` release was produced as a signed draft GitHub Release, physically smoke-tested as that exact APK, then published without rebuilding/replacing the artifact or moving the tag. The public APK was downloaded after publication and its SHA-256 was verified byte-for-byte against the accepted release candidate.
 
 See `docs/V2_BREAKING_CHANGES.md` for the 2.0 compatibility details and `docs/V2_HISTORY_SYNC_ARCHITECTURE.md` for the History integration contract.
 
