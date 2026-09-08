@@ -36,6 +36,7 @@ abstract class MaterialBaseActivity extends AppCompatActivity {
                 || this instanceof SettingsActivity) {
             ProductDrawerNavigation.attach(this);
         }
+        ProductUiHardening.attach(this);
     }
 
     protected final void applySystemInsets(View root) {
