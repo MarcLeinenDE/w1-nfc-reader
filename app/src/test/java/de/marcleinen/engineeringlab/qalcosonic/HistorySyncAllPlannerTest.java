@@ -35,11 +35,47 @@ public final class HistorySyncAllPlannerTest {
 
         assertEquals(ArchiveFamilySyncState.SyncMode.INCREMENTAL,
                 HistorySyncAllPlanner.modeFor(completeButLastAttemptFailed));
+        assertEquals(ArchiveFamilySyncState.SyncMode.INCREMENTAL,
+                HistorySyncAllPlanner.modeFor(completeButLastAttemptFailed, false));
+        assertEquals(ArchiveFamilySyncState.SyncMode.FULL_RESYNC,
+                HistorySyncAllPlanner.modeFor(completeButLastAttemptFailed, true));
+    }
+
+    @Test public void fullResyncAvailabilityRequiresAllThreeCompleteBaselines() {
+        ArchiveFamilySyncState hour = complete(ArchiveFamilyPeriod.Family.HOUR);
+        ArchiveFamilySyncState day = complete(ArchiveFamilyPeriod.Family.DAY);
+        ArchiveFamilySyncState month = complete(ArchiveFamilyPeriod.Family.MONTH);
+
+        assertTrue(HistorySyncAllPlanner.fullResyncAvailable(hour, day, month));
+        assertFalse(HistorySyncAllPlanner.fullResyncAvailable(
+                ArchiveFamilySyncState.empty(ArchiveFamilyPeriod.Family.HOUR), day, month));
+        assertFalse(HistorySyncAllPlanner.fullResyncAvailable(hour, null, month));
     }
 
     @Test public void chainingStopsWhenDefaultRestoreIsUnverified() {
         assertTrue(HistorySyncAllPlanner.mayContinue(true, true));
         assertTrue(HistorySyncAllPlanner.mayContinue(false, true));
         assertFalse(HistorySyncAllPlanner.mayContinue(false, false));
+    }
+
+    private static ArchiveFamilySyncState complete(ArchiveFamilyPeriod.Family family) {
+        return new ArchiveFamilySyncState(
+                family,
+                ArchiveFamilySyncState.BaselineState.COMPLETE,
+                ArchiveFamilySyncState.AttemptOutcome.COMPLETE,
+                ArchiveFamilySyncState.SyncMode.INITIAL_FULL,
+                ArchiveFamilySyncState.StopReason.PROTOCOL_TERMINAL,
+                20L,
+                20L,
+                10L,
+                "2026-01-01 00:00",
+                "2026-09-01 00:00",
+                "2026-09-01 00:00",
+                20,
+                20,
+                0,
+                0,
+                true,
+                true);
     }
 }
