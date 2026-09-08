@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "project": "W1 NFC Reader",
+  "date": "2026-09-08",
+  "public_repository": "MarcLeinenDE/w1-nfc-reader",
+  "handoff_branch": "handoff/v2.1.0-current",
+  "clean_main": {
+    "sha": "f1e648196090933ecb97c236bc49f8f0f1a2b628",
+    "source_pr": 20,
+    "source_pr_title": "chore: post-v2.0.0 repository cleanup",
+    "main_ci_run": 34268555870,
+    "main_ci_job": 102204036451,
+    "main_ci_conclusion": "success"
+  },
+  "stable_release": {
+    "version": "2.0.0",
+    "tag": "v2.0.0",
+    "tag_sha": "5c094a70e75cba52fbdaef96d39b6c72e2011f9d",
+    "release_id": 384651482,
+    "published_at": "2026-09-08T18:53:57Z",
+    "application_id": "de.marcleinen.w1nfcreader",
+    "version_code": 43,
+    "apk": "w1-nfc-reader-2.0.0.apk",
+    "apk_asset_id": 550332677,
+    "apk_size": 5048100,
+    "apk_sha256": "211c5dcb94047dcc12d0aa68534b6eaf154103a8c08c600f293c097c2188d2f4",
+    "signer_certificate_sha256": "3877ec6714ae64b46421f63df9f4d022b865f7f06ac4d28c77707b3d7a1d1896",
+    "immutable": true
+  },
+  "v2_1": {
+    "status": "design/evidence phase; implementation not started",
+    "canonical_decision": "docs/product-decisions/v2.1-real-time-timeline-and-coverage.md",
+    "primary_goal": "derive a trustworthy canonical UTC interval timeline while preserving raw meter-time evidence, then use real local time for History/Statistics navigation and the same UTC contract for future Home Assistant integration",
+    "coverage_states": [
+      "EXACT",
+      "PARTIAL_EDGES",
+      "OVERLAP_ONLY",
+      "GAP",
+      "UNRESOLVED_TIME"
+    ],
+    "implementation_branch_recommendation": "dev/v2.1.0-real-time-timeline",
+    "next_action": "inventory currently persisted Type-F raw time, SU/summer-time, On-Time, acquisition anchor and backup/export evidence before freezing TimeResolver or migration design"
+  },
+  "private_research": {
+    "repository": "MarcLeinenDE/engineering-lab",
+    "path": "android/qalcosonic-nfc-reader/",
+    "branch": "research/w1-nfc-archive-analysis",
+    "head": "65358d55ee52a6911ab4fa8d1a66bc0d0dda0fd0",
+    "integration_handoff_branch": "handoff/w1-post-1.0-research-integration",
+    "rule": "Extend the public product architecture with frozen Research semantics; do not port/merge the Research architecture wholesale."
+  },
+  "protected_invariants": [
+    "normal NFC contact remains protected Live/default read only",
+    "History starts only from explicit user action",
+    "Hour/Day/Month synchronization families remain independent",
+    "COMPLETE requires supported traversal completion plus verified final Default Restore/Live",
+    "incremental KNOWN_RECORD_REACHED requires secure overlap; timestamp-only overlap is forbidden",
+    "accepted archive observations are persisted immediately",
+    "ambiguous selected requests are never blindly retried",
+    "failed later incremental/full re-sync does not erase an authoritative COMPLETE baseline",
+    "never calculate cumulative consumption across meter replacement",
+    "no intentional persistent meter/radio/calibration/firmware writes",
+    "QalcosonicReader.java, MbusParser.java and validated NFC/mailbox/archive traversal paths are protected"
+  ],
+  "intentional_remaining_maintenance": {
+    "ProductUiHardening": "active behavior; integrate into owning screens when v2.1 touches History/Settings/About, then remove with regression coverage",
+    "month_compatibility_layer": "not wholesale dead code; audit separately before removal",
+    "namespace_and_file_names": "low-priority cosmetic cleanup only",
+    "readme_screenshots": "deferred because no ADB tooling was available; still desired post-release visual documentation"
+  }
+}
