@@ -55,7 +55,7 @@ public final class ReleaseHardeningUiRegressionTest {
     @Test public void debugBuildAboutUsesPublicRepositoryFallback() throws Exception {
         String gradle = read(projectFile("build.gradle.kts"));
         assertTrue(gradle.contains("https://github.com/MarcLeinenDE/w1-nfc-reader"));
-        assertTrue(gradle.contains("versionName = \"2.0.0-dev.3\""));
+        assertTrue(gradle.contains("versionName = \"2.0.0-dev.4\""));
     }
 
     private static String read(Path path) throws Exception {

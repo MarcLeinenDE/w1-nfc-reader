@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_full_resync_title">Resynchronisation complète</string>
+    <string name="v2_full_resync_body">Vérification avancée de l’historique complet des heures, jours et mois. Utilisez la mise à jour normale pour les synchronisations courantes. La resynchronisation complète relit l’archive disponible depuis le début, conserve les données existantes et peut durer aussi longtemps que la première synchronisation. Disponible lorsque les trois historiques de référence sont complets.</string>
+    <string name="v2_full_resync_action">Démarrer la resynchronisation complète</string>
+    <string name="v2_full_resync_confirm_title">Démarrer la resynchronisation complète ?</string>
+    <string name="v2_full_resync_confirm_body">Cette opération peut durer aussi longtemps que la première synchronisation de l’historique. Maintenez le téléphone sur le même compteur jusqu’à la fin. L’historique existant n’est pas supprimé ; les périodes identiques sont confirmées et les différences restent conservées comme indices de révision ou de conflit.</string>
+    <string name="v2_full_resync_confirm_action">Démarrer</string>
+    <string name="v2_full_resync_requires_baselines">Terminez d’abord la synchronisation initiale des historiques Heure, Jour et Mois.</string>
+    <string name="v2_full_resync_armed_body">La resynchronisation complète est prête. Présentez de nouveau le même compteur. L’accès à l’archive ne commence qu’après vérification de son identité.</string>
+    <string name="v2_full_resync_running_body">La resynchronisation complète vérifie Heure, Jour et Mois. Gardez le téléphone immobile ; les périodes validées sont enregistrées immédiatement.</string>
+</resources>

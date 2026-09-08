@@ -33,7 +33,7 @@ public final class HistorySyncActivityRobolectricTest {
         DataPortability.clearMeterData(app);
     }
 
-    @Test public void startsWithoutMeterAndKeepsEveryFamilyActionDisabled() throws Exception {
+    @Test public void startsWithoutMeterAndKeepsEveryActionDisabled() throws Exception {
         try (ActivityController<HistorySyncActivity> controller =
                      Robolectric.buildActivity(HistorySyncActivity.class).setup()) {
             HistorySyncActivity activity = controller.get();
@@ -42,10 +42,11 @@ public final class HistorySyncActivityRobolectricTest {
             assertFalse(button(activity, "dayButton").isEnabled());
             assertFalse(button(activity, "hourButton").isEnabled());
             assertFalse(button(activity, "allButton").isEnabled());
+            assertFalse(button(activity, "fullResyncButton").isEnabled());
         }
     }
 
-    @Test public void knownActiveMeterEnablesIndependentAndSyncAllBaselines() throws Exception {
+    @Test public void knownActiveMeterEnablesNormalSyncButNotFullResyncBeforeBaselines() throws Exception {
         new MeterLifecycleStore(app).adoptInitialMeter("12345678");
 
         try (ActivityController<HistorySyncActivity> controller =
@@ -56,10 +57,12 @@ public final class HistorySyncActivityRobolectricTest {
             assertTrue(button(activity, "dayButton").isEnabled());
             assertTrue(button(activity, "hourButton").isEnabled());
             assertTrue(button(activity, "allButton").isEnabled());
+            assertFalse(button(activity, "fullResyncButton").isEnabled());
         }
     }
 
-    @Test public void completedFamilyStaysEnabledForIncrementalUpdate() throws Exception {
+    @Test public void completedFamilyStaysEnabledForIncrementalUpdateButFullResyncWaitsForAll()
+            throws Exception {
         String meter = "12345678";
         new MeterLifecycleStore(app).adoptInitialMeter(meter);
         complete(meter, ArchiveFamilyPeriod.Family.DAY);
@@ -72,12 +75,13 @@ public final class HistorySyncActivityRobolectricTest {
             assertTrue(button(activity, "dayButton").isEnabled());
             assertTrue(button(activity, "hourButton").isEnabled());
             assertTrue(button(activity, "allButton").isEnabled());
+            assertFalse(button(activity, "fullResyncButton").isEnabled());
             assertTrue(button(activity, "dayButton").getText().toString()
                     .contains(activity.getString(R.string.m3_sync_update_history)));
         }
     }
 
-    @Test public void allCompleteBaselinesKeepIndividualAndSyncAllUpdatesEnabled()
+    @Test public void allCompleteBaselinesEnableNormalUpdatesAndExplicitFullResync()
             throws Exception {
         String meter = "12345678";
         new MeterLifecycleStore(app).adoptInitialMeter(meter);
@@ -93,8 +97,11 @@ public final class HistorySyncActivityRobolectricTest {
             assertTrue(button(activity, "dayButton").isEnabled());
             assertTrue(button(activity, "hourButton").isEnabled());
             assertTrue(button(activity, "allButton").isEnabled());
+            assertTrue(button(activity, "fullResyncButton").isEnabled());
             assertTrue(button(activity, "allButton").getText().toString()
                     .contains(activity.getString(R.string.v2_sync_all_update)));
+            assertTrue(button(activity, "fullResyncButton").getText().toString()
+                    .contains(activity.getString(R.string.v2_full_resync_action)));
             assertTrue(button(activity, "monthButton").getText().toString()
                     .contains(activity.getString(R.string.m3_sync_update_history)));
             assertTrue(button(activity, "dayButton").getText().toString()

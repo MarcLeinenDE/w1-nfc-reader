@@ -9,7 +9,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "app" / "src" / "main" / "res"
-RESOURCE_FILES = ("product_080_strings.xml", "about_080_strings.xml", "v2_support_strings.xml")
+RESOURCE_FILES = (
+    "product_080_strings.xml",
+    "about_080_strings.xml",
+    "v2_support_strings.xml",
+    "v2_full_resync_strings.xml",
+)
 LOCALES = ("de", "fr", "pl", "nl", "lt")
 FORMAT = re.compile(r"%(?!%)(?:(\d+)\$)?(?:[-#+ 0,(<]*)?(?:\d+)?(?:\.\d+)?([a-zA-Z])")
 
