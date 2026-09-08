@@ -51,6 +51,8 @@ final class DataPortabilityV3 {
 
         JSONObject data = cloneJson(legacy.data);
         data.put("schema_version", BACKUP_SCHEMA);
+        JSONObject preferences = data.getJSONObject("preferences");
+        preferences.put("time_basis", UiPreferences.getTimeBasis(context).name());
         JSONObject timeModel;
         MeterTimeModelStore timeStore = new MeterTimeModelStore(context);
         try {
@@ -100,14 +102,16 @@ final class DataPortabilityV3 {
     static void restoreBackup(Context context, byte[] backupBytes) throws IOException, JSONException {
         ParsedBackup incoming = parse(backupBytes);
         if (incoming.schemaVersion == LEGACY_BACKUP_SCHEMA) {
-            // Legacy data contains no trustworthy per-meter ZoneId/SU/anchor evidence. Restore the
-            // proven core only and deliberately leave the local v2.1 time model untouched.
+            // Legacy data contains no trustworthy per-meter ZoneId/SU/anchor evidence and no v2.1
+            // time-basis preference. Restore the proven core only and deliberately preserve the
+            // receiving installation's v2.1-only state.
             DataPortability.restoreBackup(context, backupBytes);
             return;
         }
         if (incoming.schemaVersion != BACKUP_SCHEMA) throw new IOException("BACKUP_VERSION_UNSUPPORTED");
 
         byte[] coreBefore = writeLegacyBackup(context);
+        AppTimeBasis timeBasisBefore = UiPreferences.getTimeBasis(context);
         JSONObject timeBefore;
         MeterTimeModelStore store = new MeterTimeModelStore(context);
         try {
@@ -124,6 +128,7 @@ final class DataPortabilityV3 {
             } finally {
                 timeStore.close();
             }
+            UiPreferences.setTimeBasis(context, portableTimeBasis(incoming.data));
         } catch (Exception error) {
             try {
                 DataPortability.clearMeterData(context);
@@ -140,6 +145,7 @@ final class DataPortabilityV3 {
                 } finally {
                     restoreStore.close();
                 }
+                UiPreferences.setTimeBasis(context, timeBasisBefore);
             } catch (Exception rollback) {
                 error.addSuppressed(rollback);
             }
@@ -149,7 +155,7 @@ final class DataPortabilityV3 {
         }
     }
 
-    /** Full product-data clear for v2.1 callers. UI language/theme remain untouched. */
+    /** Full product-data clear for v2.1 callers. UI language/theme/time basis remain untouched. */
     static void clearMeterData(Context context) {
         DataPortability.clearMeterData(context);
         MeterTimeModelStore timeStore = new MeterTimeModelStore(context);
@@ -174,6 +180,8 @@ final class DataPortabilityV3 {
         JSONObject data = cloneJson(parsed.data);
         data.remove(TIME_MODEL);
         data.put("schema_version", LEGACY_BACKUP_SCHEMA);
+        JSONObject preferences = data.optJSONObject("preferences");
+        if (preferences != null) preferences.remove("time_basis");
         byte[] dataBytes = data.toString().getBytes(StandardCharsets.UTF_8);
 
         JSONObject manifest = cloneJson(parsed.manifest);
@@ -230,8 +238,21 @@ final class DataPortabilityV3 {
         if (data.optInt("schema_version", -1) != schema) {
             throw new IOException("BACKUP_SCHEMA_MISMATCH");
         }
-        if (schema == BACKUP_SCHEMA) validateTimeModel(data.getJSONObject(TIME_MODEL));
+        if (schema == BACKUP_SCHEMA) {
+            validateTimeModel(data.getJSONObject(TIME_MODEL));
+            portableTimeBasis(data);
+        }
         return new ParsedBackup(schema, manifest, data);
+    }
+
+    private static AppTimeBasis portableTimeBasis(JSONObject data) throws JSONException {
+        JSONObject preferences = data.getJSONObject("preferences");
+        String raw = preferences.getString("time_basis");
+        try {
+            return AppTimeBasis.valueOf(raw);
+        } catch (IllegalArgumentException error) {
+            throw new JSONException("invalid time_basis " + raw);
+        }
     }
 
     private static void validateTimeModel(JSONObject timeModel) throws JSONException {
