@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_full_resync_title">Pilnas pakartotinis sinchronizavimas</string>
+    <string name="v2_full_resync_body">Išplėstinė visos valandų, dienų ir mėnesių istorijos patikra. Įprastiems atnaujinimams naudokite įprastą sinchronizavimą. Pilnas pakartotinis sinchronizavimas dar kartą perskaito prieinamą archyvą nuo pradžios, išsaugo esamus duomenis ir gali trukti tiek pat, kiek pirmasis sinchronizavimas. Pasiekiamas užbaigus visas tris istorijos bazes.</string>
+    <string name="v2_full_resync_action">Pradėti pilną pakartotinį sinchronizavimą</string>
+    <string name="v2_full_resync_confirm_title">Pradėti pilną pakartotinį sinchronizavimą?</string>
+    <string name="v2_full_resync_confirm_body">Tai gali trukti tiek pat, kiek pirmasis istorijos sinchronizavimas. Laikykite telefoną prie to paties skaitiklio, kol procesas baigsis. Esama istorija neištrinama; sutampantys laikotarpiai patvirtinami, o skirtumai išsaugomi kaip peržiūros ar konflikto informacija.</string>
+    <string name="v2_full_resync_confirm_action">Pradėti</string>
+    <string name="v2_full_resync_requires_baselines">Pirmiausia užbaikite pradinį valandų, dienų ir mėnesių istorijos sinchronizavimą.</string>
+    <string name="v2_full_resync_armed_body">Pilnas pakartotinis sinchronizavimas paruoštas. Dar kartą pridėkite tą patį skaitiklį. Prieiga prie archyvo prasidės tik patvirtinus skaitiklio tapatybę.</string>
+    <string name="v2_full_resync_running_body">Pilnas pakartotinis sinchronizavimas tikrina valandų, dienų ir mėnesių istoriją. Laikykite telefoną nejudindami; patvirtinti laikotarpiai išsaugomi iš karto.</string>
+</resources>
