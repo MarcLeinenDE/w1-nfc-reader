@@ -1,6 +1,5 @@
 package de.marcleinen.engineeringlab.qalcosonic;
 
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -153,24 +152,7 @@ final class ArchiveKnownRecordMatcher implements ArchiveTraversalStateMachine.Kn
     }
 
     static Long durationSeconds(String value) {
-        if (value == null) return null;
-        String[] parts = value.trim().split("\\s+");
-        if (parts.length != 2) return null;
-        long multiplier;
-        switch (parts[1]) {
-            case "s": multiplier = 1L; break;
-            case "min": multiplier = 60L; break;
-            case "h": multiplier = 3600L; break;
-            case "d": multiplier = 86_400L; break;
-            default: return null;
-        }
-        try {
-            BigDecimal raw = new BigDecimal(parts[0].replace(',', '.'));
-            long seconds = raw.multiply(BigDecimal.valueOf(multiplier)).longValueExact();
-            return seconds < 0L ? null : seconds;
-        } catch (RuntimeException error) {
-            return null;
-        }
+        return ArchiveOccurrenceKey.parseDurationSeconds(value);
     }
 
     private static boolean same(Object first, Object second) {
