@@ -32,12 +32,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * <p>Normal NFC contact elsewhere in the product remains Live-only. Hour, Day and Month initial
  * baselines use their individually physically validated v2 safety-shell entry points. Once one
- * family has a complete baseline, its individual action uses the conservative incremental path:
- * newest-first traversal stops only after two consecutive securely known records. Sync-all remains
- * a baseline orchestration layer only (HOUR -> reconnect -> DAY -> reconnect -> MONTH) and skips
- * complete families until incremental Sync-all receives its own physical validation. Every family
- * still performs Reset/Live preflight, boundary guard, immediate persistence and final Reset/Live
- * verification. A failed attempt never erases an already complete baseline.</p>
+ * family has a complete baseline, that family uses the conservative incremental path: newest-first
+ * traversal stops only after two consecutive securely known records. Sync All is only an
+ * orchestration layer: each family independently chooses INITIAL_FULL or INCREMENTAL from its own
+ * authoritative baseline state, then closes/reconnects before the next family. Every family still
+ * performs Reset/Live preflight, boundary guard, immediate persistence and final Reset/Live
+ * verification. A failed later update never erases an already complete baseline, and a following
+ * family is never started while the default application remains unverified.</p>
  */
 public final class HistorySyncActivity extends MaterialBaseActivity implements NfcAdapter.ReaderCallback {
     private static final long BETWEEN_FAMILY_RECONNECT_MS = 1500L;
@@ -127,7 +128,7 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
             runOnUiThread(() -> {
                 setStatus(R.string.m3_state_wrong_tag_title, R.string.m3_state_wrong_tag_body);
                 if (runAll) {
-                    setDebug("TEMP DEBUG — wird vor Release entfernt\nmode=ALL\nphase=WRONG_TAG");
+                    setDebug("TEMP DEBUG — wird vor Release entfernt\nmode=ALL_FAMILIES\nphase=WRONG_TAG");
                 } else {
                     setDebug("TEMP DEBUG — wird vor Release entfernt\nphase=WRONG_TAG\nfamily="
                             + family.name() + "\nmode=" + mode.name());
@@ -139,11 +140,12 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         try {
             runOnUiThread(() -> setStatus(
                     R.string.m3_state_sync_title,
-                    mode == ArchiveFamilySyncState.SyncMode.INCREMENTAL
+                    runAll ? R.string.v2_sync_all_body
+                            : (mode == ArchiveFamilySyncState.SyncMode.INCREMENTAL
                             ? R.string.m3_state_incremental_body_v2
-                            : R.string.m3_state_sync_body));
+                            : R.string.m3_state_sync_body)));
             if (runAll) {
-                runAllBaselines(tag, expectedMeter);
+                runAllFamilies(tag, expectedMeter);
             } else {
                 runSingleSync(tag, family, expectedMeter, mode);
             }
@@ -188,10 +190,10 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         }
     }
 
-    private void runAllBaselines(Tag tag, String expectedMeter) {
+    private void runAllFamilies(Tag tag, String expectedMeter) {
         StringBuilder debug = new StringBuilder();
         debug.append("TEMP DEBUG — wird vor Release entfernt\n")
-                .append("mode=ALL_BASELINES\n")
+                .append("mode=ALL_FAMILIES\n")
                 .append("expectedMeter=").append(expectedMeter).append('\n')
                 .append("order=HOUR->DAY->MONTH\n")
                 .append("reconnectMs=").append(BETWEEN_FAMILY_RECONNECT_MS).append('\n')
@@ -201,17 +203,15 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         boolean anyProgress = false;
         boolean previousFamilyRan = false;
         boolean allComplete = true;
+        int attemptedFamilies = 0;
 
         for (int familyIndex = 0; familyIndex < SYNC_ALL_ORDER.length; familyIndex++) {
             ArchiveFamilyPeriod.Family family = SYNC_ALL_ORDER[familyIndex];
             int step = familyIndex + 1;
             ArchiveFamilySyncState existing = syncStateStore.get(expectedMeter, family);
-            if (existing.baselineComplete()) {
-                appendAllLine(debug, family, "SKIPPED_BASELINE_COMPLETE");
-                runOnUiThread(() -> setDebug(debug.toString()));
-                continue;
-            }
+            ArchiveFamilySyncState.SyncMode mode = HistorySyncAllPlanner.modeFor(existing);
 
+            appendAllLine(debug, family, "MODE_" + mode.name());
             showSyncProgress(family, 0, true, step);
             if (previousFamilyRan) {
                 appendAllLine(debug, family, "RECONNECT_WAIT");
@@ -220,6 +220,7 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
             }
 
             previousFamilyRan = true;
+            attemptedFamilies++;
             appendAllLine(debug, family, "CONNECTING");
             runOnUiThread(() -> setDebug(debug.toString()));
 
@@ -236,13 +237,15 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
                 nfcv.connect();
                 runOnUiThread(() -> setStatus(
                         R.string.m3_state_sync_title,
-                        R.string.m3_state_sync_body));
+                        mode == ArchiveFamilySyncState.SyncMode.INCREMENTAL
+                                ? R.string.m3_state_incremental_body_v2
+                                : R.string.m3_state_sync_body));
                 attempt = performFamilyAttempt(
                         nfcv,
                         tag,
                         family,
                         expectedMeter,
-                        ArchiveFamilySyncState.SyncMode.INITIAL_FULL,
+                        mode,
                         true,
                         step);
             } catch (Exception error) {
@@ -268,13 +271,22 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
 
             if (!attempt.complete) {
                 allComplete = false;
-                break;
+                if (!HistorySyncAllPlanner.mayContinue(
+                        attempt.complete, attempt.finalRestoreVerified)) {
+                    appendAllLine(debug, family, "STOP_DEFAULT_UNVERIFIED");
+                    runOnUiThread(() -> setDebug(debug.toString()));
+                    break;
+                }
+                appendAllLine(debug, family, "CONTINUE_AFTER_VERIFIED_RESTORE");
+                runOnUiThread(() -> setDebug(debug.toString()));
             }
         }
 
-        final boolean finalComplete = allComplete && allBaselinesComplete(expectedMeter);
+        final boolean finalComplete = allComplete && attemptedFamilies == SYNC_ALL_ORDER.length;
         final boolean finalPartial = !finalComplete && anyProgress;
-        debug.append("\n\nALL_RESULT=")
+        debug.append("\n\nALL_ATTEMPTED=")
+                .append(attemptedFamilies).append('/').append(SYNC_ALL_ORDER.length)
+                .append("\nALL_RESULT=")
                 .append(finalComplete ? "COMPLETE" : (finalPartial ? "PARTIAL" : "FAILED"));
         runOnUiThread(() -> {
             setDebug(debug.toString());
@@ -353,7 +365,8 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         boolean partial = !complete
                 && (!transport.traversal.periods.isEmpty() || persisted.committed > 0);
         recordFamilyAttempt(expectedMeter, family, mode, transport, persisted, complete, partial);
-        return new FamilyAttempt(complete, partial, persisted, debug);
+        return new FamilyAttempt(
+                complete, partial, transport.finalRestoreVerified(), persisted, debug);
     }
 
     private void recordFamilyAttempt(
@@ -596,22 +609,21 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
             Snackbar.make(root, R.string.m3_no_meter, Snackbar.LENGTH_LONG).show();
             return;
         }
-        if (allBaselinesComplete(meter)) {
-            Snackbar.make(root, R.string.m3_not_available, Snackbar.LENGTH_LONG).show();
-            return;
-        }
 
         ArchiveFamilySyncState hour = syncStateStore.get(meter, ArchiveFamilyPeriod.Family.HOUR);
         ArchiveFamilySyncState day = syncStateStore.get(meter, ArchiveFamilyPeriod.Family.DAY);
         ArchiveFamilySyncState month = syncStateStore.get(meter, ArchiveFamilyPeriod.Family.MONTH);
         boolean retry = hasRetryableAttempt(hour) || hasRetryableAttempt(day) || hasRetryableAttempt(month);
+        boolean complete = hour.baselineComplete() && day.baselineComplete() && month.baselineComplete();
+        int positiveAction = complete
+                ? R.string.v2_sync_all_update
+                : (retry ? R.string.m3_sync_retry : R.string.m3_sync_history);
 
         new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.m3_sync_history)
-                .setMessage(retry ? R.string.m3_state_sync_partial_body_v2 : R.string.m3_state_sync_body)
+                .setMessage(R.string.v2_sync_all_body)
                 .setNegativeButton(R.string.m3_cancel, null)
-                .setPositiveButton(retry ? R.string.m3_sync_retry : R.string.m3_sync_history,
-                        (dialog, which) -> armAll(meter))
+                .setPositiveButton(positiveAction, (dialog, which) -> armAll(meter))
                 .show();
     }
 
@@ -640,8 +652,8 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         armedAll = true;
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         hideSyncProgress();
-        setStatus(R.string.m3_state_verify_title, R.string.m3_state_verify_body);
-        setDebug("TEMP DEBUG — wird vor Release entfernt\nmode=ALL_BASELINES\nexpectedMeter="
+        setStatus(R.string.m3_state_verify_title, R.string.v2_sync_all_body);
+        setDebug("TEMP DEBUG — wird vor Release entfernt\nmode=ALL_FAMILIES\nexpectedMeter="
                 + meterId + "\nphase=ARMED");
         refreshState();
     }
@@ -684,15 +696,21 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
         boolean retryAll = hasRetryableAttempt(hour)
                 || hasRetryableAttempt(day)
                 || hasRetryableAttempt(month);
-        allButton.setText(getString(R.string.m3_filter_all) + " · "
-                + getString(retryAll ? R.string.m3_sync_retry : R.string.m3_sync_history));
+        boolean completeAll = hour.baselineComplete()
+                && day.baselineComplete()
+                && month.baselineComplete();
+        if (completeAll) {
+            allButton.setText(R.string.v2_sync_all_update);
+        } else {
+            allButton.setText(getString(R.string.m3_filter_all) + " · "
+                    + getString(retryAll ? R.string.m3_sync_retry : R.string.m3_sync_history));
+        }
 
         boolean idle = armedFamily == null && !armedAll && !reading.get();
         monthButton.setEnabled(idle);
         dayButton.setEnabled(idle);
         hourButton.setEnabled(idle);
-        allButton.setEnabled(idle
-                && (!hour.baselineComplete() || !day.baselineComplete() || !month.baselineComplete()));
+        allButton.setEnabled(idle);
     }
 
     private boolean allBaselinesComplete(String meter) {
@@ -830,7 +848,7 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
             ArchiveFamilyPeriod.Family family,
             Throwable error) {
         return "TEMP DEBUG — wird vor Release entfernt\n"
-                + "mode=ALL_BASELINES\n"
+                + "mode=ALL_FAMILIES\n"
                 + "family=" + (family == null ? "null" : family.name()) + "\n"
                 + "expectedMeter=" + expectedMeter + "\n"
                 + "phase=EXCEPTION\n"
@@ -857,16 +875,19 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
     private static final class FamilyAttempt {
         final boolean complete;
         final boolean partial;
+        final boolean finalRestoreVerified;
         final ArchivePersistenceCoordinator.Result persisted;
         final String debug;
 
         FamilyAttempt(
                 boolean complete,
                 boolean partial,
+                boolean finalRestoreVerified,
                 ArchivePersistenceCoordinator.Result persisted,
                 String debug) {
             this.complete = complete;
             this.partial = partial;
+            this.finalRestoreVerified = finalRestoreVerified;
             this.persisted = persisted;
             this.debug = debug;
         }
