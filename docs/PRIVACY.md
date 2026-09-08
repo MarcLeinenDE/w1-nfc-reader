@@ -11,9 +11,10 @@ The application manifest does **not** request Android Internet permission. The p
 Normal product storage can include:
 
 - meter/M-Bus identifier;
-- decoded live readings and their Android read timestamps;
-- decoded Month archive periods and logger timestamps;
-- history-sync metadata;
+- decoded Live readings and their Android acquisition timestamps;
+- decoded Hour, Day and Month archive periods and logger timestamps;
+- history-sync state/metadata for each archive family;
+- archive integrity/conflict metadata;
 - meter lifecycle/replacement relationships;
 - local UI preferences.
 
@@ -34,18 +35,21 @@ Protocol code necessarily processes transport/frame bytes in memory while readin
 
 The app provides explicit user-triggered data portability:
 
-- `.qw1backup` is the machine-restorable backup format;
+- `.qw1backup` is the canonical machine-restorable backup format;
 - backup integrity is checked before database mutation;
 - restore is transactional and should roll back if validation/import fails;
+- the versioned backup includes the v2 per-family History sync state needed to continue safely after restore;
 - CSV is intended for human-readable export, not as the canonical full restore format.
 
 The app does not silently upload either format.
 
-## Sharing
+## Sharing and diagnostics
 
-Android sharing is user-triggered. Product share actions use the **last successful live read** rather than a failed later NFC attempt.
+Android sharing is user-triggered. Product share actions use the **last successful Live read** rather than a failed later NFC attempt.
 
-Before sharing files or diagnostics, remember that meter identifiers and consumption history can be personal data in context.
+The normal in-app Diagnostics screen reads local product/build/synchronization status. It does not expose raw NFC traffic, raw M-Bus frames or private field traces.
+
+Before sharing backups, CSV exports or screenshots, remember that meter identifiers and consumption history can be personal data in context.
 
 ## Android platform backup
 
