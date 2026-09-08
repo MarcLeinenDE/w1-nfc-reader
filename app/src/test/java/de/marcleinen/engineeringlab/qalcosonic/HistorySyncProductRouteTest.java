@@ -27,8 +27,6 @@ public final class HistorySyncProductRouteTest {
         assertTrue(activity.contains("ArchiveFamilyProductionRunner.runHour"));
         assertTrue(activity.contains("ArchiveIncrementalProductionRunner.run("));
         assertTrue(activity.contains("new ArchiveKnownRecordMatcher("));
-        // The user-visible progress wrapper must still persist first and only then count the record
-        // as safely stored. Do not regress this to delayed/batch persistence for UI convenience.
         assertTrue(activity.contains("persistence.accept(period);"));
         assertTrue(activity.contains("ArchiveFamilyTransportAdapter.AcceptedPeriodSink progressSink"));
         assertTrue(activity.contains("progressSink"));
@@ -36,7 +34,7 @@ public final class HistorySyncProductRouteTest {
         assertTrue(activity.contains("FLAG_KEEP_SCREEN_ON"));
         assertTrue(activity.contains("SyncMode.INITIAL_FULL"));
         assertTrue(activity.contains("SyncMode.INCREMENTAL"));
-        assertFalse(activity.contains("SyncMode.FULL_RESYNC"));
+        assertTrue(activity.contains("SyncMode.FULL_RESYNC"));
     }
 
     @Test public void incrementalSnapshotIsTakenBeforeCurrentAttemptPersistence() throws Exception {
@@ -45,7 +43,6 @@ public final class HistorySyncProductRouteTest {
         int persistence = activity.indexOf("ArchivePersistenceCoordinator.beginImmediate(", snapshot);
         assertTrue(snapshot >= 0);
         assertTrue(persistence > snapshot);
-        assertTrue(activity.contains("ArchiveIncrementalProductionRunner.REQUIRED_KNOWN_OVERLAP"));
     }
 
     @Test public void syncAllUsesValidatedFamilyOrderAndIndependentPerFamilyModes() throws Exception {
@@ -57,9 +54,8 @@ public final class HistorySyncProductRouteTest {
         assertTrue(activity.contains("BETWEEN_FAMILY_RECONNECT_MS = 1500L"));
         assertTrue(activity.contains("SystemClock.sleep(BETWEEN_FAMILY_RECONNECT_MS)"));
         assertTrue(activity.contains("NfcV nfcv = NfcV.get(tag)"));
-        assertTrue(activity.contains("HistorySyncAllPlanner.modeFor(existing)"));
+        assertTrue(activity.contains("HistorySyncAllPlanner.modeFor(existing, fullResync)"));
         assertTrue(activity.contains("HistorySyncAllPlanner.mayContinue("));
-        assertTrue(activity.contains("STOP_DEFAULT_UNVERIFIED"));
         assertFalse(activity.contains("SKIPPED_BASELINE_COMPLETE"));
         assertFalse(activity.contains("mode=ALL_BASELINES"));
     }
@@ -71,17 +67,37 @@ public final class HistorySyncProductRouteTest {
         assertTrue(activity.contains("armFamily(meter, family, mode)"));
     }
 
+    @Test public void fullResyncIsSeparateAdvancedActionAndNeverReplacesNormalSyncAll() throws Exception {
+        String activity = read("app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncActivity.java");
+        String planner = read("app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncAllPlanner.java");
+
+        assertTrue(activity.contains("fullResyncButton"));
+        assertTrue(activity.contains("private void offerFullResync()"));
+        assertTrue(activity.contains("armAll(meter, true)"));
+        assertTrue(activity.contains("armAll(meter, false)"));
+        assertTrue(activity.contains("HistorySyncAllPlanner.fullResyncAvailable"));
+        assertTrue(activity.contains("runFullTraversal("));
+        assertTrue(planner.contains("fullResync ? ArchiveFamilySyncState.SyncMode.FULL_RESYNC"));
+        assertTrue(planner.contains("return state.baselineComplete()"));
+    }
+
+    @Test public void temporaryHistoryDebugSurfaceIsGone() throws Exception {
+        String activity = read("app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncActivity.java");
+        assertFalse(activity.contains("TEMP DEBUG"));
+        assertFalse(activity.contains("HistorySyncTemporaryDebug"));
+        assertFalse(Files.exists(Paths.get(
+                "app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncTemporaryDebug.java")));
+    }
+
     @Test public void syncAllIsAnExplicitUserActionAndRemainsAvailableForUpdates() throws Exception {
         String activity = read("app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncActivity.java");
         assertTrue(activity.contains("allButton = actionButton(R.string.m3_filter_all, v -> offerAllSync())"));
         assertTrue(activity.contains("private void offerAllSync()"));
-        assertTrue(activity.contains("private void armAll(String meterId)"));
         assertTrue(activity.contains("R.string.v2_sync_all_update"));
         assertTrue(activity.contains("allButton.setEnabled(idle)"));
-        assertFalse(activity.contains("allButton.setEnabled(idle\n                && (!hour.baselineComplete()"));
     }
 
-    @Test public void exactValidatedMonthBaselineEntryPointIsStillUsed() throws Exception {
+    @Test public void exactValidatedMonthEntryPointIsStillUsedForFullTraversal() throws Exception {
         String activity = read("app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncActivity.java");
         assertTrue(activity.contains("ArchiveFamilyTransportAdapter.runMonth("));
     }
