@@ -77,7 +77,7 @@ public final class HistorySyncActivityRobolectricTest {
         }
     }
 
-    @Test public void allCompleteBaselinesKeepIndividualUpdatesEnabledButDisableBaselineSyncAll()
+    @Test public void allCompleteBaselinesKeepIndividualAndSyncAllUpdatesEnabled()
             throws Exception {
         String meter = "12345678";
         new MeterLifecycleStore(app).adoptInitialMeter(meter);
@@ -92,7 +92,9 @@ public final class HistorySyncActivityRobolectricTest {
             assertTrue(button(activity, "monthButton").isEnabled());
             assertTrue(button(activity, "dayButton").isEnabled());
             assertTrue(button(activity, "hourButton").isEnabled());
-            assertFalse(button(activity, "allButton").isEnabled());
+            assertTrue(button(activity, "allButton").isEnabled());
+            assertTrue(button(activity, "allButton").getText().toString()
+                    .contains(activity.getString(R.string.v2_sync_all_update)));
             assertTrue(button(activity, "monthButton").getText().toString()
                     .contains(activity.getString(R.string.m3_sync_update_history)));
             assertTrue(button(activity, "dayButton").getText().toString()
