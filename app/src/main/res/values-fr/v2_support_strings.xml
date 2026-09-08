@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_support_developer_title">☕ Soutenir le développeur</string>
+    <string name="v2_support_developer_body">Offrez-moi un café (facultatif)</string>
+    <string name="v2_support_developer_button">M’offrir un café</string>
+    <string name="v2_christmas_support_title">🎄 Joyeux Noël de la part de W1 NFC Reader ! ☕</string>
+    <string name="v2_christmas_support_body">W1 NFC Reader est gratuit et le restera.\n\nSi l’application vous a été utile cette année et que vous souhaitez me faire un petit plaisir pour Noël, vous pouvez, si vous le souhaitez, m’offrir un café. 🎁☕</string>
+    <string name="v2_christmas_support_positive">M’offrir un café</string>
+    <string name="v2_christmas_support_negative">Non merci</string>
+</resources>

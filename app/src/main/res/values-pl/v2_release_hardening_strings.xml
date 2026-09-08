@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_filter_button_cd">Filtruj historię</string>
+    <string name="v2_filter_button_active_cd">Filtr historii aktywny</string>
+    <string name="v2_sync_settings_summary">Synchronizuj i aktualizuj historię godzinową, dzienną i miesięczną</string>
+
+    <string name="v2_diag_signing_title">Podpis aplikacji</string>
+    <string name="v2_diag_signing_stable">Dla tej kompilacji skonfigurowano stabilną tożsamość podpisu CI/release</string>
+    <string name="v2_diag_signing_debug">Dla tej kompilacji używana jest tożsamość podpisu deweloperskiego/debug</string>
+    <string name="v2_diag_protocol_value">Fizycznie zweryfikowane: Live, Godzina, Dzień i Miesiąc</string>
+    <string name="v2_diag_year_not_exposed">Rok/Rozliczenia nie są udostępniane w v2 jako opcja synchronizacji historii.</string>
+    <string name="v2_diag_data_title">Stan danych lokalnych</string>
+    <string name="v2_diag_family_line">%1$s: %2$d rekordów · %3$s</string>
+    <string name="v2_diag_privacy_title">Prywatność diagnostyki</string>
+    <string name="v2_diag_privacy_body">Ten ekran odczytuje wyłącznie lokalny stan produktu. Nie pokazuje surowego ruchu NFC, surowych ramek M-Bus ani prywatnych śladów terenowych.</string>
+
+    <string name="v2_about_privacy_sharing_body">Dane opuszczają aplikację tylko po wyraźnym działaniu użytkownika. Zwykłe dane produktu, kopie zapasowe i eksporty pozostają lokalne, dopóki świadomie ich nie zapiszesz lub nie udostępnisz. Stan diagnostyczny wyświetlany w aplikacji jest lokalny i nie zawiera surowych śladów NFC ani M-Bus.</string>
+    <string name="v2_about_research_lineage">Projekt upstream i jego autor są wymienieni, aby pochodzenie badań protokołu pozostało widoczne. Istotne zachowanie zostało także niezależnie porównane z projektem open source AxiomaQalcosonicW1NFCReaderAndroid; kod tego projektu nie jest dołączany do tej aplikacji.</string>
+</resources>

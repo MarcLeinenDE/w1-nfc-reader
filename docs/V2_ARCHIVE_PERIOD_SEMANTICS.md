@@ -24,9 +24,11 @@ For a selected archive calendar window `[start, end)`, archive rows whose period
 
 `logger_timestamp > start AND logger_timestamp <= end`
 
-The exact `start` boundary may additionally be loaded as context for the first consumption delta. It is not itself a displayed period in the selected window.
+The exact `start` boundary may additionally be loaded as context for the first archive consumption delta. It is not itself a displayed period in the selected window.
 
 Live reads are different. Their primary timestamp is Android acquisition time and remains selected with normal device-time `[start, end)` semantics.
+
+For a freely selected custom date/time range, the app may evaluate only archive buckets that lie completely inside the requested range. It must not interpolate a fractional Hour/Day/Month bucket merely to make the selected boundaries appear exact. If the available granularity cannot represent one or both edges exactly, the UI must report that limitation and the available coverage.
 
 ## Consumption and cumulative registers
 
@@ -44,23 +46,20 @@ Positive volume, reverse volume and tariff volume must follow the same rule if a
 
 ## Live consumption reference
 
-A Live reading is a point-in-time reading, not a completed archive period. Its History delta therefore follows a different predecessor rule from Hour/Day/Month archive cards.
+A Live reading is a point-in-time observation, not a completed archive period. Its consumption delta is therefore a separate Live-only series.
 
-For a Live observation, compare the cumulative total with the **newest strictly earlier known cumulative reading from the same physical meter**, regardless of whether that previous observation came from:
+For a Live observation, compare the cumulative total only with the **newest strictly earlier Live observation from the same physical meter**.
 
-- Live;
-- Hour;
-- Day;
-- Month.
+Hour, Day and Month archive rows must never become hidden reference context for a Live card, even when an archive observation is chronologically newer than the previous Live read. The semantic meaning of a Live card must also remain identical whether the user is looking at `All` History or the `Live` filter.
 
-This makes each Live reading join the chronological History stream instead of forming a separate Live-only delta series.
+If no previous Live observation exists for the same physical meter, the app does not invent a Live consumption delta and does not silently fall back to archive data.
 
-Examples:
+Example:
 
-- Hour boundary `2026-09-06 18:00` followed by Live at `19:23` -> Live may display consumption `since 06.09.2026 18:00`.
-- If no newer Hour/Live value exists and the newest reference is a Day boundary, the Live card may reference that Day boundary date.
-- If the newest available reference is a Month archive record, the Live card may use the human Month-period label of that record.
-- A later Live read should normally use the preceding Live read if it is now the newest known earlier reading.
+- Live at `06.09.2026 19:23` = `205.050 m³`;
+- Hour archive boundary at `07.09.2026 20:00` may contain another cumulative total;
+- Live at `07.09.2026 21:15` = `205.391 m³`;
+- the later Live card still compares to the previous **Live** observation and may display `0.341 m³ since 06.09.2026 19:23`.
 
 Live predecessor selection must never cross a meter replacement, must reject negative/reset-like cumulative deltas, and must not use an observation at the exact same timeline timestamp as a strictly earlier reference.
 

@@ -19,10 +19,12 @@ import java.util.Map;
  */
 final class LiveReadMetadataStore {
     private static final String PREFS = "latest_live_read_metadata";
+    private final Context appContext;
     private final SharedPreferences prefs;
 
     LiveReadMetadataStore(Context context) {
-        prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        appContext = context.getApplicationContext();
+        prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
     void record(MbusParser.MeterData meter, long readAtMs) {
@@ -35,6 +37,7 @@ final class LiveReadMetadataStore {
                 .putInt(prefix + "battery", meter.batteryPercent == null ? -1 : meter.batteryPercent)
                 .putString(prefix + "alarms", serializeAlarms(meter.getErrors()))
                 .apply();
+        SeasonalSupportPrompt.recordSuccessfulNormalLive(appContext, readAtMs);
     }
 
     Summary get(String meterId) {

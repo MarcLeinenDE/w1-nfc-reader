@@ -2,19 +2,22 @@
 
 W1 NFC Reader is an independent Android app for reading compatible **Axioma Qalcosonic W1** water meters locally over **NFC-V / ISO 15693**.
 
-The app is designed around a conservative, read-focused protocol model: a normal NFC contact performs a fast live read, while historical meter data is retrieved only after an explicit user action.
+The app is designed around a conservative, read-focused protocol model: a normal NFC contact performs a fast Live read, while historical meter data is retrieved only after an explicit user action.
 
 > This project is independent and is not affiliated with, endorsed by, or supported by Axioma Metering, STMicroelectronics, Google, or the Android project. Product and company names are used descriptively only.
 
 ## Features
 
-- live meter readout over Android NFC-V;
-- explicit **Monthly history synchronization**;
-- local history and consumption statistics;
+- Live meter readout over Android NFC-V;
+- explicit **Hour, Day and Month history synchronization** in the v2 development line;
+- full baseline acquisition followed by conservative per-family incremental updates;
+- local History with granularity filters, calendar navigation and custom date/time ranges;
+- local multi-metric Statistics for consumption and available meter/archive measurements;
+- transparent coverage/precision reporting when a requested range cannot be represented exactly by the available archive granularity;
 - meter-replacement handling without subtracting cumulative values across different meter IDs;
 - local `.qw1backup` backup/restore with integrity validation;
 - human-readable CSV export;
-- Android share-sheet integration for the last successful live read;
+- Android share-sheet integration for the last successful Live read;
 - light, dark and system appearance;
 - English, German, French, Polish, Dutch and Lithuanian UI resources;
 - RTL-ready Android layout handling;
@@ -22,27 +25,41 @@ The app is designed around a conservative, read-focused protocol model: a normal
 
 ## Supported protocol scope
 
-The first public release intentionally supports a narrow, physically validated scope.
+The current v2 development line keeps Live acquisition and History synchronization deliberately separate.
 
 ### Live read
 
-A normal NFC contact performs the validated live/default read only. A failed later contact does not erase the last successful live state.
+A normal NFC contact performs the validated Live/default read only. The app explicitly restores the meter's default application before accepting a normal Live observation, and a failed later contact does not erase the last successful Live state.
 
-### Monthly history
+For History analytics, a Live consumption delta compares only with the previous strictly earlier Live observation from the same physical meter. Hidden Hour/Day/Month observations are not used as Live predecessors.
 
-Historical data is synchronized only after the user explicitly selects **Synchronize history** and then presents the intended meter again.
+### Hour, Day and Month history
 
-The production path currently supports the **Month** archive family only. It alternates the validated FCB1/FCB0 request sequence and stops on the meter's actual terminal condition rather than hardcoding a previously observed number of periods.
+Historical data is synchronized only after the user explicitly selects History synchronization and then presents the intended meter again.
 
-Day, Hour and Year/Billing archive acquisition is **not part of the public production feature set** until separately validated and released.
+The physically validated v2 product families are **Hour**, **Day** and **Month**. Each family is synchronized independently and keeps its own baseline state.
+
+An initial family baseline traverses until the meter/protocol state machine reaches a valid semantic terminal condition; it never relies on a fixed record count. Every accepted archive record is persisted immediately. The app then restores the default application and verifies a Live/default response before the attempt can be considered complete.
+
+After a family has an authoritative COMPLETE baseline, normal updates use a conservative **incremental** path. Incremental traversal may stop at securely known overlap; it does not blindly repeat an ambiguous selected request.
+
+**Update all history** chooses the correct mode independently for Hour, Day and Month: incomplete families use the full baseline path, while COMPLETE families use incremental synchronization.
+
+Year/Billing is **not exposed as a normal v2 History synchronization control** unless separately validated and intentionally released.
 
 ## Safety model
 
 The app is read-focused. It does not intentionally write persistent meter configuration, radio configuration, calibration data, metering parameters or firmware.
 
-The protocol implementation uses the volatile ST25 mailbox transport needed to exchange M-Bus read/application-selection messages with the meter. The validated Month flow restores the default application after history traversal and verifies the restored default response structurally.
+The protocol implementation uses the volatile ST25 mailbox transport needed to exchange M-Bus read/application-selection messages with the meter. Every production History family runs inside the same conservative safety shell: verified default preflight, family selection/traversal, immediate accepted-record persistence, final default restore and verified Live/default read.
 
 Protocol changes should be evidence-backed and regression-tested. See [docs/PROTOCOL_SAFETY.md](docs/PROTOCOL_SAFETY.md).
+
+## History ranges and statistics
+
+History and Statistics support both quick calendar navigation and freely selected **date/time ranges**.
+
+A custom range can start and end at arbitrary times, for example `03 Sep 15:00` to `04 Sep 10:00`. The app does not invent precision: if the selected boundaries cannot be represented exactly by the available Hour/Day/Month data, it reports the available resolution/coverage and evaluates only defensible complete intervals rather than interpolating unknown consumption.
 
 ## Privacy
 

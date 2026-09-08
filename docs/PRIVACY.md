@@ -6,18 +6,22 @@ W1 NFC Reader is designed to operate locally on the Android device.
 
 The application manifest does **not** request Android Internet permission. The product does not require an account, cloud service or Home Assistant connection.
 
+Links intentionally opened from About, including the optional developer-support link, are handed to the device's external browser with Android `ACTION_VIEW`. W1 NFC Reader does not embed a WebView, process payments, use a payment SDK or receive payment status.
+
 ## Data stored locally
 
 Normal product storage can include:
 
 - meter/M-Bus identifier;
-- decoded live readings and their Android read timestamps;
-- decoded Month archive periods and logger timestamps;
-- history-sync metadata;
+- decoded Live readings and their Android acquisition timestamps;
+- decoded Hour, Day and Month archive periods and logger timestamps;
+- history-sync state/metadata for each archive family;
+- archive integrity/conflict metadata;
 - meter lifecycle/replacement relationships;
-- local UI preferences.
+- local UI preferences;
+- for the optional Christmas support prompt, only the year of an eligible in-season successful Live read and the year in which that season's prompt has already been handled.
 
-The app uses local Android storage/SQLite for these product features.
+The app uses local Android storage/SQLite for these product features. The seasonal support state contains no payment result and no additional personal profile data.
 
 ## Data not intentionally persisted by normal history
 
@@ -34,18 +38,21 @@ Protocol code necessarily processes transport/frame bytes in memory while readin
 
 The app provides explicit user-triggered data portability:
 
-- `.qw1backup` is the machine-restorable backup format;
+- `.qw1backup` is the canonical machine-restorable backup format;
 - backup integrity is checked before database mutation;
 - restore is transactional and should roll back if validation/import fails;
+- the versioned backup includes the v2 per-family History sync state needed to continue safely after restore;
 - CSV is intended for human-readable export, not as the canonical full restore format.
 
-The app does not silently upload either format.
+The app does not silently upload either format. Seasonal support-prompt state is intentionally not treated as meter/history backup data.
 
-## Sharing
+## Sharing and diagnostics
 
-Android sharing is user-triggered. Product share actions use the **last successful live read** rather than a failed later NFC attempt.
+Android sharing is user-triggered. Product share actions use the **last successful Live read** rather than a failed later NFC attempt.
 
-Before sharing files or diagnostics, remember that meter identifiers and consumption history can be personal data in context.
+The normal in-app Diagnostics screen reads local product/build/synchronization status. It does not expose raw NFC traffic, raw M-Bus frames or private field traces. General privacy explanations live in About/privacy documentation rather than being duplicated as a separate Diagnostics card.
+
+Before sharing backups, CSV exports or screenshots, remember that meter identifiers and consumption history can be personal data in context.
 
 ## Android platform backup
 
