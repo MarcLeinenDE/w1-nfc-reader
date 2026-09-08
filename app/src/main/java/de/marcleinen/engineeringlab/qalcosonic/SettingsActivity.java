@@ -117,7 +117,7 @@ public final class SettingsActivity extends MaterialBaseActivity {
             if (uri == null) return;
             try (OutputStream out = getContentResolver().openOutputStream(uri, "w")) {
                 if (out == null) throw new IllegalStateException("no output stream");
-                DataPortability.writeBackup(this, out);
+                DataPortabilityV3.writeBackup(this, out);
                 message(R.string.m3_backup_success);
             } catch (Exception error) {
                 message(R.string.m3_backup_failed);
@@ -127,7 +127,7 @@ public final class SettingsActivity extends MaterialBaseActivity {
             if (uri == null) return;
             try (InputStream in = getContentResolver().openInputStream(uri)) {
                 if (in == null) throw new IllegalStateException("no input stream");
-                DataPortability.BackupPreview preview = DataPortability.inspectBackup(in);
+                DataPortability.BackupPreview preview = DataPortabilityV3.inspectBackup(in);
                 showRestorePreview(preview);
             } catch (Exception error) {
                 message(R.string.m3_restore_failed);
@@ -153,7 +153,7 @@ public final class SettingsActivity extends MaterialBaseActivity {
                 .setNegativeButton(R.string.m3_cancel, null)
                 .setPositiveButton(R.string.m3_restore, (dialog, which) -> {
                     try {
-                        DataPortability.restoreBackup(this, preview.bytes);
+                        DataPortabilityV3.restoreBackup(this, preview.bytes);
                         message(R.string.m3_restore_success);
                         getWindow().getDecorView().postDelayed(this::recreate, 250L);
                     } catch (Exception error) {
