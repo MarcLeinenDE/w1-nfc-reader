@@ -7,7 +7,6 @@ import android.view.ViewTreeObserver;
 import android.widget.TextView;
 
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.card.MaterialCardView;
 
 /** Small presentation-only release-hardening fixes shared across the v2 product surface. */
 final class ProductUiHardening {
@@ -35,9 +34,6 @@ final class ProductUiHardening {
                         activity.getString(R.string.about080_upstream_acknowledgement),
                         activity.getString(R.string.v2_about_research_lineage));
             });
-        }
-        if (activity instanceof HistorySyncActivity) {
-            root.post(() -> removeCardWithExactText(root, "TEMP DEBUG"));
         }
     }
 
@@ -113,29 +109,5 @@ final class ProductUiHardening {
         for (int i = 0; i < group.getChildCount(); i++) {
             replaceExactText(group.getChildAt(i), expected, replacement);
         }
-    }
-
-    private static boolean removeCardWithExactText(View view, String text) {
-        if (!(view instanceof ViewGroup)) return false;
-        ViewGroup group = (ViewGroup) view;
-        for (int i = group.getChildCount() - 1; i >= 0; i--) {
-            View child = group.getChildAt(i);
-            if (child instanceof MaterialCardView && containsExactText(child, text)) {
-                group.removeViewAt(i);
-                return true;
-            }
-            if (removeCardWithExactText(child, text)) return true;
-        }
-        return false;
-    }
-
-    private static boolean containsExactText(View view, String text) {
-        if (view instanceof TextView && text.contentEquals(((TextView) view).getText())) return true;
-        if (!(view instanceof ViewGroup)) return false;
-        ViewGroup group = (ViewGroup) view;
-        for (int i = 0; i < group.getChildCount(); i++) {
-            if (containsExactText(group.getChildAt(i), text)) return true;
-        }
-        return false;
     }
 }

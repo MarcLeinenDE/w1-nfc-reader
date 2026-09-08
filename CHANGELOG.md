@@ -4,20 +4,22 @@ All notable public changes to W1 NFC Reader will be documented here.
 
 The public changelog starts with the first public release. Earlier private development iterations and protocol-research builds are intentionally not reproduced as public release history.
 
-## 2.0.0-dev — Unreleased
+## 2.0.0 — 2026-09-08
 
-Development line for the next major public version.
+Major History synchronization and product-hardening release.
 
-### Breaking changes
+### Breaking changes and upgrade guidance
 
 - History synchronization is rebuilt around independent Hour, Day and Month family state instead of the 1.x whole-history state model.
-- 1.x History completeness metadata is not trusted as evidence of a complete archive baseline and will not be promoted automatically to a v2 family-complete state.
-- The v2 portable-data model may intentionally break `.qw1backup` compatibility with 1.x. Backward restore compatibility is not a release requirement for 2.0.0 and any unsupported upgrade path will be called out explicitly in the final release notes.
-- Archive and CSV schemas may change to preserve family identity, raw meter-time evidence, ON_TIME/Type-F provenance and derived real-time information.
+- 1.x History completeness metadata is not trusted as evidence of a complete archive baseline and is not promoted automatically to a v2 family-complete state. After upgrading, establish new Hour, Day and Month baselines through explicit History synchronization.
+- **1.x `.qw1backup` files are not restorable by 2.0.0.** v2 uses backup schema 2 and rejects unsupported backup schemas before modifying local data. If you need an external copy of a 1.x dataset, create a human-readable CSV export with 1.x before upgrading.
+- The v2 History surface uses the new family-neutral archive store. Legacy 1.x Month archive data is not treated as an authoritative v2 family baseline.
+- CSV is an interoperability/export format rather than a canonical restore format. v2 uses CSV schema 3 and does not promise cross-version CSV import/restore compatibility.
+- The Android application ID remains `de.marcleinen.w1nfcreader`; the stable signing identity is retained so a normally signed 2.0.0 APK can upgrade the public 1.0.0 installation in place.
 
-### Added / changed in the current development line
+### Added / changed
 
-- Advanced the side-by-side development identity to `2.0.0-dev.4` (`versionCode 42`) for final History/release-hardening testing.
+- Advanced the stable release identity to `2.0.0` (`versionCode 43`).
 - Introduced independent per-meter/per-family History state for Hour, Day and Month, with baseline completeness separate from the latest synchronization attempt.
 - Added validated initial full Hour, Day and Month family synchronization behind explicit Settings actions while keeping normal NFC contact Live-only.
 - Added synchronous immediate persistence for every accepted archive observation so interruption does not roll back already validated records.
@@ -42,11 +44,11 @@ Development line for the next major public version.
 - Restored normal Android Back-stack navigation for History, Statistics, Settings and other secondary screens; Overview remains the single exit root.
 - Replaced fragile text-glyph period arrows with explicit chevron icons and replaced the overflowing History Filter label with a compact filter icon.
 - Preserved History/Statistics selection state, including exact custom date/time ranges, when the device rotates between portrait and landscape.
-- Removed the temporary physical-validation debug card and its formatter/helper from History Sync.
+- Removed the temporary physical-validation debug UI and its compatibility cleanup path from the stable surface.
 - Refreshed Diagnostics, Settings and About wording for the validated Live/Hour/Day/Month v2 scope and current public repository/privacy state, and removed a redundant generic privacy card from Diagnostics.
 - Added an optional developer-support entry in About that opens `https://www.paypal.me/ccaa/` through the external browser only. The app does not process payments, unlock features or add an Internet permission.
 - Added a restrained seasonal Christmas support prompt for 1–26 December. It becomes eligible only after a successful normal Live read during that same Christmas window, appears only on a later normal launcher cold start, and is capped at one display per season regardless of dismissal or support action.
-- Added English, German, French, Polish, Dutch and Lithuanian product strings for the new v2 History, Statistics, custom-range, synchronization, Full Re-Sync, hardening and optional-support states.
+- Added English, German, French, Polish, Dutch and Lithuanian product strings for the v2 History, Statistics, custom-range, synchronization, Full Re-Sync, hardening and optional-support states.
 
 ### Protocol/safety invariants retained
 
@@ -58,12 +60,11 @@ Development line for the next major public version.
 - Logical NFC-V reconnect does not itself prove default application state.
 - No intentional persistent meter/radio/calibration/firmware writes are introduced.
 
-### Remaining before stable 2.0.0
+### Release validation
 
-- Final upgrade/portable-data verification, broader text/redundancy and accessibility review, breaking-change guidance and release-candidate validation remain required.
-- Produce a v2.0.0 release candidate through CI, then perform one limited final real-device smoke focused on normal Live plus a representative History update rather than rereading the entire archive.
+The release is produced as a signed draft GitHub Release first. That exact APK must pass the limited final real-device smoke defined in `docs/RELEASING.md` before the draft is published. The release tag and tested APK must not be replaced after physical validation begins.
 
-See `docs/V2_BREAKING_CHANGES.md` for the current major-version compatibility policy and `docs/V2_HISTORY_SYNC_ARCHITECTURE.md` for the History integration contract.
+See `docs/V2_BREAKING_CHANGES.md` for the 2.0 compatibility details and `docs/V2_HISTORY_SYNC_ARCHITECTURE.md` for the History integration contract.
 
 ## 1.0.0
 

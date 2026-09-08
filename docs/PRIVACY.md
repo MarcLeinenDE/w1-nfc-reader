@@ -38,11 +38,12 @@ Protocol code necessarily processes transport/frame bytes in memory while readin
 
 The app provides explicit user-triggered data portability:
 
-- `.qw1backup` is the canonical machine-restorable backup format;
-- backup integrity is checked before database mutation;
-- restore is transactional and should roll back if validation/import fails;
-- the versioned backup includes the v2 per-family History sync state needed to continue safely after restore;
-- CSV is intended for human-readable export, not as the canonical full restore format.
+- `.qw1backup` is the canonical machine-restorable backup format **within a supported backup schema**;
+- W1 NFC Reader 2.0.0 writes and accepts backup schema 2; 1.x schema-1 `.qw1backup` files are not a v2 restore path;
+- unsupported backup schemas and checksum failures are rejected before normal restore mutation begins;
+- restore is transactional and should roll back if validation/import fails after mutation has started;
+- a v2 backup includes the per-family History sync state needed to continue safely after restore;
+- CSV is intended for human-readable export/interoperability, not as the canonical full restore format.
 
 The app does not silently upload either format. Seasonal support-prompt state is intentionally not treated as meter/history backup data.
 
@@ -60,7 +61,7 @@ Before sharing backups, CSV exports or screenshots, remember that meter identifi
 
 ## Deleting data
 
-Data can be removed through the product's data-management/replacement flows or by clearing/uninstalling the application through Android. Keep a `.qw1backup` first if you may need to restore the history later.
+Data can be removed through the product's data-management/replacement flows or by clearing/uninstalling the application through Android. Keep a compatible v2 `.qw1backup` first if you may need to restore the v2 history later.
 
 ## Bug reports
 

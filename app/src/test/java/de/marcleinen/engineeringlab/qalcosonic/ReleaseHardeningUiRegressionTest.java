@@ -35,11 +35,14 @@ public final class ReleaseHardeningUiRegressionTest {
         assertTrue(Files.exists(projectPath("src/main/res/drawable/ic_m3_filter.xml")));
     }
 
-    @Test public void temporaryDebugCardIsRemovedFromVisibleSyncUi() throws Exception {
+    @Test public void temporaryDebugCompatibilityIsGoneFromStableSurface() throws Exception {
         String helper = read(projectFile(
                 "src/main/java/de/marcleinen/engineeringlab/qalcosonic/ProductUiHardening.java"));
-        assertTrue(helper.contains("activity instanceof HistorySyncActivity"));
-        assertTrue(helper.contains("removeCardWithExactText(root, \"TEMP DEBUG\")"));
+        String sync = read(projectFile(
+                "src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncActivity.java"));
+        assertFalse(helper.contains("TEMP DEBUG"));
+        assertFalse(helper.contains("removeCardWithExactText"));
+        assertFalse(sync.contains("TEMP DEBUG"));
     }
 
     @Test public void diagnosticsNoLongerPresentsMonthOnlyAsValidatedScope() throws Exception {
@@ -55,7 +58,7 @@ public final class ReleaseHardeningUiRegressionTest {
     @Test public void debugBuildAboutUsesPublicRepositoryFallback() throws Exception {
         String gradle = read(projectFile("build.gradle.kts"));
         assertTrue(gradle.contains("https://github.com/MarcLeinenDE/w1-nfc-reader"));
-        assertTrue(gradle.contains("versionName = \"2.0.0-dev.4\""));
+        assertTrue(gradle.contains("versionName = \"2.0.0\""));
     }
 
     private static String read(Path path) throws Exception {

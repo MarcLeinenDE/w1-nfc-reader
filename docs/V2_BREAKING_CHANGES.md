@@ -1,10 +1,10 @@
-# W1 NFC Reader 2.0 — breaking-change policy
+# W1 NFC Reader 2.0 — breaking changes and upgrade guidance
 
-Status: development policy for the `2.0.0-dev` line.
+Status: final 2.0.0 release contract.
 
-W1 NFC Reader 2.0 is a major release because the History synchronization model is being rebuilt from the first public 1.0.0 implementation to the family-separated model validated during archive research.
+W1 NFC Reader 2.0 is a major release because the History synchronization model is rebuilt from the first public 1.0.0 implementation to the family-separated model validated during archive research.
 
-The goal is to preserve trustworthy user data where that is safe and inexpensive, but **1.x behavioral/data-format compatibility is not a design constraint**. When preserving an old representation would weaken the v2 safety model or require carrying obsolete semantics indefinitely, v2 may intentionally break compatibility and the final release notes must say so clearly.
+The goal is to preserve trustworthy user data where that is safe, but **1.x History-state and portable-backup compatibility are not preserved when doing so would weaken the v2 safety model**.
 
 ## What remains stable
 
@@ -12,12 +12,12 @@ The goal is to preserve trustworthy user data where that is safe and inexpensive
 - Stable release signing identity remains the same, so Android package upgrades remain possible.
 - A normal NFC presentation remains a fast Live/default read only.
 - History/archive synchronization remains an explicit user action.
-- The app remains read-focused and must not introduce intentional persistent meter/radio/calibration/firmware writes.
+- The app remains read-focused and does not intentionally introduce persistent meter/radio/calibration/firmware writes.
 - Meter IDs and archive-family boundaries remain part of data identity; cumulative readings from different meter IDs are never directly subtracted.
 
 ## Breaking History semantics
 
-The v1 whole-history synchronization state is replaced by independent per-meter/per-family state for at least:
+The v1 whole-history synchronization state is replaced by independent per-meter/per-family state for:
 
 - Hour;
 - Day;
@@ -25,16 +25,17 @@ The v1 whole-history synchronization state is replaced by independent per-meter/
 
 Each family has its own baseline completeness, latest-attempt outcome, stop reason, coverage and recovery state.
 
-A later partial/failed incremental update must not erase a previously completed baseline. Conversely, stored data alone must never be interpreted as proof that a full baseline completed.
+A later partial/failed incremental or Full Re-Sync attempt does not erase a previously completed baseline. Conversely, stored data alone is never interpreted as proof that a full baseline completed.
 
 ### v1 completeness is not authoritative
 
-The 1.0.0 Month implementation could classify the legacy fixed hard-cap outcome as traversal-complete. For that reason:
+The 1.0.0 Month implementation used a different whole-history model. Therefore:
 
-- v1 meter-level `COMPLETE` metadata must not be promoted automatically to v2 `MONTH COMPLETE`;
+- v1 meter-level `COMPLETE` metadata is not promoted automatically to v2 `MONTH COMPLETE`;
 - fixed record counts are not valid v2 completion reasons;
 - a v2 family baseline becomes complete only after a supported semantic archive end plus successful final default/Live verification;
-- existing v1 archive rows may still be useful historical data and confirmations, but their presence alone does not establish v2 completeness.
+- users upgrading from 1.x must establish new v2 Hour, Day and Month baselines through explicit History synchronization;
+- legacy v1 Month archive data is not treated as an authoritative v2 family baseline.
 
 ## v2 successful and incomplete stop model
 
@@ -54,41 +55,32 @@ A technical watchdog is never a successful archive completion condition.
 
 ## Portable-data compatibility
 
-The 2.0 portable-data schema may add or change representation for:
-
-- independent family sync state;
-- archive conflicts/confirmations;
-- raw logger timestamp identity;
-- raw Type-F/CP32 time evidence;
-- SU/IV flags;
-- typed ON_TIME;
-- phone acquisition epoch;
-- clock-model state/confidence;
-- derived absolute time and its provenance;
-- multiple native archive granularities in CSV.
-
 ### `.qw1backup`
 
-Backward restore compatibility with 1.x `.qw1backup` files is **not a release requirement for 2.0.0**.
+**W1 NFC Reader 2.0.0 does not restore 1.x `.qw1backup` files.**
 
-If the final v2 implementation does not support restoring a 1.x backup, the release notes and upgrade guidance must state this prominently and instruct users to create a human-readable CSV export before upgrading when they need an external copy of the old dataset.
+2.0.0 writes and accepts backup schema 2. An unsupported backup schema, malformed archive or checksum mismatch is rejected before normal restore mutation begins.
 
-The app must reject an unsupported/corrupt backup before modifying existing local data.
+Before upgrading from 1.x, create a human-readable CSV export if you need an external copy of the old dataset. After 2.0.0 is installed and new v2 family baselines have been established, create a new `.qw1backup`; that v2 backup contains the independent family synchronization state required for a lossless v2 restore.
 
 ### CSV
 
-CSV remains a human-readable interoperability/export format, not the canonical restore format. A new schema version may therefore be introduced without promising that old/new CSV files are mutually importable.
+CSV remains a human-readable interoperability/export format, not the canonical restore format. 2.0.0 uses CSV schema 3 with explicit family/completed-period and consumption-reference semantics. Cross-version CSV import/restore compatibility is not promised.
 
-## Installed-app upgrade policy
+## Installed-app upgrade behavior
 
-An in-place Android upgrade may preserve existing Live readings, meter lifecycle, preferences and archive records where a safe migration is straightforward. This is a best-effort data-preservation goal, not permission to preserve invalid v1 synchronization semantics.
+The public package ID and stable signing identity remain unchanged, so the official 2.0.0 APK can upgrade an official 1.0.0 installation in place.
 
-At minimum:
+The legacy Live-reading database is retained by the application architecture, while v2 archive acquisition uses a separate family-neutral archive store. The release intentionally does not promote v1 whole-history completeness into v2 family completeness. Users should therefore plan to establish fresh v2 Hour, Day and Month baselines after upgrading.
 
-- v1 sync-completeness metadata is ignored/reinitialized under the v2 family model;
-- v1 archive records must never be silently marked as a fully validated v2 baseline merely because they exist;
-- any destructive local migration that is ultimately required must be explicitly documented before the stable 2.0.0 release.
+If preserving an external view of 1.x archive data matters, export CSV with 1.x before installing 2.0.0. Do not rely on a 1.x `.qw1backup` as a v2 restore path.
 
-## Public-release requirement
+## Release requirement
 
-The final 2.0.0 `CHANGELOG.md`/release notes must contain a visible **Breaking changes** section describing the actual shipped behavior, including backup compatibility, any local-data reset/migration behavior and the requirement for a new initial family baseline where applicable.
+The 2.0.0 release notes and `CHANGELOG.md` must keep these breaking points visible:
+
+- new independent Hour/Day/Month baseline model;
+- fresh v2 family baselines required after a 1.x upgrade;
+- 1.x `.qw1backup` files unsupported by 2.0.0;
+- CSV is export/interoperability rather than canonical restore;
+- stable package/signing identity retained for normal Android in-place upgrade.
