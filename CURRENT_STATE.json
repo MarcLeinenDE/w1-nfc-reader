@@ -1,24 +1,27 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "project": "W1 NFC Reader",
   "date": "2026-09-08",
   "public_repository": "MarcLeinenDE/w1-nfc-reader",
   "handoff_branch": "handoff/v2.1.0-current",
   "clean_main": {
-    "sha": "f1e648196090933ecb97c236bc49f8f0f1a2b628",
-    "source_pr": 20,
-    "source_pr_title": "chore: post-v2.0.0 repository cleanup",
-    "main_ci_run": 34268555870,
-    "main_ci_job": 102204036451,
+    "sha": "841630bc7ea8dea2f1fb8d25a4fa41a56d83a6c8",
+    "source_pr": 21,
+    "source_pr_title": "docs: add selectable time basis to v2.1 plan",
+    "pr_ci_run": 34271568904,
+    "pr_ci_job": 102214163106,
+    "pr_ci_conclusion": "success",
+    "main_ci_run": 34271768845,
+    "main_ci_job": 102214816296,
     "main_ci_conclusion": "success"
   },
   "branch_state": {
-    "verified_after_post_release_cleanup": true,
-    "remaining_branches": [
+    "steady_state_target": [
       "main",
       "handoff/v2.1.0-current"
     ],
-    "open_pull_requests": 0,
+    "temporary_branch_to_delete_if_still_present": "docs/v2.1-time-basis-preference",
+    "open_pull_requests_expected": 0,
     "obsolete_v2_0_handoff_deleted": true,
     "post_v2_0_cleanup_branch_deleted": true
   },
@@ -40,16 +43,43 @@
   "v2_1": {
     "status": "design/evidence phase; implementation not started",
     "canonical_decision": "docs/product-decisions/v2.1-real-time-timeline-and-coverage.md",
-    "primary_goal": "derive a trustworthy canonical UTC interval timeline while preserving raw meter-time evidence, then use real local time for History/Statistics navigation and the same UTC contract for future Home Assistant integration",
-    "coverage_states": [
+    "primary_goal": "preserve raw meter time and derive a trustworthy canonical UTC timeline, while giving the Android user a global Local/Meter time-basis preference for presentation and History/Statistics navigation",
+    "app_time_basis": {
+      "scope": "global Android app preference",
+      "default": "LOCAL",
+      "values": [
+        "LOCAL",
+        "METER"
+      ],
+      "local_mode": "real/local time primary, raw meter time secondary; navigator uses meter-assigned local timezone -> UTC; Statistics uses coverage/full-containment semantics",
+      "meter_mode": "raw meter/logger time primary, resolved local time secondary; navigator and Statistics use raw meter wall-clock semantics",
+      "must_not_mutate": [
+        "raw meter/logger timestamps",
+        "canonical UTC mapping",
+        "integration-facing UTC contract"
+      ]
+    },
+    "meter_timezone": {
+      "scope": "per physical meter",
+      "format": "IANA ZoneId, e.g. Europe/Berlin",
+      "initial_assignment": "Android current ZoneId at first successful verified Live/default read when meter has no assigned timezone",
+      "source_example": "DEVICE_AT_FIRST_VERIFIED_LIVE",
+      "location_permission_required": false,
+      "auto_change_after_assignment": false,
+      "user_can_change": true,
+      "backup_should_preserve": true,
+      "restore_must_not_replace_with_receiving_phone_zone": true
+    },
+    "coverage_states_local_mode": [
       "EXACT",
       "PARTIAL_EDGES",
       "OVERLAP_ONLY",
       "GAP",
       "UNRESOLVED_TIME"
     ],
+    "home_assistant_contract": "future integration always consumes canonical UTC intervals regardless of Android LOCAL/METER preference; raw meter time may be diagnostic metadata only",
     "implementation_branch_recommendation": "dev/v2.1.0-real-time-timeline",
-    "next_action": "inventory currently persisted Type-F raw time, SU/summer-time, On-Time, acquisition anchor and backup/export evidence before freezing TimeResolver or migration design"
+    "next_action": "inventory currently decoded/persisted/portable Type-F raw time, logger time, SU, On-Time, Android acquisition epoch, meter identity and timezone evidence before freezing TimeResolver, DB migration, backup/export or Navigator implementation"
   },
   "private_research": {
     "repository": "MarcLeinenDE/engineering-lab",
@@ -70,12 +100,13 @@
     "failed later incremental/full re-sync does not erase an authoritative COMPLETE baseline",
     "never calculate cumulative consumption across meter replacement",
     "no intentional persistent meter/radio/calibration/firmware writes",
-    "QalcosonicReader.java, MbusParser.java and validated NFC/mailbox/archive traversal paths are protected"
+    "QalcosonicReader.java, MbusParser.java and validated NFC/mailbox/archive traversal paths are protected",
+    "raw meter/logger time remains preserved source evidence"
   ],
   "intentional_remaining_maintenance": {
     "ProductUiHardening": "active behavior; integrate into owning screens when v2.1 touches History/Settings/About, then remove with regression coverage",
     "month_compatibility_layer": "not wholesale dead code; audit separately before removal",
     "namespace_and_file_names": "low-priority cosmetic cleanup only",
-    "readme_screenshots": "deferred because no ADB tooling was available; still desired post-release visual documentation"
+    "readme_screenshots": "deferred visual documentation task; must not block v2.1 architecture work"
   }
 }
