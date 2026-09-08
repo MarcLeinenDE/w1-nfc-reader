@@ -17,7 +17,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -26,9 +28,10 @@ import java.util.zip.ZipOutputStream;
  * v2.1 lossless backup facade.
  *
  * <p>The proven v2 core portability implementation remains the compatibility engine for all
- * pre-v2.1 product data. Schema 3 wraps that payload with the durable per-meter time model. This
- * keeps legacy schema-2 restore support while preventing new timezone/anchor evidence from living
- * outside the canonical *.qw1backup.</p>
+ * pre-v2.1 product data. Schema 3 wraps that payload with the durable per-meter time model and an
+ * occurrence-safe archive envelope. The envelope is staged before the archive DB migration so
+ * future repeated raw wall-clock periods and typed time evidence cannot be collapsed by the old
+ * schema-2 identity during backup/restore evolution.</p>
  */
 final class DataPortabilityV3 {
     static final int BACKUP_SCHEMA = 3;
@@ -39,6 +42,8 @@ final class DataPortabilityV3 {
     private static final String MANIFEST = "manifest.json";
     private static final String DATA = "data.json";
     private static final String TIME_MODEL = "meter_time_model";
+    private static final String ARCHIVE_PERIODS_V2 = "archive_periods_v2";
+    private static final String ARCHIVE_CONFLICTS_V2 = "archive_conflicts_v2";
 
     private DataPortabilityV3() { }
 
@@ -62,12 +67,21 @@ final class DataPortabilityV3 {
         }
         data.put(TIME_MODEL, timeModel);
 
+        JSONArray archiveV2 = buildArchivePeriodsV2(data.getJSONArray("archive_periods"));
+        JSONArray conflictsV2 = buildArchiveConflictsV2(
+                data.getJSONArray("archive_conflicts"), archiveV2);
+        data.put(ARCHIVE_PERIODS_V2, archiveV2);
+        data.put(ARCHIVE_CONFLICTS_V2, conflictsV2);
+        validateArchiveEnvelope(data);
+
         byte[] dataBytes = data.toString().getBytes(StandardCharsets.UTF_8);
         JSONObject manifest = cloneJson(legacy.manifest);
         manifest.put("schema_version", BACKUP_SCHEMA);
         manifest.put("data_sha256", sha256(dataBytes));
         manifest.put("meter_time_profiles", timeModel.getJSONArray("profiles").length());
         manifest.put("meter_time_anchors", timeModel.getJSONArray("anchors").length());
+        manifest.put("archive_periods_v2", archiveV2.length());
+        manifest.put("archive_conflicts_v2", conflictsV2.length());
 
         writeZip(output, manifest, dataBytes);
     }
@@ -88,11 +102,11 @@ final class DataPortabilityV3 {
                 core.createdUtc,
                 core.activeMeterId,
                 core.liveReadings,
-                core.archivePeriods,
+                parsed.data.getJSONArray(ARCHIVE_PERIODS_V2).length(),
                 core.replacementTransitions,
-                core.hourPeriods,
-                core.dayPeriods,
-                core.monthPeriods,
+                countFamily(parsed.data.getJSONArray(ARCHIVE_PERIODS_V2), ArchiveFamilyPeriod.Family.HOUR),
+                countFamily(parsed.data.getJSONArray(ARCHIVE_PERIODS_V2), ArchiveFamilyPeriod.Family.DAY),
+                countFamily(parsed.data.getJSONArray(ARCHIVE_PERIODS_V2), ArchiveFamilyPeriod.Family.MONTH),
                 core.hourBaselineState,
                 core.dayBaselineState,
                 core.monthBaselineState,
@@ -121,6 +135,9 @@ final class DataPortabilityV3 {
         }
 
         try {
+            // Until meter_archive.db v2 lands, the proven schema-2 core remains the physical archive
+            // restore path. The occurrence-safe envelope is already validated and retained in the
+            // backup format so the DB migration can switch restore to it without another format bump.
             DataPortability.restoreBackup(context, downgradeToLegacyCore(incoming));
             MeterTimeModelStore timeStore = new MeterTimeModelStore(context);
             try {
@@ -179,6 +196,8 @@ final class DataPortabilityV3 {
         }
         JSONObject data = cloneJson(parsed.data);
         data.remove(TIME_MODEL);
+        data.remove(ARCHIVE_PERIODS_V2);
+        data.remove(ARCHIVE_CONFLICTS_V2);
         data.put("schema_version", LEGACY_BACKUP_SCHEMA);
         JSONObject preferences = data.optJSONObject("preferences");
         if (preferences != null) preferences.remove("time_basis");
@@ -188,6 +207,8 @@ final class DataPortabilityV3 {
         manifest.put("schema_version", LEGACY_BACKUP_SCHEMA);
         manifest.remove("meter_time_profiles");
         manifest.remove("meter_time_anchors");
+        manifest.remove("archive_periods_v2");
+        manifest.remove("archive_conflicts_v2");
         manifest.put("data_sha256", sha256(dataBytes));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -241,8 +262,147 @@ final class DataPortabilityV3 {
         if (schema == BACKUP_SCHEMA) {
             validateTimeModel(data.getJSONObject(TIME_MODEL));
             portableTimeBasis(data);
+            // Early schema-3 development backups predate the occurrence-safe archive envelope.
+            // Upgrade them in-memory from their still-present legacy archive arrays.
+            if (!data.has(ARCHIVE_PERIODS_V2)) {
+                data.put(ARCHIVE_PERIODS_V2,
+                        buildArchivePeriodsV2(data.getJSONArray("archive_periods")));
+            }
+            if (!data.has(ARCHIVE_CONFLICTS_V2)) {
+                data.put(ARCHIVE_CONFLICTS_V2,
+                        buildArchiveConflictsV2(
+                                data.getJSONArray("archive_conflicts"),
+                                data.getJSONArray(ARCHIVE_PERIODS_V2)));
+            }
+            validateArchiveEnvelope(data);
         }
         return new ParsedBackup(schema, manifest, data);
+    }
+
+    private static JSONArray buildArchivePeriodsV2(JSONArray legacyPeriods) throws JSONException {
+        JSONArray out = new JSONArray();
+        for (int i = 0; i < legacyPeriods.length(); i++) {
+            JSONObject row = cloneJson(legacyPeriods.getJSONObject(i));
+            String onTimeDisplay = nullableString(row, "on_time");
+            Long onTimeSeconds = ArchiveOccurrenceKey.parseDurationSeconds(onTimeDisplay);
+            row.put("occurrence_key", ArchiveOccurrenceKey.fromEvidence(onTimeSeconds, null));
+            if (onTimeSeconds == null) row.put("on_time_seconds", JSONObject.NULL);
+            else row.put("on_time_seconds", onTimeSeconds.longValue());
+            row.put("raw_type_f_hex", JSONObject.NULL);
+            row.put("type_f_iv", JSONObject.NULL);
+            row.put("type_f_su", JSONObject.NULL);
+            out.put(row);
+        }
+        return out;
+    }
+
+    private static JSONArray buildArchiveConflictsV2(
+            JSONArray legacyConflicts,
+            JSONArray periodsV2) throws JSONException {
+        Map<String, String> occurrenceByLegacyKey = new HashMap<>();
+        for (int i = 0; i < periodsV2.length(); i++) {
+            JSONObject row = periodsV2.getJSONObject(i);
+            occurrenceByLegacyKey.put(legacyArchiveKey(row), requiredString(row, "occurrence_key"));
+        }
+
+        JSONArray out = new JSONArray();
+        for (int i = 0; i < legacyConflicts.length(); i++) {
+            JSONObject row = cloneJson(legacyConflicts.getJSONObject(i));
+            String occurrence = occurrenceByLegacyKey.get(legacyArchiveKey(row));
+            if (occurrence == null) throw new JSONException("archive conflict without canonical occurrence");
+            row.put("occurrence_key", occurrence);
+            out.put(row);
+        }
+        return out;
+    }
+
+    private static void validateArchiveEnvelope(JSONObject data) throws JSONException {
+        JSONArray periods = data.getJSONArray(ARCHIVE_PERIODS_V2);
+        JSONArray conflicts = data.getJSONArray(ARCHIVE_CONFLICTS_V2);
+        Set<String> nativeKeys = new HashSet<>();
+        for (int i = 0; i < periods.length(); i++) {
+            JSONObject row = periods.getJSONObject(i);
+            requiredString(row, "meter_id");
+            String family = requiredString(row, "archive_family");
+            try {
+                ArchiveFamilyPeriod.Family.valueOf(family);
+            } catch (IllegalArgumentException error) {
+                throw new JSONException("invalid archive family " + family);
+            }
+            requiredString(row, "logger_timestamp");
+            String occurrence = requiredString(row, "occurrence_key");
+            validateOccurrence(row, occurrence);
+            String key = archiveV2Key(row);
+            if (!nativeKeys.add(key)) throw new JSONException("duplicate archive occurrence " + key);
+        }
+        for (int i = 0; i < conflicts.length(); i++) {
+            JSONObject row = conflicts.getJSONObject(i);
+            String key = archiveV2Key(row);
+            if (!nativeKeys.contains(key)) {
+                throw new JSONException("archive conflict without period occurrence " + key);
+            }
+        }
+    }
+
+    private static void validateOccurrence(JSONObject row, String occurrence) throws JSONException {
+        if (ArchiveOccurrenceKey.LEGACY.equals(occurrence)) return;
+        if (occurrence.startsWith(ArchiveOccurrenceKey.ON_TIME_PREFIX)) {
+            long keySeconds;
+            try {
+                keySeconds = Long.parseLong(occurrence.substring(ArchiveOccurrenceKey.ON_TIME_PREFIX.length()));
+            } catch (RuntimeException error) {
+                throw new JSONException("invalid ON_TIME occurrence " + occurrence);
+            }
+            if (keySeconds < 0L || !row.has("on_time_seconds") || row.isNull("on_time_seconds")
+                    || row.getLong("on_time_seconds") != keySeconds) {
+                throw new JSONException("ON_TIME occurrence mismatch " + occurrence);
+            }
+            return;
+        }
+        if (occurrence.startsWith(ArchiveOccurrenceKey.TYPE_F_PREFIX)) {
+            String keyHex = occurrence.substring(ArchiveOccurrenceKey.TYPE_F_PREFIX.length());
+            String rawHex = nullableString(row, "raw_type_f_hex");
+            String normalized = ArchiveOccurrenceKey.normalizeTypeFHex(rawHex);
+            if (normalized == null || !normalized.equals(keyHex)) {
+                throw new JSONException("Type-F occurrence mismatch " + occurrence);
+            }
+            return;
+        }
+        throw new JSONException("invalid occurrence key " + occurrence);
+    }
+
+    private static String archiveV2Key(JSONObject row) throws JSONException {
+        return requiredString(row, "meter_id") + "|"
+                + requiredString(row, "archive_family") + "|"
+                + requiredString(row, "logger_timestamp") + "|"
+                + requiredString(row, "occurrence_key");
+    }
+
+    private static String legacyArchiveKey(JSONObject row) throws JSONException {
+        return requiredString(row, "meter_id") + "|"
+                + requiredString(row, "archive_family") + "|"
+                + requiredString(row, "logger_timestamp");
+    }
+
+    private static int countFamily(JSONArray rows, ArchiveFamilyPeriod.Family family)
+            throws JSONException {
+        int count = 0;
+        for (int i = 0; i < rows.length(); i++) {
+            if (family.name().equals(requiredString(rows.getJSONObject(i), "archive_family"))) count++;
+        }
+        return count;
+    }
+
+    private static String requiredString(JSONObject row, String key) throws JSONException {
+        String value = row.getString(key);
+        if (value == null || value.trim().isEmpty()) throw new JSONException("missing " + key);
+        return value.trim();
+    }
+
+    private static String nullableString(JSONObject row, String key) {
+        if (!row.has(key) || row.isNull(key)) return null;
+        String value = row.optString(key, null);
+        return value == null || value.trim().isEmpty() ? null : value.trim();
     }
 
     private static AppTimeBasis portableTimeBasis(JSONObject data) throws JSONException {
