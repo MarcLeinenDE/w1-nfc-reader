@@ -29,16 +29,23 @@ Before tagging a stable version:
 1. ensure `app/build.gradle.kts` contains the intended monotonic `versionCode`;
 2. set `versionName` to the exact stable version without `-dev`;
 3. update `CHANGELOG.md` and release/upgrade documentation;
-4. ensure normal CI is green on the exact commit intended for the tag;
-5. run the release-safety/public-source audit;
-6. verify that breaking changes are visible before the signed candidate is created.
+4. create `docs/releases/<versionName>.md` with curated user-facing release notes;
+5. ensure normal CI is green on the exact commit intended for the tag;
+6. run the release-safety/public-source audit;
+7. verify that breaking changes, migration requirements and material known limitations are visible before the signed candidate is created.
 
 Known stable identities:
 
 - `1.0.0`: versionCode 38, tag `v1.0.0` — immutable historical release;
-- `2.0.0`: versionCode 43, tag `v2.0.0`.
+- `2.0.0`: versionCode 43, tag `v2.0.0` — published and immutable.
 
-The release workflow refuses a tag whose name does not match `versionName` or whose version still contains `-dev`.
+The release workflow refuses a tag whose name does not match `versionName`, whose version still contains `-dev`, or whose matching curated release-notes file is missing.
+
+## Curated release notes contract
+
+See `docs/releases/README.md`.
+
+User-facing upgrade information comes before technical PR listings. Generated PR notes are useful as a lower technical-details section, but they must never be the only release description when breaking changes or known limitations exist.
 
 ## Release workflow
 
@@ -48,55 +55,87 @@ The workflow:
 
 1. checks out the tagged source;
 2. sets up JDK 17 / Android SDK / Gradle 8.9;
-3. validates translations;
-4. runs the unit/Robolectric regression suite;
-5. restores the release keystore only inside the runner;
-6. builds the release APK;
-7. verifies the APK signature and expected certificate SHA-256;
-8. generates the APK SHA-256 checksum;
-9. creates a **draft GitHub Release** containing the signed APK and checksum;
-10. removes the temporary runner keystore.
+3. validates tag, stable version and curated release notes;
+4. validates translations;
+5. runs the unit/Robolectric regression suite;
+6. restores the release keystore only inside the runner;
+7. builds the release APK;
+8. verifies the APK signature and expected certificate SHA-256;
+9. generates the APK SHA-256 checksum;
+10. creates a **draft GitHub Release** for the exact existing tag using the curated notes file;
+11. uploads the signed APK and checksum;
+12. removes the temporary runner keystore.
 
 The workflow deliberately does **not** publish the release immediately. The draft is the physical release-candidate gate.
 
-## v2.0.0 physical release gate
+The workflow uses the GitHub CLI available on the hosted runner rather than a third-party release action. This keeps the release/tag association explicit and avoids the runtime-deprecation warning observed during the v2.0.0 release workflow.
+
+## Physical release gate
 
 Download the signed APK from the **draft** GitHub Release and test that exact artifact. Do not rebuild, resign or replace it for the smoke test.
 
-The v2 protocol-heavy Hour/Day/Month baseline and incremental paths were already physically validated during development. The final release gate therefore stays deliberately limited and must not consume another unnecessary full archive campaign.
+The required smoke depth depends on what changed:
 
-Minimum v2.0.0 smoke:
+- UI/documentation/database-only changes can normally rely mostly on CI plus a focused product smoke;
+- NFC transport, archive acquisition/traversal, terminal handling, restore/default behavior or other protocol/device semantics require appropriate real-device evidence.
 
-1. install/update the exact signed candidate using the public application ID and confirm normal launch;
-2. if needed to avoid a full archive reread, restore a known-good **v2 schema-2 `.qw1backup`** containing COMPLETE Hour/Day/Month state;
-3. perform one normal Overview NFC contact and confirm a plausible protected Live read;
-4. run one representative routine History update — preferably `Update all history` from an established COMPLETE baseline so the incremental path is exercised rather than rereading the entire archive;
-5. confirm the update finishes with verified default restore and that a subsequent normal Overview contact again produces Live/default data;
-6. briefly open History and Statistics and confirm the new data/state is presented plausibly;
-7. confirm the v2 backup/restore surface remains usable on the signed candidate. A large backup matrix is not required if the same schema-2 backup was successfully restored for this smoke;
-8. verify APK SHA-256 and signer certificate against the release workflow evidence.
+For protocol-heavy releases, avoid repeating already validated expensive archive campaigns unless later code actually touched those paths.
 
-Do **not** use a 1.x `.qw1backup` for the v2 smoke; 2.0.0 intentionally rejects backup schema 1. See `docs/V2_BREAKING_CHANGES.md`.
+General stable-release smoke should confirm at least:
 
-Previously completed dev.3/dev.4 UI checks — navigation, Back behavior, chevrons/filter layout, rotation/state retention, About support link/external browser and Full Re-Sync presentation — do not need to be repeated unless the signed candidate shows an unexpected regression.
+1. install/update the exact signed candidate using the stable public application ID;
+2. normal launch and one plausible protected Live read;
+3. representative use of the release's main changed surface;
+4. when History behavior changed, one representative History synchronization/update and verified return to normal Live/default state;
+5. History/Statistics presentation remains plausible where applicable;
+6. backup/restore or migration surfaces affected by the release remain usable;
+7. APK SHA-256 and signer certificate match release-workflow evidence.
 
-If any release-blocking issue is found, do not publish the draft. Fix the issue and produce a new controlled signed candidate. Once physical validation has started for a tag/artifact, do not silently replace that APK asset or move/recreate the tag.
+If any release-blocking issue is found, do not publish the draft. Fix the issue and produce a new controlled signed candidate/version. Once physical validation has started for a tag/artifact, do not silently replace that APK asset or move/recreate the tag.
 
-## Final repository cleanup gate
+## Publishing an accepted draft
 
-Before publishing a stable release:
+Publish the **existing** draft; do not create a second release and do not rebuild the artifact.
 
-1. close obsolete/superseded pull requests and remove obsolete temporary/import/audit branches where safe; keep only branches that are intentionally active;
-2. verify that there are no open pull requests that depend on a branch planned for deletion;
-3. review `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `docs/`, licensing notices and issue templates against the actual release behavior;
-4. verify that private handoff/current-state files, real-device evidence, raw captures, backups, meter data, signing material and private research are absent from the public tree;
-5. verify that unreleased archive-family research is not exposed as a production feature;
-6. confirm the release tag still points to the exact physically tested source commit;
-7. confirm the draft release still contains the exact physically tested APK and published checksum;
-8. run normal CI after documentation/repository-cleanup commits on `main` when the release branch is integrated there.
+When using `gh api`/the GitHub Releases API, explicitly send the intended tag name along with `draft=false`, then verify the result by tag.
 
-Documentation-only cleanup after the release tag may advance another branch; it must not move the already validated release tag or rebuild/replace the tested release APK.
+Conceptually:
 
-Only after the exact draft APK passes the physical/product checks and the repository cleanup gate is complete should the existing GitHub Release draft be changed to **Published**. Publishing the draft must not rebuild or replace the tested APK.
+`PATCH /repos/<owner>/<repo>/releases/<release-id>`
 
-If the public application ID differs from a private/development build, use the explicit v2 backup/restore feature rather than assuming Android will migrate `.dev` application data automatically.
+with:
+
+- `tag_name=vX.Y.Z`
+- `draft=false`
+
+Post-publication verification must confirm:
+
+- expected release ID;
+- `tag_name=vX.Y.Z`;
+- `draft=false` and `prerelease=false` unless intentionally different;
+- expected APK/checksum asset identities;
+- downloaded public APK SHA-256 equals the physically accepted candidate;
+- published checksum file contains the same APK SHA-256;
+- signer evidence remains the one verified by the release workflow.
+
+### v2.0.0 publication lesson
+
+The first v2.0.0 draft-to-public API update omitted an explicit `tag_name` and GitHub temporarily associated the public release with an `untagged-*` placeholder. The real immutable `v2.0.0` Git tag never moved and both tags pointed to the same release commit. The existing release was repaired in place by explicitly setting `tag_name=v2.0.0`, the public APK was downloaded and byte-verified, and the temporary tag was removed.
+
+Future publishing commands must therefore explicitly preserve the intended release tag and verify the release by tag before cleanup branches are deleted.
+
+## Repository cleanup after publication
+
+After a stable release is publicly verified:
+
+1. update the current handoff/release bookkeeping with publication evidence;
+2. delete obsolete release-candidate and maintenance branches once their work is merged and no open PR depends on them;
+3. archive development checkpoints that are useful historically but stale as current documentation;
+4. remove only dead code that is proven unreferenced and covered by CI;
+5. do not cosmetically churn protected NFC/M-Bus/archive traversal code;
+6. keep the steady-state branch set minimal: `main` plus only the currently active development/handoff branch(es);
+7. keep release tags immutable.
+
+Documentation-only or maintenance cleanup after a release tag may advance `main`; it must not move the already validated release tag or rebuild/replace the published release APK.
+
+If the public application ID differs from a private/development build, use the explicit backup/restore feature rather than assuming Android will migrate `.dev` application data automatically.
