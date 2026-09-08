@@ -1,6 +1,6 @@
 # W1 NFC Reader 2.0 — archive period semantics
 
-Status: canonical product/presentation rule for the v2 development line.
+Status: released/current canonical product/presentation rule for v2.0. The v2.1 real-time/UTC decision in `docs/product-decisions/v2.1-real-time-timeline-and-coverage.md` extends the time-axis presentation/query model without changing the raw archive-period identity rule defined here.
 
 This document defines how already-decoded Hour, Day and Month archive records are assigned to calendar periods in History and Statistics. It does not change NFC transport, archive traversal, persistence keys or decoder field meanings.
 
@@ -29,6 +29,8 @@ The exact `start` boundary may additionally be loaded as context for the first a
 Live reads are different. Their primary timestamp is Android acquisition time and remains selected with normal device-time `[start, end)` semantics.
 
 For a freely selected custom date/time range, the app may evaluate only archive buckets that lie completely inside the requested range. It must not interpolate a fractional Hour/Day/Month bucket merely to make the selected boundaries appear exact. If the available granularity cannot represent one or both edges exactly, the UI must report that limitation and the available coverage.
+
+For v2.1, user-entered ranges move to the real local/derived UTC timeline. The raw logger boundary remains source evidence and native archive identity; overlap/full-containment decisions for the user-facing range are then made against separately derived UTC interval boundaries when that mapping is trustworthy.
 
 ## Consumption and cumulative registers
 
@@ -96,15 +98,19 @@ Known sentinel/unavailable values remain excluded from chart aggregation.
 
 ## Timezone handling
 
-Archive logger timestamps remain meter-local/floating timestamps unless separately validated otherwise. The phone timezone or daylight-saving rules must not silently shift stored archive boundaries.
+In v2.0, archive logger timestamps remain meter-local/floating timestamps unless separately validated otherwise. The phone timezone or daylight-saving rules must not silently shift stored archive boundaries.
 
 Localization affects only presentation format.
+
+The planned v2.1 model does not overwrite this raw evidence. It adds a separately derived UTC interval timeline with explicit derivation quality/uncertainty and renders that real timeline locally for users/integrations when trustworthy.
 
 ## Backup and persistence
 
 `.qw1backup` remains a lossless machine-readable representation of stored data and must preserve the original logger timestamps. Restoring a backup must not rewrite archive timestamps to period starts.
 
 Period semantics are a presentation/query/analytics rule above persistence.
+
+Any future backup schema that adds derived UTC evidence must preserve the original raw logger timestamp, SU/DST evidence and relevant On-Time/derivation provenance rather than replacing source values.
 
 ## Scope guard
 
