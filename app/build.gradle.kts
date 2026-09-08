@@ -20,7 +20,8 @@ val buildCommit = providers.environmentVariable("GITHUB_SHA").orNull
     ?: "local"
 val sourceRepositoryUrl = providers.environmentVariable("QALCOSONIC_SOURCE_REPOSITORY_URL").orNull
     ?.trim()
-    .orEmpty()
+    ?.takeIf { it.isNotEmpty() }
+    ?: "https://github.com/MarcLeinenDE/w1-nfc-reader"
 
 fun buildConfigString(value: String): String =
     "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
@@ -35,8 +36,8 @@ android {
         applicationId = "de.marcleinen.w1nfcreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 39
-        versionName = "2.0.0-dev"
+        versionCode = 40
+        versionName = "2.0.0-dev.2"
 
         buildConfigField("String", "BUILD_COMMIT", buildConfigString(buildCommit))
         buildConfigField("String", "SOURCE_REPOSITORY_URL", buildConfigString(sourceRepositoryUrl))
