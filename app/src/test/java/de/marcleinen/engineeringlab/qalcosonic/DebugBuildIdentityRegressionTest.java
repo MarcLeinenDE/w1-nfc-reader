@@ -16,8 +16,8 @@ public final class DebugBuildIdentityRegressionTest {
         assertTrue(build.contains("applicationId = \"de.marcleinen.w1nfcreader\""));
         assertTrue(build.contains("debug {"));
         assertTrue(build.contains("applicationIdSuffix = \".dev\""));
-        assertTrue(build.contains("versionName = \"2.0.0-dev.4\""));
-        assertTrue(build.contains("versionCode = 42"));
+        assertTrue(build.contains("versionName = \"2.0.0\""));
+        assertTrue(build.contains("versionCode = 43"));
     }
 
     private static Path appBuildGradle() {
