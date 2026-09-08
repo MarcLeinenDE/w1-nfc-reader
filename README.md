@@ -9,8 +9,9 @@ The app is designed around a conservative, read-focused protocol model: a normal
 ## Features
 
 - Live meter readout over Android NFC-V;
-- explicit **Hour, Day and Month history synchronization** in the v2 development line;
+- explicit **Hour, Day and Month history synchronization**;
 - full baseline acquisition followed by conservative per-family incremental updates;
+- optional advanced Full Re-Sync for already completed Hour/Day/Month baselines;
 - local History with granularity filters, calendar navigation and custom date/time ranges;
 - local multi-metric Statistics for consumption and available meter/archive measurements;
 - transparent coverage/precision reporting when a requested range cannot be represented exactly by the available archive granularity;
@@ -25,13 +26,13 @@ The app is designed around a conservative, read-focused protocol model: a normal
 
 ## Supported protocol scope
 
-The current v2 development line keeps Live acquisition and History synchronization deliberately separate.
+W1 NFC Reader 2.0 keeps Live acquisition and History synchronization deliberately separate.
 
 ### Live read
 
 A normal NFC contact performs the validated Live/default read only. The app explicitly restores the meter's default application before accepting a normal Live observation, and a failed later contact does not erase the last successful Live state.
 
-For History analytics, a Live consumption delta compares only with the previous strictly earlier Live observation from the same physical meter. Hidden Hour/Day/Month observations are not used as Live predecessors.
+For History analytics, a Live consumption delta compares only with the previous strictly earlier Live observation from the same physical meter. Hour/Day/Month observations are not used as Live predecessors.
 
 ### Hour, Day and Month history
 
@@ -44,6 +45,8 @@ An initial family baseline traverses until the meter/protocol state machine reac
 After a family has an authoritative COMPLETE baseline, normal updates use a conservative **incremental** path. Incremental traversal may stop at securely known overlap; it does not blindly repeat an ambiguous selected request.
 
 **Update all history** chooses the correct mode independently for Hour, Day and Month: incomplete families use the full baseline path, while COMPLETE families use incremental synchronization.
+
+An explicit advanced **Full Re-Sync** is available after all three exposed families have COMPLETE baselines. It deliberately rereads the families through the same safety shell without deleting the existing history first; matching observations become confirmations and differing observations remain visible as revision/conflict evidence.
 
 Year/Billing is **not exposed as a normal v2 History synchronization control** unless separately validated and intentionally released.
 
@@ -67,7 +70,7 @@ W1 NFC Reader works locally on the Android device and the app manifest does **no
 
 The app stores decoded meter/history data locally. It does not intentionally persist NFC UIDs, raw NFC traffic, raw M-Bus frames or development capture traces as part of normal product history.
 
-Data leaves the app only through explicit user actions such as backup, CSV export or Android sharing. Android platform backup is disabled for the application.
+Data leaves the app only through explicit user actions such as backup, CSV export, Android sharing, or opening an external browser link from About. Android platform backup is disabled for the application.
 
 See [docs/PRIVACY.md](docs/PRIVACY.md).
 
@@ -90,13 +93,19 @@ W1 NFC Reader is distributed as a signed Android APK through this repository's *
 ### Installing the APK
 
 1. Open this repository's **Releases** page on the Android device.
-2. Download the APK from the latest stable release, for example `w1-nfc-reader-1.0.0.apk`.
+2. Download the APK from the latest stable release, for example `w1-nfc-reader-2.0.0.apk`.
 3. Open the downloaded APK.
 4. Android may ask you to allow the browser or file manager you used to **install unknown apps**. Enable this permission for that app.
 5. Confirm the installation.
 6. After installation, you may disable the "install unknown apps" permission again.
 
 The exact wording and location of this Android setting can differ between Android versions and device manufacturers.
+
+### Upgrading from 1.x
+
+2.0.0 intentionally changes the History and portable-backup model. Before upgrading from 1.x, create a CSV export if you need an external copy of the old dataset.
+
+**1.x `.qw1backup` files are not restorable by 2.0.0.** After upgrading, establish new Hour, Day and Month History baselines and create a new v2 `.qw1backup`. See [docs/V2_BREAKING_CHANGES.md](docs/V2_BREAKING_CHANGES.md) for the complete upgrade contract.
 
 Each stable release contains:
 
