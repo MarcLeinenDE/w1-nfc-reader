@@ -1,6 +1,6 @@
 # W1 NFC Reader 2.0 — History and Statistics navigation product decision
 
-Status: product/UX decision for the `2.0.0-dev` development line. This document records agreed behavior only; it does not authorize protocol changes and does not itself implement the UI.
+Status: released/current v2.0 product/UX decision. This document records agreed behavior only; it does not authorize protocol changes. The v2.1 real-time/UTC and coverage decision in `docs/product-decisions/v2.1-real-time-timeline-and-coverage.md` supersedes the v2.0 raw-meter-time presentation rule where explicitly stated.
 
 ## Goal
 
@@ -36,13 +36,17 @@ Page numbers are not a primary navigation concept.
 
 Stored timestamps remain canonical and are not rewritten for presentation. The UI must format them according to the currently selected app locale.
 
-Time provenance must remain explicit:
+Time provenance must remain explicit.
+
+Released v2.0 behavior:
 
 - Live observations use the Android acquisition time as the primary History timestamp; any meter-reported time remains a separate meter-time field.
 - Archive Hour/Day/Month observations use the logger/archive timestamp reported by the meter as their primary semantic time.
-- Archive timestamps must not be silently shifted using the phone clock, timezone or daylight-saving assumptions. Presentation localization changes the display only, not the stored value or semantic meaning.
+- Archive timestamps are not silently shifted using the phone clock, timezone or daylight-saving assumptions. Presentation localization changes the display only, not the stored value or semantic meaning.
 
-The visible timestamp should be granularity-aware instead of showing raw `yyyy-MM-dd HH:mm` everywhere. Examples for German presentation:
+For v2.1 and later, the separate real-time/UTC product decision changes the primary user-facing/navigation timeline: raw meter time remains evidence, while a validated derived UTC interval becomes the canonical integration timeline and real local time becomes the normal display timeline when evidence is sufficient.
+
+The visible timestamp should be granularity-aware instead of showing raw `yyyy-MM-dd HH:mm` everywhere. Examples for German presentation in the v2.0 raw-meter-time model:
 
 - Hour: `06.09.2026 · 18:00 · Stunde`
 - Day: `06.09.2026 · Tag`
@@ -320,6 +324,8 @@ Coverage information reflects actually stored valid observations. It must not pr
 
 Metric-specific coverage may differ: a period can have complete consumption coverage while only some buckets contain a valid temperature or battery value.
 
+The v2.1 time-model decision extends this concept with exact real-time coverage states for ranges whose requested edges cut through shifted archive intervals. Statistics must not fabricate fractional bucket consumption to make such a range appear exact.
+
 ## Additional History filter ideas retained for later evaluation
 
 ### Only changes
@@ -377,28 +383,29 @@ History and Statistics prefer useful filter combinations over mutually exclusive
 
 ## Implementation direction
 
-When implementation starts, prefer:
+The released v2.0 implementation follows this general direction:
 
 1. preserve the virtualized `ListView` behavior that fixed large-history ANRs;
-2. implement a reusable calendar-period navigation model shared by History and Statistics;
-3. add localized, granularity-aware History timestamp and predecessor formatting;
-4. add contextual History period navigation;
-5. add the orthogonal `Only alarms` quick filter;
-6. move History archive loading toward SQLite range/family/alarm queries for the selected view instead of loading all archive rows;
-7. extend Statistics to use the same period model and matching Hour/Day/Month resolution;
-8. implement a shared measurement-validity layer before chart/KPI aggregation;
-9. implement core metric charts in this order: Consumption bars, Temperature line, Flow peak bars, Battery line, then Alarm timeline/events where safely derivable;
-10. preserve correct same-meter, same-granularity delta semantics from the mixed-granularity History fix;
-11. add targeted tests for filter combinations, locale formatting, period boundaries, meter replacement, sentinel/missing-value handling, incomplete coverage and statistic aggregation;
-12. evaluate typical-day profiles, period comparisons, ambient temperature and other advanced metrics after the shared navigator foundation is stable.
+2. use a reusable calendar-period navigation model shared by History and Statistics;
+3. provide localized, granularity-aware History timestamp and predecessor formatting;
+4. provide contextual History period navigation;
+5. provide the orthogonal `Only alarms` quick filter;
+6. query stored data by selected family/range rather than requiring the entire archive in the UI;
+7. use matching Hour/Day/Month resolution for Statistics;
+8. apply measurement-validity rules before chart/KPI aggregation;
+9. keep core metric charts focused on Consumption, Temperature, Flow peak, Battery and safely derived Alarm state/transitions;
+10. preserve correct same-meter, same-granularity delta semantics;
+11. keep targeted tests for filter combinations, locale formatting, period boundaries, meter replacement, sentinel/missing-value handling, incomplete coverage and statistic aggregation.
+
+The v2.1 implementation should evolve this foundation rather than replace it wholesale, with special attention to the new canonical UTC timeline and coverage semantics.
 
 ## Development batching principle
 
-The v2 development line should avoid unnecessary APK/version churn.
+Avoid unnecessary APK/version churn.
 
-Prefer grouping directly related work into coherent development slices when the changes share the same data/UI foundation and can be regression-tested together. History navigation, Statistics navigation, SQLite range-query support, localized time presentation, metric validity rules and related cleanup should therefore be implemented back-to-back and validated in one Dev checkpoint where practical.
+Prefer grouping directly related work into coherent development slices when the changes share the same data/UI foundation and can be regression-tested together.
 
-Do not create a new physical meter test requirement for every UI or database-only change. Reuse synthetic/unit/Robolectric regression coverage and the portable Dev backup dataset whenever protocol behavior is unchanged.
+Do not create a new physical meter test requirement for every UI or database-only change. Reuse synthetic/unit/Robolectric regression coverage and portable backup data whenever protocol behavior is unchanged.
 
 Physical meter validation remains mandatory when a change affects NFC transport, archive acquisition/traversal, terminal handling, restore/default application behavior, Incremental/Resume or other protocol/device semantics.
 
@@ -413,5 +420,3 @@ This product decision does not change:
 - Incremental/Resume behavior;
 - `QalcosonicReader.java` or `MbusParser.java`;
 - protocol field meanings.
-
-True Incremental/Resume remains a separate later product block after the History/Statistics navigator foundation is stable.
