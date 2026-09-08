@@ -11,10 +11,14 @@ import java.time.format.ResolverStyle;
  *
  * <p>No civil timezone participates in the UTC derivation. The meter-assigned IANA zone belongs to
  * the LOCAL projection layer after a canonical UTC instant has been resolved.</p>
+ *
+ * <p>The raw meter/logger wall-clock relation is retained as independent clock-regime evidence. A
+ * raw clock shift does not by itself invalidate an otherwise continuous ON_TIME derivation and is
+ * therefore reported diagnostically rather than used to rewrite or reject canonical UTC.</p>
  */
 final class MeterTimeResolver {
     static final String METHOD_ON_TIME_LIVE_ANCHOR = "ON_TIME_LIVE_ANCHOR_V1";
-    static final long MAX_RAW_ORIGIN_SKEW_MS = 120_000L;
+    static final long RAW_CLOCK_ALIGNMENT_TOLERANCE_MS = 120_000L;
 
     private static final DateTimeFormatter RAW = DateTimeFormatter
             .ofPattern("uuuu-MM-dd HH:mm")
@@ -28,8 +32,12 @@ final class MeterTimeResolver {
         ON_TIME_MISSING,
         ON_TIME_AFTER_ANCHOR,
         RAW_TIME_INVALID,
-        CLOCK_REGIME_MISMATCH,
         ARITHMETIC_ERROR
+    }
+
+    enum ClockRelation {
+        ALIGNED,
+        SHIFTED
     }
 
     static final class Resolution {
@@ -37,13 +45,20 @@ final class MeterTimeResolver {
         final Long epochMs;
         final long uncertaintyMs;
         final Long rawOriginSkewMs;
+        final ClockRelation rawClockRelation;
         final String method;
 
-        Resolution(Status status, Long epochMs, long uncertaintyMs, Long rawOriginSkewMs) {
+        Resolution(
+                Status status,
+                Long epochMs,
+                long uncertaintyMs,
+                Long rawOriginSkewMs,
+                ClockRelation rawClockRelation) {
             this.status = status;
             this.epochMs = epochMs;
             this.uncertaintyMs = uncertaintyMs;
             this.rawOriginSkewMs = rawOriginSkewMs;
+            this.rawClockRelation = rawClockRelation;
             this.method = status == Status.RESOLVED ? METHOD_ON_TIME_LIVE_ANCHOR : null;
         }
 
@@ -78,16 +93,21 @@ final class MeterTimeResolver {
             long archiveOrigin = Math.subtractExact(
                     archiveRawMs, Math.multiplyExact(archive.onTimeSeconds, 1000L));
             long originSkew = Math.subtractExact(archiveOrigin, anchorOrigin);
-            if (Math.abs(originSkew) > MAX_RAW_ORIGIN_SKEW_MS) {
-                return new Resolution(
-                        Status.CLOCK_REGIME_MISMATCH, null, anchor.uncertaintyMs, originSkew);
-            }
+            ClockRelation relation = originSkew >= -RAW_CLOCK_ALIGNMENT_TOLERANCE_MS
+                    && originSkew <= RAW_CLOCK_ALIGNMENT_TOLERANCE_MS
+                    ? ClockRelation.ALIGNED
+                    : ClockRelation.SHIFTED;
 
             long elapsedSeconds = Math.subtractExact(
                     anchor.onTimeSeconds, archive.onTimeSeconds);
             long candidate = Math.subtractExact(
                     anchor.anchorEpochMs, Math.multiplyExact(elapsedSeconds, 1000L));
-            return new Resolution(Status.RESOLVED, candidate, anchor.uncertaintyMs, originSkew);
+            return new Resolution(
+                    Status.RESOLVED,
+                    candidate,
+                    anchor.uncertaintyMs,
+                    originSkew,
+                    relation);
         } catch (ArithmeticException error) {
             return fail(Status.ARITHMETIC_ERROR);
         }
@@ -104,6 +124,6 @@ final class MeterTimeResolver {
     }
 
     private static Resolution fail(Status status) {
-        return new Resolution(status, null, -1L, null);
+        return new Resolution(status, null, -1L, null, null);
     }
 }
