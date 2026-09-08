@@ -92,10 +92,10 @@ public final class DataPortabilityV3Test {
     @Test public void schema3ArchiveEnvelopePromotesV2OnTimeWithoutInventingTypeF() throws Exception {
         new MeterLifecycleStore(context).adoptInitialMeter("M1");
         try (ArchiveFamilyStore archive = new ArchiveFamilyStore(context)) {
-            ArchiveNormalizedValues values = ArchiveNormalizedValues.builder()
-                    .totalVolume("10.000 m3")
-                    .onTime("80734200 s")
-                    .build();
+            ArchiveNormalizedValues.Builder valuesBuilder = ArchiveNormalizedValues.builder()
+                    .totalVolume("10.000 m3");
+            valuesBuilder.onTime = "80734200 s";
+            ArchiveNormalizedValues values = valuesBuilder.build();
             ArchiveFamilyPeriod period = new ArchiveFamilyPeriod(
                     ArchiveFamilyPeriod.Family.HOUR,
                     "2026-09-08 04:00",
