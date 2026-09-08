@@ -7,7 +7,7 @@ import android.widget.ScrollView;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.card.MaterialCardView;
 
-/** Normal secondary diagnostic screen; research readers remain backend-only until separately surfaced. */
+/** Normal secondary diagnostic screen. Raw research/protocol traces are not exposed here. */
 public final class DiagnosticsActivity extends MaterialBaseActivity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -33,26 +33,60 @@ public final class DiagnosticsActivity extends MaterialBaseActivity {
 
         addCard(content, R.string.m3_diagnostics_build,
                 getString(R.string.m3_diagnostics_build_value, BuildConfig.VERSION_NAME, BuildConfig.BUILD_COMMIT));
-        addCard(content, R.string.m3_diagnostics_signing,
+        addCard(content, R.string.v2_diag_signing_title,
                 getString(BuildConfig.STABLE_SIGNING
-                        ? R.string.m3_diagnostics_signing_stable : R.string.m3_diagnostics_signing_ephemeral));
+                        ? R.string.v2_diag_signing_stable : R.string.v2_diag_signing_debug));
         addCard(content, R.string.m3_diagnostics_protocol,
-                getString(R.string.m3_diagnostics_protocol_value) + "\n" + getString(R.string.m3_diagnostics_other_families));
-
-        String active = new MeterLifecycleStore(this).activeMeterId();
-        String dataText;
-        try (MeterHistoryStore live = new MeterHistoryStore(this);
-             ArchiveFamilyStore archive = new ArchiveFamilyStore(this)) {
-            int liveCount = active == null ? 0 : live.getReadings(active, 0L).size();
-            int archiveCount = active == null ? 0 : archive.getPeriods(active, null).size();
-            dataText = (active == null ? getString(R.string.m3_details_no_value) : active)
-                    + "\n" + getString(R.string.m3_filter_live) + ": " + liveCount
-                    + " · " + getString(R.string.m3_provenance_archive) + ": " + archiveCount;
-        }
-        addCard(content, R.string.m3_history_quality, dataText);
+                getString(R.string.v2_diag_protocol_value) + "\n"
+                        + getString(R.string.v2_diag_year_not_exposed));
+        addCard(content, R.string.v2_diag_data_title, localDataStatus());
+        addCard(content, R.string.v2_diag_privacy_title,
+                getString(R.string.v2_diag_privacy_body));
 
         setContentView(shell);
         applySystemInsets(shell);
+    }
+
+    private String localDataStatus() {
+        String active = new MeterLifecycleStore(this).activeMeterId();
+        if (active == null || active.trim().isEmpty()) return getString(R.string.m3_no_meter);
+
+        try (MeterHistoryStore live = new MeterHistoryStore(this);
+             ArchiveFamilyStore archive = new ArchiveFamilyStore(this)) {
+            int liveCount = live.getReadings(active, 0L).size();
+            ArchiveFamilySyncStateStore states = new ArchiveFamilySyncStateStore(this);
+            return getString(R.string.m3_meter_id, active)
+                    + "\n" + getString(R.string.v2_diag_family_line,
+                    getString(R.string.m3_filter_live), liveCount, getString(R.string.m3_provenance_live))
+                    + "\n" + familyLine(archive, states, active, ArchiveFamilyPeriod.Family.HOUR)
+                    + "\n" + familyLine(archive, states, active, ArchiveFamilyPeriod.Family.DAY)
+                    + "\n" + familyLine(archive, states, active, ArchiveFamilyPeriod.Family.MONTH);
+        }
+    }
+
+    private String familyLine(ArchiveFamilyStore archive,
+                              ArchiveFamilySyncStateStore states,
+                              String meter,
+                              ArchiveFamilyPeriod.Family family) {
+        int count = archive.getPeriods(meter, family).size();
+        ArchiveFamilySyncState state = states.get(meter, family);
+        String stateText;
+        if (state.baselineComplete()) {
+            stateText = getString(R.string.m3_history_baseline_complete);
+        } else if (state.lastAttemptOutcome == ArchiveFamilySyncState.AttemptOutcome.PARTIAL) {
+            stateText = getString(R.string.m3_state_sync_partial_title);
+        } else if (state.lastAttemptOutcome == ArchiveFamilySyncState.AttemptOutcome.FAILED) {
+            stateText = getString(R.string.m3_state_sync_failed_title);
+        } else {
+            stateText = getString(R.string.m3_no_archive);
+        }
+        return getString(R.string.v2_diag_family_line, familyLabel(family), count, stateText);
+    }
+
+    private String familyLabel(ArchiveFamilyPeriod.Family family) {
+        if (family == ArchiveFamilyPeriod.Family.HOUR) return getString(R.string.m3_filter_hour);
+        if (family == ArchiveFamilyPeriod.Family.DAY) return getString(R.string.m3_filter_day);
+        return getString(R.string.m3_filter_month);
     }
 
     private void addCard(LinearLayout parent, int titleRes, CharSequence body) {
