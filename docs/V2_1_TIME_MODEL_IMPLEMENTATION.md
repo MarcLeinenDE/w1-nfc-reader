@@ -30,6 +30,14 @@ Preferred archive UTC derivation remains:
 
 with raw Type-F / raw-clock-origin consistency retained as independent validation evidence.
 
+A raw-clock-origin difference relative to the Live anchor is **not by itself a veto** on an otherwise
+valid ON_TIME derivation. A meter clock can be adjusted while ON_TIME remains continuous, and raw
+logger timestamps can have family/logger semantics that are not identical to a Live display clock.
+The absolute raw-origin skew must therefore be retained and classified (`ALIGNED` / `SHIFTED`) but
+must not be used to rewrite the ON_TIME-derived UTC instant. Segment/discontinuity validation belongs
+to multi-observation evidence: ON_TIME progression, family-native archive progression, meter identity
+and retained Type-F evidence.
+
 ## Verified Live anchor
 
 A persisted verified Live anchor must retain at least:
@@ -105,7 +113,8 @@ or cache fields such as:
 - `time_derivation_method`;
 - `time_uncertainty_ms`;
 - anchor identity/version;
-- raw clock-regime consistency result.
+- raw clock-origin skew;
+- raw clock relation / segment diagnostics.
 
 They must be safely recomputable from retained raw evidence and anchors. A resolver/model-version
 change must never rewrite the original raw logger timestamp or Type-F evidence.
@@ -156,8 +165,11 @@ consumption is interpolated.
 - keep old unresolved occurrence identity as `LEGACY` when richer evidence cannot be recovered;
 - existing Live `read_at_ms` remains a valid real UTC observation timestamp;
 - old archive rows may be backfilled to canonical UTC after a new verified same-meter Live anchor if
-  ON_TIME/raw-clock-regime evidence is sufficiently consistent;
-- otherwise retain the data as `UNRESOLVED_TIME` rather than guessing;
+  the relevant ON_TIME segment can be validated;
+- an absolute raw-clock-origin shift is retained as diagnostic evidence but does not by itself make
+  an otherwise coherent ON_TIME-derived UTC instant unresolved;
+- ambiguous ON_TIME resets, cross-meter evidence or broken archive progression remain
+  `UNRESOLVED_TIME` rather than being guessed across;
 - later incremental/full re-sync may enrich old canonical rows with newly observed evidence.
 
 ## Backup/export direction
@@ -174,7 +186,7 @@ raw meter time plus resolved UTC/local interval fields and time quality/provenan
 Before productive History/Statistics queries switch to LOCAL UTC semantics, CI must prove at least:
 
 - ON_TIME anchor resolution without civil-timezone assumptions;
-- raw-clock-regime discontinuity detection;
+- raw clock shift/discontinuity detection without making raw-clock offset a UTC veto;
 - ON_TIME reset/discontinuity rejection;
 - meter replacement isolation;
 - spring DST nonexistent local time handling;
