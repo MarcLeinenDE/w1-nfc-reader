@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_custom_range">Benutzerdefinierter Zeitraum</string>
+    <string name="v2_choose_calendar_period">Kalenderzeitraum auswählen</string>
+    <string name="v2_apply">Anwenden</string>
+    <string name="v2_range_from">Von: %1$s</string>
+    <string name="v2_range_to">Bis: %1$s</string>
+    <string name="v2_range_end_after_start">Das Ende muss nach dem Beginn liegen.</string>
+    <string name="v2_filter">Filter</string>
+    <string name="v2_filter_active_count">Filter · %1$d</string>
+    <string name="v2_metric_choose">Messwert auswählen</string>
+    <string name="v2_resolution">Auflösung</string>
+    <string name="v2_resolution_auto_value">Automatisch · %1$s</string>
+    <string name="v2_resolution_value">Auflösung · %1$s</string>
+    <string name="v2_resolution_with_count">%1$s · %2$d vollständige Zeiträume</string>
+    <string name="v2_available_data_format">Verfügbar: Live %1$d · Stunde %2$d · Tag %3$d · Monat %4$d</string>
+    <string name="v2_range_no_full_buckets">In diesem Zeitraum liegt kein vollständiger %1$s-Archivzeitraum. Aus dieser Auflösung kann kein genauerer Gesamtverbrauch abgeleitet werden.</string>
+    <string name="v2_range_edges_not_exact">Beginn oder Ende liegen nicht auf %1$s-Archivgrenzen. Die Statistik verwendet nur vollständig enthaltene Zeiträume (%2$s – %3$s); Teilzeiträume werden nicht geschätzt.</string>
+    <string name="v2_range_archive_coverage">%1$s-Archivabdeckung: %2$d von %3$d vollständigen Zeiträumen gespeichert.</string>
+    <string name="v2_kpi_contained_total">Enthaltene Zeiträume</string>
+    <string name="v2_kpi_known_total">Bekannte Summe</string>
+    <string name="v2_back_again_to_exit">Zum Beenden erneut Zurück drücken</string>
+    <string name="v2_sync_all_body">Jede Historienfamilie wird unabhängig aktualisiert. Vollständige Baselines werden inkrementell synchronisiert; Familien ohne vollständige Baseline verwenden den vollständigen Baseline-Lauf.</string>
+    <string name="v2_sync_all_update">Gesamte Historie aktualisieren</string>
+</resources>

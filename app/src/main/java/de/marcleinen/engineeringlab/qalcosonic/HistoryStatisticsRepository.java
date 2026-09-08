@@ -110,6 +110,28 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         }
     }
 
+    static final class Availability {
+        final int live;
+        final int hour;
+        final int day;
+        final int month;
+
+        Availability(int live, int hour, int day, int month) {
+            this.live = live;
+            this.hour = hour;
+            this.day = day;
+            this.month = month;
+        }
+
+        int count(HistorySemanticTimeline.Granularity granularity) {
+            if (granularity == HistorySemanticTimeline.Granularity.LIVE) return live;
+            if (granularity == HistorySemanticTimeline.Granularity.HOUR) return hour;
+            if (granularity == HistorySemanticTimeline.Granularity.DAY) return day;
+            if (granularity == HistorySemanticTimeline.Granularity.MONTH) return month;
+            return 0;
+        }
+    }
+
     private static final String[] ARCHIVE_COLUMNS = {
             "meter_id", "archive_family", "logger_timestamp",
             "total_volume", "positive_volume", "reverse_volume", "tariff1_volume",
@@ -159,19 +181,9 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         List<Observation> result = new ArrayList<>();
         for (String meter : meterIds()) {
             boolean includesLive = filter == null || filter == HistorySemanticTimeline.Granularity.LIVE;
-            if (includesLive) {
-                queryLive(result, meter, window, includePredecessors);
-            }
+            if (includesLive) queryLive(result, meter, window, includePredecessors);
             for (ArchiveFamilyPeriod.Family family : families(filter)) {
                 queryArchive(result, meter, family, window, includePredecessors);
-            }
-            if (includesLive && includePredecessors) {
-                // Live cards may use an archive row as their newest known previous total. When the
-                // Live filter hides archive cards, load the relevant archive rows as context only.
-                // In the All view, displayed archive rows already provide in-window references; we
-                // only need an older fallback before the selected window.
-                queryLiveArchiveContext(result, meter, window,
-                        filter == HistorySemanticTimeline.Granularity.LIVE);
             }
         }
         result.sort(observationOrder());
@@ -180,7 +192,30 @@ final class HistoryStatisticsRepository implements AutoCloseable {
 
     List<Observation> queryStatistics(HistoryPeriodNavigator.Window window) {
         if (window == null) return new ArrayList<>();
-        return queryHistory(targetGranularity(window.scale), window, true);
+        return queryStatistics(window, targetGranularity(window.scale));
+    }
+
+    List<Observation> queryStatistics(HistoryPeriodNavigator.Window window,
+                                      HistorySemanticTimeline.Granularity granularity) {
+        if (window == null || granularity == null) return new ArrayList<>();
+        if (!window.customRange) return queryHistory(granularity, window, true);
+        ArchiveFamilyPeriod.Family family = family(granularity);
+        if (family == null) return new ArrayList<>();
+        List<Observation> result = new ArrayList<>();
+        for (String meter : meterIds()) {
+            queryArchiveContained(result, meter, family, window, true);
+        }
+        result.sort(observationOrder());
+        return result;
+    }
+
+    Availability availability(HistoryPeriodNavigator.Window window) {
+        if (window == null) return new Availability(0, 0, 0, 0);
+        int live = visibleCount(queryHistory(HistorySemanticTimeline.Granularity.LIVE, window, false));
+        int hour = visibleCount(queryStatistics(window, HistorySemanticTimeline.Granularity.HOUR));
+        int day = visibleCount(queryStatistics(window, HistorySemanticTimeline.Granularity.DAY));
+        int month = visibleCount(queryStatistics(window, HistorySemanticTimeline.Granularity.MONTH));
+        return new Availability(live, hour, day, month);
     }
 
     List<MeterLifecycleStore.Transition> transitions(HistoryPeriodNavigator.Window window) {
@@ -214,69 +249,96 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         args.add(meter);
         args.add(family.name());
         if (window != null && !window.allPeriods) {
-            // Archive logger timestamps are end boundaries. To show periods contained in the
-            // selected calendar window, select boundaries strictly after the window start and up
-            // to and including its end. Example: September MONTH data is the 01-Oct boundary.
             selection.append(" AND logger_timestamp > ? AND logger_timestamp <= ?");
             args.add(window.archiveStart);
             args.add(window.archiveEnd);
         }
+
+        String firstDisplayedStart = null;
         try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
                 selection.toString(), args.toArray(new String[0]), null, null,
                 "logger_timestamp ASC")) {
-            while (cursor.moveToNext()) out.add(readArchive(cursor, false));
+            while (cursor.moveToNext()) {
+                Observation observation = readArchive(cursor, false);
+                out.add(observation);
+                if (firstDisplayedStart == null) {
+                    firstDisplayedStart = HistoryTimePresentation.periodStartTimestamp(
+                            observation.timestamp, observation.granularity);
+                }
+            }
         }
 
-        if (!includePredecessor || window == null || window.allPeriods || window.archiveStart == null) return;
-        // The exact start boundary is context for the first displayed period and for its delta.
+        // A custom range may end in the middle of an archive period. History should show that
+        // overlapping period as context instead of silently hiding what happened near the right
+        // edge. Statistics uses queryArchiveContained() and never counts such partial edge buckets.
+        if (window != null && window.customRange && window.archiveEnd != null) {
+            try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
+                    "meter_id = ? AND archive_family = ? AND logger_timestamp > ?",
+                    new String[]{meter, family.name(), window.archiveEnd}, null, null,
+                    "logger_timestamp ASC", "1")) {
+                if (cursor.moveToFirst()) {
+                    Observation candidate = readArchive(cursor, false);
+                    if (HistoryCustomRangeSemantics.overlaps(candidate, window)) {
+                        out.add(candidate);
+                        if (firstDisplayedStart == null) {
+                            firstDisplayedStart = HistoryTimePresentation.periodStartTimestamp(
+                                    candidate.timestamp, candidate.granularity);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!includePredecessor || window == null || window.allPeriods) return;
+        String predecessorBoundary = window.customRange ? firstDisplayedStart : window.archiveStart;
+        if (predecessorBoundary == null) return;
+        addArchiveContextAt(db, out, meter, family, predecessorBoundary);
+    }
+
+    private void queryArchiveContained(List<Observation> out, String meter,
+                                       ArchiveFamilyPeriod.Family family,
+                                       HistoryPeriodNavigator.Window window,
+                                       boolean includePredecessor) {
+        if (window == null || !window.customRange) {
+            queryArchive(out, meter, family, window, includePredecessor);
+            return;
+        }
+        SQLiteDatabase db = archiveStore.getReadableDatabase();
+        String firstDisplayedStart = null;
         try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
-                "meter_id = ? AND archive_family = ? AND logger_timestamp = ?",
-                new String[]{meter, family.name(), window.archiveStart}, null, null, null, "1")) {
-            if (cursor.moveToFirst()) out.add(readArchive(cursor, true));
+                "meter_id = ? AND archive_family = ? AND logger_timestamp > ? AND logger_timestamp <= ?",
+                new String[]{meter, family.name(), window.archiveStart, window.archiveEnd},
+                null, null, "logger_timestamp ASC")) {
+            while (cursor.moveToNext()) {
+                Observation observation = readArchive(cursor, false);
+                if (!HistoryCustomRangeSemantics.fullyContained(observation, window)) continue;
+                out.add(observation);
+                if (firstDisplayedStart == null) {
+                    firstDisplayedStart = HistoryTimePresentation.periodStartTimestamp(
+                            observation.timestamp, observation.granularity);
+                }
+            }
+        }
+        if (includePredecessor && firstDisplayedStart != null) {
+            addArchiveContextAt(db, out, meter, family, firstDisplayedStart);
         }
     }
 
-    private void queryLiveArchiveContext(List<Observation> out, String meter,
-                                         HistoryPeriodNavigator.Window window,
-                                         boolean includeInWindowRows) {
-        SQLiteDatabase db = archiveStore.getReadableDatabase();
-        List<ArchiveFamilyPeriod.Family> archiveFamilies = Arrays.asList(
-                ArchiveFamilyPeriod.Family.HOUR,
-                ArchiveFamilyPeriod.Family.DAY,
-                ArchiveFamilyPeriod.Family.MONTH);
-        for (ArchiveFamilyPeriod.Family family : archiveFamilies) {
-            if (window == null || window.allPeriods) {
-                if (!includeInWindowRows) continue;
-                try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
-                        "meter_id = ? AND archive_family = ?",
-                        new String[]{meter, family.name()}, null, null,
-                        "logger_timestamp ASC")) {
-                    while (cursor.moveToNext()) out.add(readArchive(cursor, true));
+    private void addArchiveContextAt(SQLiteDatabase db, List<Observation> out, String meter,
+                                     ArchiveFamilyPeriod.Family family, String boundary) {
+        try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
+                "meter_id = ? AND archive_family = ? AND logger_timestamp = ?",
+                new String[]{meter, family.name(), boundary}, null, null, null, "1")) {
+            if (cursor.moveToFirst()) {
+                Observation context = readArchive(cursor, true);
+                boolean duplicate = false;
+                for (Observation existing : out) {
+                    if (existing.identity.equals(context.identity)) {
+                        duplicate = true;
+                        break;
+                    }
                 }
-                continue;
-            }
-
-            if (includeInWindowRows && window.archiveStart != null && window.archiveEnd != null) {
-                // A live read inside [start,end) may reference an archive boundary at start or any
-                // later boundary strictly before end. These rows remain hidden context in Live UI.
-                try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
-                        "meter_id = ? AND archive_family = ? AND logger_timestamp >= ?"
-                                + " AND logger_timestamp < ?",
-                        new String[]{meter, family.name(), window.archiveStart, window.archiveEnd},
-                        null, null, "logger_timestamp ASC")) {
-                    while (cursor.moveToNext()) out.add(readArchive(cursor, true));
-                }
-            }
-
-            if (window.archiveStart != null) {
-                // If no fine-grained observation exists at the selected window start, retain a
-                // coarser/older family as fallback for the first Live card.
-                try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
-                        "meter_id = ? AND archive_family = ? AND logger_timestamp < ?",
-                        new String[]{meter, family.name(), window.archiveStart}, null, null,
-                        "logger_timestamp DESC", "1")) {
-                    if (cursor.moveToFirst()) out.add(readArchive(cursor, true));
-                }
+                if (!duplicate) out.add(context);
             }
         }
     }
@@ -341,13 +403,16 @@ final class HistoryStatisticsRepository implements AutoCloseable {
     private static List<ArchiveFamilyPeriod.Family> families(HistorySemanticTimeline.Granularity filter) {
         if (filter == null) return Arrays.asList(ArchiveFamilyPeriod.Family.HOUR,
                 ArchiveFamilyPeriod.Family.DAY, ArchiveFamilyPeriod.Family.MONTH);
-        if (filter == HistorySemanticTimeline.Granularity.HOUR)
-            return Collections.singletonList(ArchiveFamilyPeriod.Family.HOUR);
-        if (filter == HistorySemanticTimeline.Granularity.DAY)
-            return Collections.singletonList(ArchiveFamilyPeriod.Family.DAY);
-        if (filter == HistorySemanticTimeline.Granularity.MONTH)
-            return Collections.singletonList(ArchiveFamilyPeriod.Family.MONTH);
-        return Collections.emptyList();
+        ArchiveFamilyPeriod.Family one = family(filter);
+        return one == null ? Collections.emptyList() : Collections.singletonList(one);
+    }
+
+    private static ArchiveFamilyPeriod.Family family(HistorySemanticTimeline.Granularity granularity) {
+        if (granularity == HistorySemanticTimeline.Granularity.HOUR) return ArchiveFamilyPeriod.Family.HOUR;
+        if (granularity == HistorySemanticTimeline.Granularity.DAY) return ArchiveFamilyPeriod.Family.DAY;
+        if (granularity == HistorySemanticTimeline.Granularity.MONTH) return ArchiveFamilyPeriod.Family.MONTH;
+        if (granularity == HistorySemanticTimeline.Granularity.YEAR) return ArchiveFamilyPeriod.Family.YEAR;
+        return null;
     }
 
     private static HistorySemanticTimeline.Granularity granularity(ArchiveFamilyPeriod.Family family) {
@@ -355,6 +420,16 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         if (family == ArchiveFamilyPeriod.Family.DAY) return HistorySemanticTimeline.Granularity.DAY;
         if (family == ArchiveFamilyPeriod.Family.YEAR) return HistorySemanticTimeline.Granularity.YEAR;
         return HistorySemanticTimeline.Granularity.MONTH;
+    }
+
+    private static int visibleCount(List<Observation> observations) {
+        int count = 0;
+        if (observations != null) {
+            for (Observation observation : observations) {
+                if (observation != null && !observation.contextOnly) count++;
+            }
+        }
+        return count;
     }
 
     private static Comparator<Observation> observationOrder() {

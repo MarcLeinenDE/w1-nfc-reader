@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_custom_range">Niestandardowy zakres</string>
+    <string name="v2_choose_calendar_period">Wybierz okres kalendarzowy</string>
+    <string name="v2_apply">Zastosuj</string>
+    <string name="v2_range_from">Od: %1$s</string>
+    <string name="v2_range_to">Do: %1$s</string>
+    <string name="v2_range_end_after_start">Koniec musi przypadać po początku.</string>
+    <string name="v2_filter">Filtr</string>
+    <string name="v2_filter_active_count">Filtr · %1$d</string>
+    <string name="v2_metric_choose">Wybierz pomiar</string>
+    <string name="v2_resolution">Rozdzielczość</string>
+    <string name="v2_resolution_auto_value">Automatycznie · %1$s</string>
+    <string name="v2_resolution_value">Rozdzielczość · %1$s</string>
+    <string name="v2_resolution_with_count">%1$s · %2$d pełnych okresów</string>
+    <string name="v2_available_data_format">Dostępne: Live %1$d · Godzina %2$d · Dzień %3$d · Miesiąc %4$d</string>
+    <string name="v2_range_no_full_buckets">W tym zakresie nie mieści się żaden pełny okres archiwalny %1$s. Z tej rozdzielczości nie można wyliczyć dokładniejszej sumy.</string>
+    <string name="v2_range_edges_not_exact">Początek lub koniec nie pokrywa się z granicami archiwum %1$s. Statystyki używają tylko w pełni zawartych okresów (%2$s – %3$s); zużycie w części okresu nie jest szacowane.</string>
+    <string name="v2_range_archive_coverage">Pokrycie archiwum %1$s: zapisano %2$d z %3$d pełnych okresów.</string>
+    <string name="v2_kpi_contained_total">Zawarte okresy</string>
+    <string name="v2_kpi_known_total">Znana suma</string>
+    <string name="v2_back_again_to_exit">Naciśnij Wstecz ponownie, aby wyjść</string>
+    <string name="v2_sync_all_body">Każda rodzina historii jest aktualizowana niezależnie. Pełne bazowe historie używają synchronizacji przyrostowej, a pozostałe pełnej synchronizacji bazowej.</string>
+    <string name="v2_sync_all_update">Aktualizuj całą historię</string>
+</resources>

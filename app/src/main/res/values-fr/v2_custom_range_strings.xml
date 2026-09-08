@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_custom_range">Période personnalisée</string>
+    <string name="v2_choose_calendar_period">Choisir une période du calendrier</string>
+    <string name="v2_apply">Appliquer</string>
+    <string name="v2_range_from">Du : %1$s</string>
+    <string name="v2_range_to">Au : %1$s</string>
+    <string name="v2_range_end_after_start">La fin doit être postérieure au début.</string>
+    <string name="v2_filter">Filtre</string>
+    <string name="v2_filter_active_count">Filtre · %1$d</string>
+    <string name="v2_metric_choose">Choisir la mesure</string>
+    <string name="v2_resolution">Résolution</string>
+    <string name="v2_resolution_auto_value">Auto · %1$s</string>
+    <string name="v2_resolution_value">Résolution · %1$s</string>
+    <string name="v2_resolution_with_count">%1$s · %2$d périodes complètes</string>
+    <string name="v2_available_data_format">Disponible : Live %1$d · Heure %2$d · Jour %3$d · Mois %4$d</string>
+    <string name="v2_range_no_full_buckets">Aucune période d’archive %1$s complète n’est entièrement comprise dans cette plage. Cette résolution ne permet pas de calculer un total plus précis.</string>
+    <string name="v2_range_edges_not_exact">Le début ou la fin ne correspond pas aux limites d’archive %1$s. Les statistiques utilisent uniquement les périodes entièrement comprises (%2$s – %3$s) ; aucune consommation partielle n’est estimée.</string>
+    <string name="v2_range_archive_coverage">Couverture d’archive %1$s : %2$d périodes complètes stockées sur %3$d.</string>
+    <string name="v2_kpi_contained_total">Périodes incluses</string>
+    <string name="v2_kpi_known_total">Total connu</string>
+    <string name="v2_back_again_to_exit">Appuyez de nouveau sur Retour pour quitter</string>
+    <string name="v2_sync_all_body">Chaque famille d’historique est mise à jour indépendamment. Les bases complètes utilisent la synchronisation incrémentielle ; les autres utilisent la synchronisation complète de la base.</string>
+    <string name="v2_sync_all_update">Mettre à jour tout l’historique</string>
+</resources>

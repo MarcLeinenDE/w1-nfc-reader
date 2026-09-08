@@ -13,7 +13,7 @@ import org.robolectric.annotation.Config;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28, manifest = Config.NONE)
@@ -27,7 +27,7 @@ public final class LiveHistoryReferenceRepositoryTest {
         new MeterLifecycleStore(context).clear();
     }
 
-    @Test public void liveOnlyHistoryLoadsArchiveRowsAsHiddenReferenceContext() {
+    @Test public void liveOnlyHistoryDoesNotLoadArchiveRowsAsDeltaContext() {
         try (ArchiveFamilyStore store = new ArchiveFamilyStore(context)) {
             insertArchive(store, ArchiveFamilyPeriod.Family.HOUR, "2026-09-06 18:00", "205.000");
             insertArchive(store, ArchiveFamilyPeriod.Family.DAY, "2026-09-06 00:00", "204.000");
@@ -42,25 +42,9 @@ public final class LiveHistoryReferenceRepositoryTest {
             List<HistoryStatisticsRepository.Observation> rows = repository.queryHistory(
                     HistorySemanticTimeline.Granularity.LIVE, navigator.window(), true);
 
-            int liveRows = 0;
-            int archiveContextRows = 0;
-            boolean hourReferencePresent = false;
-            for (HistoryStatisticsRepository.Observation row : rows) {
-                if (row.live) {
-                    liveRows++;
-                    assertTrue(!row.contextOnly);
-                } else {
-                    archiveContextRows++;
-                    assertTrue(row.contextOnly);
-                    if (row.granularity == HistorySemanticTimeline.Granularity.HOUR
-                            && "2026-09-06 18:00".equals(row.timestamp)) {
-                        hourReferencePresent = true;
-                    }
-                }
-            }
-            assertEquals(1, liveRows);
-            assertEquals(3, archiveContextRows);
-            assertTrue(hourReferencePresent);
+            assertEquals(1, rows.size());
+            assertFalse(rows.get(0).contextOnly);
+            assertEquals(HistorySemanticTimeline.Granularity.LIVE, rows.get(0).granularity);
         }
     }
 

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v2_custom_range">Pasirinktinis laikotarpis</string>
+    <string name="v2_choose_calendar_period">Pasirinkti kalendoriaus laikotarpį</string>
+    <string name="v2_apply">Taikyti</string>
+    <string name="v2_range_from">Nuo: %1$s</string>
+    <string name="v2_range_to">Iki: %1$s</string>
+    <string name="v2_range_end_after_start">Pabaiga turi būti vėliau už pradžią.</string>
+    <string name="v2_filter">Filtras</string>
+    <string name="v2_filter_active_count">Filtras · %1$d</string>
+    <string name="v2_metric_choose">Pasirinkti rodiklį</string>
+    <string name="v2_resolution">Skiriamoji geba</string>
+    <string name="v2_resolution_auto_value">Automatiškai · %1$s</string>
+    <string name="v2_resolution_value">Skiriamoji geba · %1$s</string>
+    <string name="v2_resolution_with_count">%1$s · %2$d pilnų laikotarpių</string>
+    <string name="v2_available_data_format">Yra: Live %1$d · Valanda %2$d · Diena %3$d · Mėnuo %4$d</string>
+    <string name="v2_range_no_full_buckets">Šiame intervale nėra nė vieno visiškai telpančio %1$s archyvo laikotarpio. Iš šios skiriamosios gebos tikslesnės sumos apskaičiuoti negalima.</string>
+    <string name="v2_range_edges_not_exact">Pradžia arba pabaiga nesutampa su %1$s archyvo ribomis. Statistika naudoja tik visiškai telpančius laikotarpius (%2$s – %3$s); dalinių laikotarpių suvartojimas nevertinamas.</string>
+    <string name="v2_range_archive_coverage">%1$s archyvo aprėptis: išsaugota %2$d iš %3$d pilnų laikotarpių.</string>
+    <string name="v2_kpi_contained_total">Telpantys laikotarpiai</string>
+    <string name="v2_kpi_known_total">Žinoma suma</string>
+    <string name="v2_back_again_to_exit">Norėdami išeiti, dar kartą spauskite Atgal</string>
+    <string name="v2_sync_all_body">Kiekviena istorijos grupė atnaujinama atskirai. Užbaigtoms bazėms naudojamas papildomas sinchronizavimas, kitoms – visas bazinis sinchronizavimas.</string>
+    <string name="v2_sync_all_update">Atnaujinti visą istoriją</string>
+</resources>
