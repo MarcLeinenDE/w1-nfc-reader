@@ -21,6 +21,7 @@ public final class MeterTimeResolverTest {
         assertEquals(Instant.parse("2026-09-06T11:00:10Z").toEpochMilli(),
                 result.epochMs.longValue());
         assertEquals(Long.valueOf(0L), result.rawOriginSkewMs);
+        assertEquals(MeterTimeResolver.ClockRelation.ALIGNED, result.rawClockRelation);
         assertEquals(MeterTimeResolver.METHOD_ON_TIME_LIVE_ANCHOR, result.method);
     }
 
@@ -36,9 +37,10 @@ public final class MeterTimeResolverTest {
         assertTrue(result.resolved());
         assertEquals(center - 86_400_000L, result.epochMs.longValue());
         assertEquals(Long.valueOf(0L), result.rawOriginSkewMs);
+        assertEquals(MeterTimeResolver.ClockRelation.ALIGNED, result.rawClockRelation);
     }
 
-    @Test public void materialRawClockJumpBreaksTheResolutionSegment() {
+    @Test public void rawClockJumpIsDiagnosticButDoesNotOverrideOnTimeUtc() {
         long center = Instant.parse("2026-09-06T12:00:10Z").toEpochMilli();
         VerifiedLiveTimeAnchor anchor = anchor(
                 "M1", center, "2026-09-06 13:00", 100_000L);
@@ -47,8 +49,25 @@ public final class MeterTimeResolverTest {
 
         MeterTimeResolver.Resolution result = MeterTimeResolver.resolve(anchor, archive);
 
-        assertEquals(MeterTimeResolver.Status.CLOCK_REGIME_MISMATCH, result.status);
+        assertTrue(result.resolved());
+        assertEquals(center - 3_600_000L, result.epochMs.longValue());
         assertEquals(Long.valueOf(3_600_000L), result.rawOriginSkewMs);
+        assertEquals(MeterTimeResolver.ClockRelation.SHIFTED, result.rawClockRelation);
+    }
+
+    @Test public void realBackupShapedFiveMinuteRawOriginShiftRemainsResolvable() {
+        long center = Instant.parse("2026-09-06T12:00:10Z").toEpochMilli();
+        VerifiedLiveTimeAnchor anchor = anchor(
+                "M1", center, "2026-09-06 13:00", 100_000L);
+        ArchiveTimeEvidence archive = archive(
+                "M1", "2026-09-06 11:55", 96_400L, false);
+
+        MeterTimeResolver.Resolution result = MeterTimeResolver.resolve(anchor, archive);
+
+        assertTrue(result.resolved());
+        assertEquals(center - 3_600_000L, result.epochMs.longValue());
+        assertEquals(Long.valueOf(-300_000L), result.rawOriginSkewMs);
+        assertEquals(MeterTimeResolver.ClockRelation.SHIFTED, result.rawClockRelation);
     }
 
     @Test public void onTimeAfterAnchorIsRejectedAsDiscontinuityEvidence() {
