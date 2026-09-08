@@ -42,7 +42,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Validate tag and release version
+      - name: Validate tag, version and curated release notes
         shell: bash
         run: |
           set -euo pipefail
@@ -56,7 +56,17 @@ jobs:
             echo "Tag ${GITHUB_REF_NAME} does not match versionName ${VERSION_NAME}" >&2
             exit 1
           fi
+          RELEASE_NOTES_FILE="docs/releases/${VERSION_NAME}.md"
+          if [[ ! -s "$RELEASE_NOTES_FILE" ]]; then
+            echo "Missing curated release notes: $RELEASE_NOTES_FILE" >&2
+            exit 1
+          fi
+          if ! grep -Eq '^## (Important|Breaking|Upgrade|Known limitations|Highlights)' "$RELEASE_NOTES_FILE"; then
+            echo "Curated release notes must contain a user-facing Highlights/Upgrade/Breaking/Known limitations section" >&2
+            exit 1
+          fi
           echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "RELEASE_NOTES_FILE=$RELEASE_NOTES_FILE" >> "$GITHUB_ENV"
 
       - name: Restore release keystore
         shell: bash
@@ -115,15 +125,23 @@ jobs:
           cp "$APK" "$OUT"
           sha256sum "$OUT" > "release-assets/w1-nfc-reader-${VERSION_NAME}.apk.sha256"
 
-      - name: Create draft GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-          files: |
-            release-assets/w1-nfc-reader-${{ env.VERSION_NAME }}.apk
-            release-assets/w1-nfc-reader-${{ env.VERSION_NAME }}.apk.sha256
+      - name: Create draft GitHub Release from curated notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release for $GITHUB_REF_NAME already exists; refusing to replace it" >&2
+            exit 1
+          fi
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file "$RELEASE_NOTES_FILE" \
+            "release-assets/w1-nfc-reader-${VERSION_NAME}.apk" \
+            "release-assets/w1-nfc-reader-${VERSION_NAME}.apk.sha256"
 
       - name: Remove temporary release keystore
         if: always()
