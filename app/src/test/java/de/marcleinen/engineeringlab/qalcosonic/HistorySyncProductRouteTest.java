@@ -48,7 +48,7 @@ public final class HistorySyncProductRouteTest {
         assertTrue(activity.contains("ArchiveIncrementalProductionRunner.REQUIRED_KNOWN_OVERLAP"));
     }
 
-    @Test public void syncAllUsesValidatedFamilyOrderAndRemainsBaselineOnly() throws Exception {
+    @Test public void syncAllUsesValidatedFamilyOrderAndIndependentPerFamilyModes() throws Exception {
         String activity = read("app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncActivity.java");
         int hour = activity.indexOf("ArchiveFamilyPeriod.Family.HOUR,\n            ArchiveFamilyPeriod.Family.DAY");
         int day = activity.indexOf("ArchiveFamilyPeriod.Family.DAY,\n            ArchiveFamilyPeriod.Family.MONTH");
@@ -57,10 +57,11 @@ public final class HistorySyncProductRouteTest {
         assertTrue(activity.contains("BETWEEN_FAMILY_RECONNECT_MS = 1500L"));
         assertTrue(activity.contains("SystemClock.sleep(BETWEEN_FAMILY_RECONNECT_MS)"));
         assertTrue(activity.contains("NfcV nfcv = NfcV.get(tag)"));
-        assertTrue(activity.contains("if (!attempt.complete)"));
-        assertTrue(activity.contains("existing.baselineComplete()"));
-        assertTrue(activity.contains("SKIPPED_BASELINE_COMPLETE"));
-        assertTrue(activity.contains("mode=ALL_BASELINES"));
+        assertTrue(activity.contains("HistorySyncAllPlanner.modeFor(existing)"));
+        assertTrue(activity.contains("HistorySyncAllPlanner.mayContinue("));
+        assertTrue(activity.contains("STOP_DEFAULT_UNVERIFIED"));
+        assertFalse(activity.contains("SKIPPED_BASELINE_COMPLETE"));
+        assertFalse(activity.contains("mode=ALL_BASELINES"));
     }
 
     @Test public void completedIndividualFamilyIsRoutedToIncrementalMode() throws Exception {
@@ -70,12 +71,14 @@ public final class HistorySyncProductRouteTest {
         assertTrue(activity.contains("armFamily(meter, family, mode)"));
     }
 
-    @Test public void syncAllIsAnExplicitUserAction() throws Exception {
+    @Test public void syncAllIsAnExplicitUserActionAndRemainsAvailableForUpdates() throws Exception {
         String activity = read("app/src/main/java/de/marcleinen/engineeringlab/qalcosonic/HistorySyncActivity.java");
         assertTrue(activity.contains("allButton = actionButton(R.string.m3_filter_all, v -> offerAllSync())"));
         assertTrue(activity.contains("private void offerAllSync()"));
         assertTrue(activity.contains("private void armAll(String meterId)"));
-        assertFalse(activity.contains("allButton.setEnabled(false);\n        MaterialUi.addTopMargin"));
+        assertTrue(activity.contains("R.string.v2_sync_all_update"));
+        assertTrue(activity.contains("allButton.setEnabled(idle)"));
+        assertFalse(activity.contains("allButton.setEnabled(idle\n                && (!hour.baselineComplete()"));
     }
 
     @Test public void exactValidatedMonthBaselineEntryPointIsStillUsed() throws Exception {
