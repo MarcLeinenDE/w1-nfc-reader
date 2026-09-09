@@ -27,30 +27,6 @@ final class ArchiveUtcRepository implements AutoCloseable {
                 timeStore.anchors(meter));
     }
 
-    UtcCoverage.Result coverage(
-            String meterId,
-            ArchiveFamilyPeriod.Family family,
-            long requestStartUtcMs,
-            long requestEndUtcMs) {
-        List<ArchiveUtcProjection.Period> projected = project(meterId, family);
-        List<UtcCoverage.Interval> intervals = new ArrayList<>();
-        boolean allTimesResolved = true;
-        for (ArchiveUtcProjection.Period period : projected) {
-            if (period == null) continue;
-            UtcCoverage.Interval interval = period.coverageInterval();
-            if (interval != null) {
-                intervals.add(interval);
-            } else {
-                allTimesResolved = false;
-            }
-        }
-        return UtcCoverage.evaluate(
-                requestStartUtcMs,
-                requestEndUtcMs,
-                intervals,
-                allTimesResolved);
-    }
-
     @Override public void close() {
         archiveStore.close();
         timeStore.close();
