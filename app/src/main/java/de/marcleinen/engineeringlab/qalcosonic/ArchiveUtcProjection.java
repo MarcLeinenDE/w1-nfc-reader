@@ -209,7 +209,11 @@ final class ArchiveUtcProjection {
                     || !MeterTimeModelStore.ANCHOR_VALIDATION_COMPLETE.equals(candidate.validation)) {
                 continue;
             }
-            if (candidate.invalidTime || candidate.onTimeSeconds < source.onTimeSeconds) continue;
+            if (candidate.rawTypeFHex == null || candidate.rawTypeFHex.trim().isEmpty()
+                    || !candidate.toAnchor().usable()
+                    || candidate.onTimeSeconds < source.onTimeSeconds) {
+                continue;
+            }
             long delta = candidate.onTimeSeconds - source.onTimeSeconds;
             if (best == null || delta < bestDelta
                     || (delta == bestDelta && candidate.uncertaintyMs < best.uncertaintyMs)
