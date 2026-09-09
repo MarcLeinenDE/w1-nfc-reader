@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_meter_time_model">Time model</string>
+    <string name="v21_meter_timezone">Time zone</string>
+    <string name="v21_meter_timezone_not_set">Not assigned</string>
+    <string name="v21_meter_timezone_value">%1$s · %2$s</string>
+    <string name="v21_meter_timezone_source_device">Assigned automatically at the first verified live read</string>
+    <string name="v21_meter_timezone_source_user">Selected manually</string>
+    <string name="v21_meter_timezone_note">Used for Local time history and statistics. Changing it does not modify raw meter data.</string>
+    <string name="v21_meter_timezone_edit">Change meter time zone</string>
+    <string name="v21_meter_timezone_dialog_message">Enter an IANA time zone such as Europe/Berlin. Only Local time interpretation changes; raw meter/logger timestamps stay untouched.</string>
+    <string name="v21_meter_timezone_hint">Europe/Berlin</string>
+    <string name="v21_meter_timezone_save">Save</string>
+    <string name="v21_meter_timezone_invalid">Enter a valid IANA time zone.</string>
+</resources>

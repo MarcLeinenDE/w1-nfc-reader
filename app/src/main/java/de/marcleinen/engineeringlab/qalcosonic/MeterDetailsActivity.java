@@ -1,12 +1,17 @@
 package de.marcleinen.engineeringlab.qalcosonic;
 
+import android.content.DialogInterface;
 import android.os.Bundle;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import androidx.appcompat.app.AlertDialog;
+
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.text.DateFormat;
 import java.util.Date;
@@ -37,7 +42,8 @@ public final class MeterDetailsActivity extends MaterialBaseActivity {
         MeterLifecycleStore lifecycle = new MeterLifecycleStore(this);
         String meterId = lifecycle.activeMeterId();
         try (MeterHistoryStore history = new MeterHistoryStore(this);
-             ArchiveFamilyStore archive = new ArchiveFamilyStore(this)) {
+             ArchiveFamilyStore archive = new ArchiveFamilyStore(this);
+             MeterTimeModelStore timeModel = new MeterTimeModelStore(this)) {
             if (meterId == null) meterId = history.getLatestMeterId();
             LiveDetailMetadataStore.Summary details = new LiveDetailMetadataStore(this).get(meterId);
             MeterHistoryStore.Reading latest = latest(history, meterId);
@@ -65,6 +71,9 @@ public final class MeterDetailsActivity extends MaterialBaseActivity {
                     row(R.string.m3_details_phone_time, acquisition(details, freshness, latest)),
                     row(R.string.m3_details_meter_time, meterTime(details, latest)),
                     row(R.string.m3_details_archive_coverage, archiveCoverage(periods)));
+
+            addTimeZoneSection(content, meterId,
+                    meterId == null ? null : timeModel.getProfile(meterId));
 
             if (freshness.available()) {
                 String alarm = freshness.alarmCodes == null || freshness.alarmCodes.isEmpty()
@@ -98,6 +107,84 @@ public final class MeterDetailsActivity extends MaterialBaseActivity {
         }
         card.addView(inside);
         MaterialUi.addTopMargin(parent, card, 8);
+    }
+
+    private void addTimeZoneSection(LinearLayout parent, String meterId,
+                                    MeterTimeModelStore.Profile profile) {
+        TextView heading = MaterialUi.title(this, getString(R.string.v21_meter_time_model));
+        MaterialUi.addTopMargin(parent, heading, 22);
+
+        MaterialCardView card = MaterialUi.card(this);
+        LinearLayout inside = MaterialUi.vertical(this);
+        android.view.View.OnClickListener listener = meterId == null
+                ? null : v -> showTimeZoneDialog(meterId);
+        inside.addView(MaterialUi.settingRow(this, R.drawable.ic_m3_settings,
+                getString(R.string.v21_meter_timezone), timeZoneSummary(profile), listener));
+        inside.addView(MaterialUi.divider(this));
+        TextView note = MaterialUi.body(this, getString(R.string.v21_meter_timezone_note));
+        note.setPadding(MaterialUi.dp(this, 16), MaterialUi.dp(this, 10),
+                MaterialUi.dp(this, 16), MaterialUi.dp(this, 14));
+        inside.addView(note);
+        card.addView(inside);
+        MaterialUi.addTopMargin(parent, card, 8);
+    }
+
+    private String timeZoneSummary(MeterTimeModelStore.Profile profile) {
+        if (profile == null) return getString(R.string.v21_meter_timezone_not_set);
+        return getString(R.string.v21_meter_timezone_value,
+                profile.zoneId, timeZoneSource(profile.source));
+    }
+
+    private String timeZoneSource(String source) {
+        if (MeterTimeModelStore.ZONE_SOURCE_USER_SELECTED.equals(source)) {
+            return getString(R.string.v21_meter_timezone_source_user);
+        }
+        if (MeterTimeModelStore.ZONE_SOURCE_DEVICE_AT_FIRST_VERIFIED_LIVE.equals(source)) {
+            return getString(R.string.v21_meter_timezone_source_device);
+        }
+        return source == null || source.trim().isEmpty()
+                ? getString(R.string.v21_meter_timezone_not_set) : source;
+    }
+
+    private void showTimeZoneDialog(String meterId) {
+        MeterTimeModelStore.Profile current;
+        try (MeterTimeModelStore store = new MeterTimeModelStore(this)) {
+            current = store.getProfile(meterId);
+        }
+
+        EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setHint(R.string.v21_meter_timezone_hint);
+        if (current != null) {
+            input.setText(current.zoneId);
+            input.setSelection(input.getText().length());
+        }
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.v21_meter_timezone_edit)
+                .setMessage(R.string.v21_meter_timezone_dialog_message)
+                .setView(input)
+                .setNegativeButton(R.string.m3_cancel, null)
+                .setPositiveButton(R.string.v21_meter_timezone_save, null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(DialogInterface.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                    String candidate = input.getText() == null
+                            ? "" : input.getText().toString().trim();
+                    try {
+                        String normalized = MeterTimeModelStore.normalizeZoneId(candidate);
+                        try (MeterTimeModelStore store = new MeterTimeModelStore(this)) {
+                            store.setZone(meterId, normalized,
+                                    MeterTimeModelStore.ZONE_SOURCE_USER_SELECTED,
+                                    System.currentTimeMillis());
+                        }
+                        dialog.dismiss();
+                        recreate();
+                    } catch (IllegalArgumentException error) {
+                        input.setError(getString(R.string.v21_meter_timezone_invalid));
+                    }
+                }));
+        dialog.show();
     }
 
     private DetailRow row(int label, String value) { return new DetailRow(label, value); }

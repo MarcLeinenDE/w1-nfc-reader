@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_meter_time_model">Laiko modelis</string>
+    <string name="v21_meter_timezone">Laiko juosta</string>
+    <string name="v21_meter_timezone_not_set">Nepriskirta</string>
+    <string name="v21_meter_timezone_value">%1$s · %2$s</string>
+    <string name="v21_meter_timezone_source_device">Automatiškai priskirta pirmojo patvirtinto tiesioginio nuskaitymo metu</string>
+    <string name="v21_meter_timezone_source_user">Pasirinkta rankiniu būdu</string>
+    <string name="v21_meter_timezone_note">Naudojama vietiniam laikui istorijoje ir statistikoje. Pakeitimas nekeičia neapdorotų skaitiklio duomenų.</string>
+    <string name="v21_meter_timezone_edit">Keisti skaitiklio laiko juostą</string>
+    <string name="v21_meter_timezone_dialog_message">Įveskite IANA laiko juostą, pvz., Europe/Berlin. Keičiamas tik vietinio laiko interpretavimas; neapdorotos skaitiklio/logger laiko žymos lieka nepakeistos.</string>
+    <string name="v21_meter_timezone_hint">Europe/Berlin</string>
+    <string name="v21_meter_timezone_save">Išsaugoti</string>
+    <string name="v21_meter_timezone_invalid">Įveskite galiojančią IANA laiko juostą.</string>
+</resources>
