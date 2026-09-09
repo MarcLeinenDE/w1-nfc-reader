@@ -97,6 +97,23 @@ public final class HistoryStatisticsTimeBasisRoutingTest {
         }
     }
 
+    @Test public void localExpectedBucketsFailClosedWithoutMeterZone() {
+        insertArchive(1L, "2026-10-25 01:00", 38_900L, 102.0);
+        insertArchive(2L, "2026-10-25 02:00", 42_500L, 103.0);
+
+        HistoryPeriodNavigator navigator = new HistoryPeriodNavigator(HistoryPeriodNavigator.Scale.DAY);
+        navigator.setDate(2026, 9, 25);
+
+        try (HistoryStatisticsRepository repository = new HistoryStatisticsRepository(context)) {
+            assertEquals(0, repository.expectedBuckets(
+                    navigator.window(), HistorySemanticTimeline.Granularity.HOUR));
+
+            UiPreferences.setTimeBasis(context, AppTimeBasis.METER);
+            assertEquals(24, repository.expectedBuckets(
+                    navigator.window(), HistorySemanticTimeline.Granularity.HOUR));
+        }
+    }
+
     private void installTimeModel() {
         long center = Instant.parse("2026-09-09T12:00:00Z").toEpochMilli();
         try (MeterTimeModelStore timeStore = new MeterTimeModelStore(context)) {
