@@ -19,6 +19,13 @@ import java.util.Map;
  * ordering and presentation use the resolved real timeline.</p>
  */
 final class HistoryLocalQueryRepository implements AutoCloseable {
+    enum ResolutionIssue {
+        NONE,
+        ARCHIVE_TIME_UNRESOLVED,
+        WINDOW_UNRESOLVED,
+        ZONE_MISSING
+    }
+
     static final class Row {
         final HistoryStatisticsRepository.Observation observation;
         final HistoryStatisticsRepository.Observation previousObservation;
@@ -85,6 +92,7 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
 
     private final HistoryStatisticsRepository history;
     private final ArchiveUtcRepository utc;
+    private ResolutionIssue lastResolutionIssue = ResolutionIssue.NONE;
 
     HistoryLocalQueryRepository(Context context) {
         Context app = context.getApplicationContext();
@@ -96,6 +104,7 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
             HistorySemanticTimeline.Granularity filter,
             HistoryPeriodNavigator.Window window) {
         List<HistoryStatisticsRepository.Observation> out = new ArrayList<>();
+        ResolutionIssue issue = ResolutionIssue.NONE;
         if (filter == null || filter == HistorySemanticTimeline.Granularity.LIVE) {
             out.addAll(history.queryHistory(
                     HistorySemanticTimeline.Granularity.LIVE,
@@ -103,21 +112,30 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
                     true));
         }
         for (HistorySemanticTimeline.Granularity granularity : archiveGranularities(filter)) {
-            out.addAll(queryArchive(
+            Result result = queryArchive(
                     granularity,
                     window,
-                    ArchiveLocalWindowSelection.Semantics.HISTORY_OVERLAP).observations());
+                    ArchiveLocalWindowSelection.Semantics.HISTORY_OVERLAP);
+            out.addAll(result.observations());
+            issue = stronger(issue, resolutionIssue(result));
         }
+        lastResolutionIssue = issue;
         return deduplicateAndSort(out);
     }
 
     List<HistoryStatisticsRepository.Observation> queryStatistics(
             HistoryPeriodNavigator.Window window,
             HistorySemanticTimeline.Granularity granularity) {
-        return queryArchive(
+        Result result = queryArchive(
                 granularity,
                 window,
-                ArchiveLocalWindowSelection.Semantics.STATISTICS_FULLY_CONTAINED).observations();
+                ArchiveLocalWindowSelection.Semantics.STATISTICS_FULLY_CONTAINED);
+        lastResolutionIssue = resolutionIssue(result);
+        return result.observations();
+    }
+
+    ResolutionIssue lastResolutionIssue() {
+        return lastResolutionIssue;
     }
 
     HistoryStatisticsRepository.Availability availability(HistoryPeriodNavigator.Window window) {
@@ -165,23 +183,29 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
             ArchiveLocalWindowSelection.Semantics semantics) {
         ArchiveFamilyPeriod.Family family = family(granularity);
         if (family == null) {
-            return new Result(Collections.emptyList(), Collections.emptyList(), false);
+            Result result = new Result(Collections.emptyList(), Collections.emptyList(), false);
+            lastResolutionIssue = ResolutionIssue.NONE;
+            return result;
         }
 
         Map<String, HistoryStatisticsRepository.Observation> measurementByIdentity =
                 allArchiveMeasurements(granularity);
         if (window != null && window.allPeriods) {
-            return queryAllPeriods(family, measurementByIdentity);
+            Result result = queryAllPeriods(family, measurementByIdentity);
+            lastResolutionIssue = resolutionIssue(result);
+            return result;
         }
 
         HistoryLocalWindowInput local = HistoryLocalWindowInput.from(window);
         if (local == null) {
-            return new Result(Collections.emptyList(), Collections.emptyList(), false);
+            Result result = new Result(Collections.emptyList(), Collections.emptyList(), false);
+            lastResolutionIssue = ResolutionIssue.NONE;
+            return result;
         }
 
         List<Row> rows = new ArrayList<>();
         List<MeterState> states = new ArrayList<>();
-        for (String meterId : history.meterIds()) {
+        for (String meterId : measurementMeterIds(measurementByIdentity)) {
             ArchiveLocalWindowSelection.Result selection = utc.selectLocal(
                     meterId,
                     family,
@@ -198,7 +222,9 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
             appendRows(rows, HistoryLocalArchiveReadModel.rows(selection), measurementByIdentity);
         }
         sortRows(rows);
-        return new Result(rows, states, true);
+        Result result = new Result(rows, states, true);
+        lastResolutionIssue = resolutionIssue(result);
+        return result;
     }
 
     private Result queryAllPeriods(
@@ -206,10 +232,10 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
             Map<String, HistoryStatisticsRepository.Observation> measurementByIdentity) {
         List<Row> rows = new ArrayList<>();
         List<MeterState> states = new ArrayList<>();
-        for (String meterId : history.meterIds()) {
+        for (String meterId : measurementMeterIds(measurementByIdentity)) {
             ZoneId zone = utc.meterZone(meterId);
             List<ArchiveUtcProjection.Period> projected = utc.project(meterId, family);
-            boolean unresolved = zone == null;
+            boolean unresolved = false;
             for (ArchiveUtcProjection.Period period : projected) {
                 if (period != null && !period.resolvedInterval()) {
                     unresolved = true;
@@ -259,6 +285,42 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
             byIdentity.put(observation.identity, observation);
         }
         return byIdentity;
+    }
+
+    private static List<String> measurementMeterIds(
+            Map<String, HistoryStatisticsRepository.Observation> measurementByIdentity) {
+        List<String> ids = new ArrayList<>();
+        for (HistoryStatisticsRepository.Observation observation : measurementByIdentity.values()) {
+            if (observation == null || observation.meterId == null
+                    || observation.meterId.trim().isEmpty()) continue;
+            String meterId = observation.meterId.trim();
+            if (!ids.contains(meterId)) ids.add(meterId);
+        }
+        Collections.sort(ids);
+        return ids;
+    }
+
+    private static ResolutionIssue resolutionIssue(Result result) {
+        ResolutionIssue issue = ResolutionIssue.NONE;
+        if (result == null) return issue;
+        for (MeterState state : result.meterStates) {
+            if (state == null) continue;
+            if (state.windowStatus == LocalTimeWindowResolver.Status.ZONE_MISSING) {
+                issue = stronger(issue, ResolutionIssue.ZONE_MISSING);
+            } else if (state.windowStatus != null
+                    && state.windowStatus != LocalTimeWindowResolver.Status.RESOLVED) {
+                issue = stronger(issue, ResolutionIssue.WINDOW_UNRESOLVED);
+            }
+            if (state.relevantUnresolvedTime
+                    || state.coverageStatus == UtcCoverage.Status.UNRESOLVED_TIME) {
+                issue = stronger(issue, ResolutionIssue.ARCHIVE_TIME_UNRESOLVED);
+            }
+        }
+        return issue;
+    }
+
+    private static ResolutionIssue stronger(ResolutionIssue first, ResolutionIssue second) {
+        return first.ordinal() >= second.ordinal() ? first : second;
     }
 
     private static List<HistorySemanticTimeline.Granularity> archiveGranularities(

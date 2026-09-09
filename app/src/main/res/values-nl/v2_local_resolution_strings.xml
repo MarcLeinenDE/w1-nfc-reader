@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_local_zone_missing_notice">Lokale tijd kan niet voor alle archiefgegevens worden bepaald omdat aan een meter geen tijdzone is toegewezen. Stel de tijdzone in bij Meterdetails of schakel over naar Metertijd.</string>
+    <string name="v21_local_window_unresolved_notice">Deze grenzen in lokale tijd kunnen niet veilig worden bepaald omdat een grens dubbelzinnig, niet-bestaand of ongeldig is, bijvoorbeeld tijdens een overgang van zomer- of wintertijd. Kies een andere grens of schakel over naar Metertijd.</string>
+    <string name="v21_local_archive_time_unresolved_notice">Voor sommige archiefperioden in dit bereik ontbreekt voldoende tijdsinformatie voor een veilige weergave in lokale tijd. Ze worden hier weggelaten; de ruwe gegevens blijven beschikbaar in Metertijd.</string>
+</resources>

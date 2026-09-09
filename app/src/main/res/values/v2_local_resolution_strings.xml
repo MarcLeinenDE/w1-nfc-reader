@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_local_zone_missing_notice">Local time cannot be resolved for all archive data because a meter has no assigned time zone. Set the time zone in Meter details or switch to Meter time.</string>
+    <string name="v21_local_window_unresolved_notice">These local-time boundaries cannot be resolved safely because a boundary is ambiguous, nonexistent or invalid, for example during a daylight-saving transition. Choose another boundary or switch to Meter time.</string>
+    <string name="v21_local_archive_time_unresolved_notice">Some archive periods in this range do not contain enough timing evidence for a safe Local-time projection. They are omitted here; the raw data remains available in Meter time.</string>
+</resources>

@@ -38,6 +38,16 @@ public final class HistoryStatisticsTimeBasisPresentationContractTest {
         assertTrue(source.contains("HistoryTimePresentation.formatArchivePeriod("));
     }
 
+    @Test public void unresolvedLocalTimeIsExplicitlyExplainedInHistoryAndStatistics() throws Exception {
+        String source = read(ACTIVITY);
+        assertTrue(source.contains("addLocalResolutionNotice(root, repository.lastLocalResolutionIssue());"));
+        assertTrue(source.contains("addLocalResolutionNotice(content, repository.lastLocalResolutionIssue());"));
+        assertTrue(source.contains("R.string.v21_local_zone_missing_notice"));
+        assertTrue(source.contains("R.string.v21_local_window_unresolved_notice"));
+        assertTrue(source.contains("R.string.v21_local_archive_time_unresolved_notice"));
+        assertTrue(source.contains("UiPreferences.getTimeBasis(this) != AppTimeBasis.LOCAL"));
+    }
+
     private static String read(String path) throws Exception {
         Path fromRoot = Paths.get(path);
         if (Files.exists(fromRoot)) {

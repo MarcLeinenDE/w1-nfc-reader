@@ -150,6 +150,7 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
 
         List<HistoryStatisticsRepository.Observation> observations =
                 repository.queryHistory(historyFilter, window, true);
+        addLocalResolutionNotice(root, repository.lastLocalResolutionIssue());
         Map<String, HistoryStatisticsAnalytics.Delta> deltas =
                 HistoryStatisticsAnalytics.deltas(observations);
         List<HistoryRow> rows = historyRows(observations, deltas, window);
@@ -194,6 +195,7 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
 
         List<HistoryStatisticsRepository.Observation> observations =
                 repository.queryStatistics(window, effective);
+        addLocalResolutionNotice(content, repository.lastLocalResolutionIssue());
         addStatisticsMetric(content, observations, window, effective, expected);
 
         ScrollView scroll = new ScrollView(this);
@@ -400,6 +402,26 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
                 + getString(R.string.v2_coverage_not_sync_state));
         coverage.setPadding(0, MaterialUi.dp(this, 8), 0, 0);
         parent.addView(coverage);
+    }
+
+    private void addLocalResolutionNotice(
+            LinearLayout parent,
+            HistoryLocalQueryRepository.ResolutionIssue issue) {
+        if (issue == null || issue == HistoryLocalQueryRepository.ResolutionIssue.NONE
+                || UiPreferences.getTimeBasis(this) != AppTimeBasis.LOCAL) return;
+        int textRes;
+        if (issue == HistoryLocalQueryRepository.ResolutionIssue.ZONE_MISSING) {
+            textRes = R.string.v21_local_zone_missing_notice;
+        } else if (issue == HistoryLocalQueryRepository.ResolutionIssue.WINDOW_UNRESOLVED) {
+            textRes = R.string.v21_local_window_unresolved_notice;
+        } else {
+            textRes = R.string.v21_local_archive_time_unresolved_notice;
+        }
+        TextView warning = MaterialUi.body(this, getString(textRes));
+        warning.setTextColor(MaterialUi.color(this,
+                com.google.android.material.R.attr.colorError, getColor(R.color.app_error)));
+        warning.setPadding(0, MaterialUi.dp(this, 8), 0, MaterialUi.dp(this, 2));
+        parent.addView(warning);
     }
 
     private void addAvailabilityLine(LinearLayout parent,

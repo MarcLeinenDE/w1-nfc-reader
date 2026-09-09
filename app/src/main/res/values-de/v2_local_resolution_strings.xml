@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_local_zone_missing_notice">Die lokale Zeit kann nicht für alle Archivdaten aufgelöst werden, weil einem Zähler keine Zeitzone zugeordnet ist. Lege die Zeitzone in den Zählerdetails fest oder wechsle zu „Zählerzeit“.</string>
+    <string name="v21_local_window_unresolved_notice">Diese Grenzen in lokaler Zeit können nicht sicher aufgelöst werden, weil eine Grenze mehrdeutig, nicht vorhanden oder ungültig ist, zum Beispiel bei einer Zeitumstellung. Wähle eine andere Grenze oder wechsle zu „Zählerzeit“.</string>
+    <string name="v21_local_archive_time_unresolved_notice">Für einige Archivzeiträume in diesem Bereich fehlen ausreichende Zeitinformationen für eine sichere Darstellung in lokaler Zeit. Sie werden hier ausgelassen; die Rohdaten bleiben unter „Zählerzeit“ verfügbar.</string>
+</resources>

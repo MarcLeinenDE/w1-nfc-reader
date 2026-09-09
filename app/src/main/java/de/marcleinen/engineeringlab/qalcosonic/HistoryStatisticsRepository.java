@@ -254,6 +254,11 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         return local == null ? 0 : local;
     }
 
+    HistoryLocalQueryRepository.ResolutionIssue lastLocalResolutionIssue() {
+        if (!useResolvedLocalTime()) return HistoryLocalQueryRepository.ResolutionIssue.NONE;
+        return localRepository.lastResolutionIssue();
+    }
+
     List<MeterLifecycleStore.Transition> transitions(HistoryPeriodNavigator.Window window) {
         List<MeterLifecycleStore.Transition> result = new ArrayList<>();
         for (MeterLifecycleStore.Transition transition : lifecycleStore.transitions()) {
