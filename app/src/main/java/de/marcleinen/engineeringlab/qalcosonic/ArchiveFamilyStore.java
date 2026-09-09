@@ -197,8 +197,8 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
         long retrievedAtMs = parseRetrievedAtUtc(period.retrievedAtUtc);
         String extras = encodeExtraValues(period.values.extraValues);
         String contentFingerprint = contentFingerprint(period.values, extras);
-        Long onTimeSeconds = ArchiveOccurrenceKey.parseDurationSeconds(period.values.onTime);
-        String occurrenceKey = ArchiveOccurrenceKey.fromEvidence(onTimeSeconds, null);
+        Long onTimeSeconds = period.onTimeSeconds;
+        String occurrenceKey = period.occurrenceKey();
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         try {
@@ -233,6 +233,7 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
                 metadata.put("last_source", period.source);
                 metadata.put("last_validation", period.validation);
             }
+            putEvidenceIfMissing(metadata, existing, period);
             metadata.put("observation_count", existing.observationCount + 1);
             metadata.put("identical_content_confirmations",
                     existing.identicalContentConfirmations + (contentSame ? 1 : 0));
@@ -259,6 +260,22 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
                     : ArchivePersistenceCoordinator.WriteOutcome.CONFLICT_RECORDED;
         } finally {
             db.endTransaction();
+        }
+    }
+
+    private static void putEvidenceIfMissing(
+            ContentValues target, StoredPeriod existing, ArchiveFamilyPeriod incoming) {
+        if (existing.onTimeSeconds == null && incoming.onTimeSeconds != null) {
+            target.put("on_time_seconds", incoming.onTimeSeconds);
+        }
+        if (existing.rawTypeFHex == null && incoming.rawTypeFHex != null) {
+            target.put("raw_type_f_hex", incoming.rawTypeFHex);
+        }
+        if (existing.typeFIv == null && incoming.typeFIv != null) {
+            target.put("type_f_iv", incoming.typeFIv);
+        }
+        if (existing.typeFSu == null && incoming.typeFSu != null) {
+            target.put("type_f_su", incoming.typeFSu);
         }
     }
 
@@ -356,9 +373,9 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
         ContentValues v = new ContentValues();
         v.put("occurrence_key", occurrenceKey);
         if (onTimeSeconds == null) v.putNull("on_time_seconds"); else v.put("on_time_seconds", onTimeSeconds);
-        v.putNull("raw_type_f_hex");
-        v.putNull("type_f_iv");
-        v.putNull("type_f_su");
+        put(v, "raw_type_f_hex", period.rawTypeFHex);
+        if (period.typeFIv == null) v.putNull("type_f_iv"); else v.put("type_f_iv", period.typeFIv);
+        if (period.typeFSu == null) v.putNull("type_f_su"); else v.put("type_f_su", period.typeFSu);
         v.put("source", period.source);
         v.put("validation", period.validation);
         v.put("structural_fingerprint", period.structuralFingerprint);
