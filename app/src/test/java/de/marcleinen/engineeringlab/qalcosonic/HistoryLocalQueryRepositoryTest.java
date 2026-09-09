@@ -12,8 +12,11 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 @RunWith(RobolectricTestRunner.class)
@@ -72,6 +75,8 @@ public final class HistoryLocalQueryRepositoryTest {
             assertEquals(102.0, history.rows.get(0).observation.totalM3, 0.000001);
             assertTrue(history.rows.get(0).observation.identity.endsWith("|OT:38900"));
             assertTrue(history.rows.get(3).observation.identity.endsWith("|OT:49700"));
+            assertNotNull(HistoryResolvedTimeToken.parse(history.rows.get(0).observation.timestamp));
+            assertEquals("2026-09-09 09:00", history.rows.get(0).observation.meterTime);
             assertEquals(UtcCoverage.Status.PARTIAL_EDGES,
                     history.meterStates.get(0).coverageStatus);
 
@@ -80,6 +85,35 @@ public final class HistoryLocalQueryRepositoryTest {
             assertTrue(statistics.rows.get(1).observation.identity.endsWith("|OT:46100"));
             assertTrue(statistics.rows.get(0).time.fullyContained);
             assertTrue(statistics.rows.get(1).time.fullyContained);
+
+            List<HistoryStatisticsRepository.Observation> analyticsRows = statistics.observations();
+            assertEquals(3, analyticsRows.size());
+            assertTrue(analyticsRows.get(0).contextOnly);
+            HistoryStatisticsAnalytics.ConsumptionSummary consumption =
+                    HistoryStatisticsAnalytics.consumption(analyticsRows);
+            assertEquals(2, consumption.availableBuckets);
+            assertEquals(2.0, consumption.total, 0.000001);
+        }
+    }
+
+    @Test public void allPeriodsUsesResolvedUtcTimelineInsteadOfRawLoggerSort() {
+        insertArchive(1L, "2026-09-09 08:00", 35_300L, 101.0);
+        insertArchive(2L, "2026-09-09 09:00", 38_900L, 102.0);
+        insertArchive(3L, "2026-09-09 10:00", 42_500L, 103.0);
+        installTimeModel();
+        HistoryPeriodNavigator navigator = new HistoryPeriodNavigator(HistoryPeriodNavigator.Scale.YEAR);
+        navigator.setAllPeriods(true);
+
+        try (HistoryLocalQueryRepository repository = new HistoryLocalQueryRepository(context)) {
+            HistoryLocalQueryRepository.Result result = repository.queryArchive(
+                    HistorySemanticTimeline.Granularity.HOUR,
+                    navigator.window(),
+                    ArchiveLocalWindowSelection.Semantics.HISTORY_OVERLAP);
+
+            assertFalse(result.boundedWindow);
+            assertEquals(2, result.rows.size());
+            assertNotNull(HistoryResolvedTimeToken.parse(result.rows.get(0).observation.timestamp));
+            assertTrue(result.rows.get(0).observation.sortMs < result.rows.get(1).observation.sortMs);
         }
     }
 
