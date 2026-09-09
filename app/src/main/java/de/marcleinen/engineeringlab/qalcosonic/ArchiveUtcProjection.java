@@ -246,8 +246,6 @@ final class ArchiveUtcProjection {
     }
 
     static String identity(ArchiveFamilyStore.StoredPeriod source) {
-        if (source == null) return "";
-        return source.family.name() + "|" + source.meterId + "|" + source.loggerTimestamp
-                + "|" + source.occurrenceKey;
+        return source == null ? "" : ArchiveRecordIdentity.of(source);
     }
 }
