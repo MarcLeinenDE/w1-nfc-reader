@@ -80,7 +80,7 @@ public final class LiveTimeAnchorPersistenceTest {
             assertNotNull(profile);
             assertEquals("Europe/Berlin", profile.zoneId);
             assertEquals(MeterTimeModelStore.ZONE_SOURCE_DEVICE_AT_FIRST_VERIFIED_LIVE,
-                    profile.zoneSource);
+                    profile.source);
             assertEquals(2, store.anchors("M1").size());
             assertEquals(20_100L, store.latestAnchor("M1").anchorEpochMs);
         } finally {
