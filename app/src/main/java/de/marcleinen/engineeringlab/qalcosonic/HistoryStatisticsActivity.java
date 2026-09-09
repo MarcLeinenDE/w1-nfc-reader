@@ -661,8 +661,7 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         HistoryStatisticsRepository.Observation observation = row.observation;
         LinearLayout content = MaterialUi.cardContent(this);
         content.addView(MaterialUi.label(this,
-                HistoryTimePresentation.formatPrimary(locale(), observation) + " · "
-                        + typeLabel(observation.granularity)));
+                historyPrimaryTime(observation) + " · " + typeLabel(observation.granularity)));
         TextView reading = MaterialUi.headline(this, formatM3(observation.totalM3));
         reading.setTextSize(22f);
         reading.setPadding(0, MaterialUi.dp(this, 4), 0, 0);
@@ -673,8 +672,7 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
             if (observation.live) {
                 consumptionText = getString(R.string.m3_consumption_since,
                         formatM3(row.delta.consumptionM3),
-                        HistoryTimePresentation.formatPredecessor(locale(), observation,
-                                row.delta.previous));
+                        historyPredecessorTime(observation, row.delta.previous));
             } else {
                 consumptionText = getString(archiveConsumptionTextRes(observation.granularity),
                         formatM3(row.delta.consumptionM3));
@@ -688,7 +686,8 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         TextView meter = MaterialUi.body(this, getString(R.string.m3_meter_id, observation.meterId));
         meter.setPadding(0, MaterialUi.dp(this, 4), 0, 0);
         content.addView(meter);
-        if (UiPreferences.getTimeBasis(this) == AppTimeBasis.LOCAL
+        AppTimeBasis basis = UiPreferences.getTimeBasis(this);
+        if (basis == AppTimeBasis.LOCAL
                 && observation.meterTime != null && !observation.meterTime.isEmpty()) {
             String rawMeterTime = observation.live
                     ? HistoryTimePresentation.formatExactFloatingDateTime(locale(), observation.meterTime)
@@ -696,6 +695,12 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
                             locale(), observation.granularity, observation.meterTime);
             content.addView(MaterialUi.body(this,
                     getString(R.string.m3_meter_time, rawMeterTime)));
+        } else if (basis == AppTimeBasis.METER) {
+            String localTime = historyLocalSecondary(observation);
+            if (localTime != null && !localTime.isEmpty()) {
+                content.addView(MaterialUi.body(this,
+                        getString(R.string.v21_time_basis_local) + ": " + localTime));
+            }
         }
         if (observation.batteryPercent != null) {
             content.addView(MaterialUi.body(this, getString(R.string.m3_battery) + ": "
@@ -711,6 +716,46 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
             content.addView(warning);
         }
         card.addView(content);
+    }
+
+    private String historyPrimaryTime(HistoryStatisticsRepository.Observation observation) {
+        if (observation == null) return "";
+        if (UiPreferences.getTimeBasis(this) != AppTimeBasis.METER) {
+            return HistoryTimePresentation.formatPrimary(locale(), observation);
+        }
+        if (observation.live) {
+            if (observation.meterTime == null || observation.meterTime.trim().isEmpty()) {
+                return getString(R.string.m3_not_available);
+            }
+            return HistoryTimePresentation.formatExactFloatingDateTime(locale(), observation.meterTime);
+        }
+        return HistoryTimePresentation.formatArchivePeriod(
+                locale(), observation.granularity, observation.timestamp);
+    }
+
+    private String historyPredecessorTime(
+            HistoryStatisticsRepository.Observation current,
+            HistoryStatisticsRepository.Observation previous) {
+        if (UiPreferences.getTimeBasis(this) == AppTimeBasis.METER
+                && previous != null && previous.live) {
+            if (previous.meterTime == null || previous.meterTime.trim().isEmpty()) {
+                return getString(R.string.m3_not_available);
+            }
+            return HistoryTimePresentation.formatExactFloatingDateTime(locale(), previous.meterTime);
+        }
+        return HistoryTimePresentation.formatPredecessor(locale(), current, previous);
+    }
+
+    private String historyLocalSecondary(HistoryStatisticsRepository.Observation observation) {
+        if (observation == null) return null;
+        if (observation.live) {
+            if (observation.deviceTimeMs <= 0L) return null;
+            return HistoryTimePresentation.formatPrimary(locale(), observation);
+        }
+        String resolved = repository.resolvedLocalArchiveTimestamp(observation);
+        return resolved == null || resolved.isEmpty() ? null
+                : HistoryTimePresentation.formatArchivePeriod(
+                        locale(), observation.granularity, resolved);
     }
 
     private int archiveConsumptionTextRes(HistorySemanticTimeline.Granularity granularity) {

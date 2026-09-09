@@ -4,12 +4,15 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /** Read-only local data access for the v2 History/Statistics surface. */
@@ -154,6 +157,8 @@ final class HistoryStatisticsRepository implements AutoCloseable {
     private final ArchiveFamilyStore archiveStore;
     private final MeterLifecycleStore lifecycleStore;
     private final HistoryLocalQueryRepository localRepository;
+    private final ArchiveUtcRepository secondaryUtcRepository;
+    private final Map<String, String> meterModeResolvedArchiveTimes = new HashMap<>();
 
     HistoryStatisticsRepository(Context context) {
         this(context, false);
@@ -168,6 +173,7 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         archiveStore = new ArchiveFamilyStore(app);
         lifecycleStore = new MeterLifecycleStore(app);
         localRepository = rawOnly ? null : new HistoryLocalQueryRepository(app);
+        secondaryUtcRepository = rawOnly ? null : new ArchiveUtcRepository(app);
     }
 
     List<String> meterIds() {
@@ -189,6 +195,7 @@ final class HistoryStatisticsRepository implements AutoCloseable {
     List<Observation> queryHistory(HistorySemanticTimeline.Granularity filter,
                                    HistoryPeriodNavigator.Window window,
                                    boolean includePredecessors) {
+        meterModeResolvedArchiveTimes.clear();
         if (useResolvedLocalTime()) {
             return localRepository.queryHistory(filter, window);
         }
@@ -201,6 +208,7 @@ final class HistoryStatisticsRepository implements AutoCloseable {
             }
         }
         result.sort(observationOrder());
+        cacheMeterModeResolvedArchiveTimes(result);
         return result;
     }
 
@@ -259,6 +267,11 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         return localRepository.lastResolutionIssue();
     }
 
+    String resolvedLocalArchiveTimestamp(Observation observation) {
+        if (!useMeterTimeBasis() || observation == null || observation.live) return null;
+        return meterModeResolvedArchiveTimes.get(observation.identity);
+    }
+
     List<MeterLifecycleStore.Transition> transitions(HistoryPeriodNavigator.Window window) {
         List<MeterLifecycleStore.Transition> result = new ArrayList<>();
         for (MeterLifecycleStore.Transition transition : lifecycleStore.transitions()) {
@@ -279,6 +292,7 @@ final class HistoryStatisticsRepository implements AutoCloseable {
 
     @Override public void close() {
         if (localRepository != null) localRepository.close();
+        if (secondaryUtcRepository != null) secondaryUtcRepository.close();
         liveStore.close();
         archiveStore.close();
     }
@@ -287,6 +301,31 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         return !rawOnly
                 && localRepository != null
                 && UiPreferences.getTimeBasis(appContext) == AppTimeBasis.LOCAL;
+    }
+
+    private boolean useMeterTimeBasis() {
+        return !rawOnly && UiPreferences.getTimeBasis(appContext) == AppTimeBasis.METER;
+    }
+
+    private void cacheMeterModeResolvedArchiveTimes(List<Observation> observations) {
+        if (!useMeterTimeBasis() || secondaryUtcRepository == null || observations == null) return;
+        Set<String> projectedSeries = new LinkedHashSet<>();
+        for (Observation observation : observations) {
+            if (observation == null || observation.live || observation.meterId == null) continue;
+            ArchiveFamilyPeriod.Family archiveFamily = family(observation.granularity);
+            if (archiveFamily == null) continue;
+            String key = observation.meterId + "\u0000" + archiveFamily.name();
+            if (!projectedSeries.add(key)) continue;
+            ZoneId zone = secondaryUtcRepository.meterZone(observation.meterId);
+            if (zone == null) continue;
+            for (ArchiveUtcProjection.Period period :
+                    secondaryUtcRepository.project(observation.meterId, archiveFamily)) {
+                if (period == null || !period.resolvedInterval()) continue;
+                meterModeResolvedArchiveTimes.put(period.identity,
+                        HistoryResolvedTimeToken.interval(
+                                period.startUtcMs, period.endUtcMs, zone));
+            }
+        }
     }
 
     private void queryArchive(List<Observation> out, String meter, ArchiveFamilyPeriod.Family family,
@@ -395,25 +434,47 @@ final class HistoryStatisticsRepository implements AutoCloseable {
     private void queryLive(List<Observation> out, String meter, HistoryPeriodNavigator.Window window,
                            boolean includePredecessor) {
         SQLiteDatabase db = liveStore.getReadableDatabase();
+        boolean meterBasis = useMeterTimeBasis();
         StringBuilder selection = new StringBuilder("meter_id = ?");
         List<String> args = new ArrayList<>();
         args.add(meter);
         if (window != null && !window.allPeriods) {
-            selection.append(" AND read_at_ms >= ? AND read_at_ms < ?");
-            args.add(Long.toString(window.deviceStartMs));
-            args.add(Long.toString(window.deviceEndMs));
+            if (meterBasis) {
+                if (window.archiveStart == null || window.archiveEnd == null) return;
+                selection.append(" AND meter_time IS NOT NULL AND TRIM(meter_time) != ''")
+                        .append(" AND meter_time >= ? AND meter_time < ?");
+                args.add(window.archiveStart);
+                args.add(window.archiveEnd);
+            } else {
+                selection.append(" AND read_at_ms >= ? AND read_at_ms < ?");
+                args.add(Long.toString(window.deviceStartMs));
+                args.add(Long.toString(window.deviceEndMs));
+            }
         }
+        String orderBy = meterBasis ? "meter_time ASC, read_at_ms ASC" : "read_at_ms ASC";
         try (Cursor cursor = db.query(MeterHistoryStore.TABLE_READINGS, LIVE_COLUMNS,
-                selection.toString(), args.toArray(new String[0]), null, null, "read_at_ms ASC")) {
-            while (cursor.moveToNext()) out.add(readLive(cursor, false));
+                selection.toString(), args.toArray(new String[0]), null, null, orderBy)) {
+            while (cursor.moveToNext()) out.add(readLive(cursor, false, meterBasis));
         }
 
-        if (!includePredecessor || window == null || window.allPeriods || window.deviceStartMs <= 0L) return;
+        if (!includePredecessor || window == null || window.allPeriods) return;
+        if (meterBasis) {
+            if (window.archiveStart == null) return;
+            try (Cursor cursor = db.query(MeterHistoryStore.TABLE_READINGS, LIVE_COLUMNS,
+                    "meter_id = ? AND meter_time IS NOT NULL AND TRIM(meter_time) != ''"
+                            + " AND meter_time < ?",
+                    new String[]{meter, window.archiveStart}, null, null,
+                    "meter_time DESC, read_at_ms DESC", "1")) {
+                if (cursor.moveToFirst()) out.add(readLive(cursor, true, true));
+            }
+            return;
+        }
+        if (window.deviceStartMs <= 0L) return;
         try (Cursor cursor = db.query(MeterHistoryStore.TABLE_READINGS, LIVE_COLUMNS,
                 "meter_id = ? AND read_at_ms < ?",
                 new String[]{meter, Long.toString(window.deviceStartMs)}, null, null,
                 "read_at_ms DESC", "1")) {
-            if (cursor.moveToFirst()) out.add(readLive(cursor, true));
+            if (cursor.moveToFirst()) out.add(readLive(cursor, true, false));
         }
     }
 
@@ -436,15 +497,22 @@ final class HistoryStatisticsRepository implements AutoCloseable {
                 c.getInt(22), c.getInt(23), c.getInt(24), c.getInt(25), c.getString(26), c.getString(27));
     }
 
-    private static Observation readLive(Cursor c, boolean contextOnly) {
+    private static Observation readLive(Cursor c, boolean contextOnly, boolean meterBasis) {
         long id = c.getLong(0);
         String meter = c.getString(1);
         long readAt = c.getLong(2);
-        String timestamp = HistoryTimePresentation.localMinute(readAt);
+        String rawMeterTime = c.getString(3);
+        boolean usableMeterTime = meterBasis && rawMeterTime != null && !rawMeterTime.trim().isEmpty();
+        String timestamp = usableMeterTime
+                ? rawMeterTime.trim()
+                : HistoryTimePresentation.localMinute(readAt);
+        long sortMs = usableMeterTime
+                ? HistoryTimePresentation.floatingSortMs(timestamp)
+                : readAt;
         return new Observation(
                 "LIVE|" + id, meter, HistorySemanticTimeline.Granularity.LIVE, timestamp,
-                HistoryTimePresentation.floatingSortMs(timestamp), readAt, true, contextOnly,
-                c.getString(3), nullableDouble(c, 4), nullableDouble(c, 5), nullableDouble(c, 6),
+                sortMs, readAt, true, contextOnly,
+                rawMeterTime, nullableDouble(c, 4), nullableDouble(c, 5), nullableDouble(c, 6),
                 null, nullableDouble(c, 7), null, "", null, "", nullableDouble(c, 8),
                 nullableDouble(c, 9), null, "", null, "", nullableInteger(c, 10),
                 c.getString(11), null, "", "", 1, 0, 0, 0, "LIVE", "");

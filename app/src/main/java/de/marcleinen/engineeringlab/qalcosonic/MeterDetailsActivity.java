@@ -217,8 +217,10 @@ public final class MeterDetailsActivity extends MaterialBaseActivity {
         return ms <= 0 ? getString(R.string.m3_details_no_value) : formatDate(ms);
     }
     private String meterTime(LiveDetailMetadataStore.Summary d, MeterHistoryStore.Reading r) {
-        String value = d.meterTime != null ? d.meterTime : r == null ? null : r.meterTime;
-        return value(value);
+        String raw = d.meterTime != null ? d.meterTime : r == null ? null : r.meterTime;
+        if (raw == null || raw.trim().isEmpty()) return getString(R.string.m3_details_no_value);
+        return HistoryTimePresentation.formatExactFloatingDateTime(
+                getResources().getConfiguration().getLocales().get(0), raw);
     }
     private String duration(Long seconds) {
         if (seconds == null) return getString(R.string.m3_details_no_value);
@@ -236,7 +238,10 @@ public final class MeterDetailsActivity extends MaterialBaseActivity {
             if (oldest == null || t.compareTo(oldest) < 0) oldest = t;
         }
         if (newest == null) return getString(R.string.m3_no_archive);
-        return oldest + " – " + newest + " · " + periods.size();
+        java.util.Locale locale = getResources().getConfiguration().getLocales().get(0);
+        return HistoryTimePresentation.formatExactFloatingDateTime(locale, oldest)
+                + " – " + HistoryTimePresentation.formatExactFloatingDateTime(locale, newest)
+                + " · " + periods.size();
     }
     private String formatDate(long ms) {
         return DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT,
