@@ -28,9 +28,10 @@ final class HistoryLocalWindowInput {
             return null;
         }
         try {
-            return new HistoryLocalWindowInput(
-                    LocalDateTime.parse(window.archiveStart, FORMAT),
-                    LocalDateTime.parse(window.archiveEnd, FORMAT));
+            LocalDateTime start = LocalDateTime.parse(window.archiveStart, FORMAT);
+            LocalDateTime end = LocalDateTime.parse(window.archiveEnd, FORMAT);
+            if (!end.isAfter(start)) return null;
+            return new HistoryLocalWindowInput(start, end);
         } catch (DateTimeParseException error) {
             return null;
         }
