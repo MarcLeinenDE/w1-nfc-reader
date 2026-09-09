@@ -19,7 +19,7 @@ public final class CustomRangeUiRegressionTest {
         assertTrue(activity.contains("HistoryRangePickerUi.show("));
         assertTrue(activity.contains("HistoryCustomRangeSemantics.automaticResolution("));
         assertTrue(activity.contains("repository.queryStatistics(window, effective)"));
-        assertTrue(activity.contains("HistoryCustomRangeSemantics.expectedFullBuckets(window, effective)"));
+        assertTrue(activity.contains("repository.expectedBuckets(window, effective)"));
         assertTrue(activity.contains("R.string.v2_kpi_contained_total"));
         assertTrue(activity.contains("R.string.v2_range_edges_not_exact"));
         assertTrue(picker.contains("new DatePickerDialog("));
