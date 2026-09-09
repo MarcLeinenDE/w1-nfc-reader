@@ -148,15 +148,26 @@ final class HistoryStatisticsRepository implements AutoCloseable {
             "battery_percent", "alarm_codes"
     };
 
+    private final Context appContext;
+    private final boolean rawOnly;
     private final MeterHistoryStore liveStore;
     private final ArchiveFamilyStore archiveStore;
     private final MeterLifecycleStore lifecycleStore;
+    private final HistoryLocalQueryRepository localRepository;
 
     HistoryStatisticsRepository(Context context) {
+        this(context, false);
+    }
+
+    /** Internal raw-only constructor used by the LOCAL projection to avoid routing recursion. */
+    HistoryStatisticsRepository(Context context, boolean rawOnly) {
         Context app = context.getApplicationContext();
+        this.appContext = app;
+        this.rawOnly = rawOnly;
         liveStore = new MeterHistoryStore(app);
         archiveStore = new ArchiveFamilyStore(app);
         lifecycleStore = new MeterLifecycleStore(app);
+        localRepository = rawOnly ? null : new HistoryLocalQueryRepository(app);
     }
 
     List<String> meterIds() {
@@ -178,6 +189,9 @@ final class HistoryStatisticsRepository implements AutoCloseable {
     List<Observation> queryHistory(HistorySemanticTimeline.Granularity filter,
                                    HistoryPeriodNavigator.Window window,
                                    boolean includePredecessors) {
+        if (useResolvedLocalTime()) {
+            return localRepository.queryHistory(filter, window);
+        }
         List<Observation> result = new ArrayList<>();
         for (String meter : meterIds()) {
             boolean includesLive = filter == null || filter == HistorySemanticTimeline.Granularity.LIVE;
@@ -198,6 +212,9 @@ final class HistoryStatisticsRepository implements AutoCloseable {
     List<Observation> queryStatistics(HistoryPeriodNavigator.Window window,
                                       HistorySemanticTimeline.Granularity granularity) {
         if (window == null || granularity == null) return new ArrayList<>();
+        if (useResolvedLocalTime()) {
+            return localRepository.queryStatistics(window, granularity);
+        }
         if (!window.customRange) return queryHistory(granularity, window, true);
         ArchiveFamilyPeriod.Family family = family(granularity);
         if (family == null) return new ArrayList<>();
@@ -211,6 +228,7 @@ final class HistoryStatisticsRepository implements AutoCloseable {
 
     Availability availability(HistoryPeriodNavigator.Window window) {
         if (window == null) return new Availability(0, 0, 0, 0);
+        if (useResolvedLocalTime()) return localRepository.availability(window);
         int live = visibleCount(queryHistory(HistorySemanticTimeline.Granularity.LIVE, window, false));
         int hour = visibleCount(queryStatistics(window, HistorySemanticTimeline.Granularity.HOUR));
         int day = visibleCount(queryStatistics(window, HistorySemanticTimeline.Granularity.DAY));
@@ -237,8 +255,15 @@ final class HistoryStatisticsRepository implements AutoCloseable {
     }
 
     @Override public void close() {
+        if (localRepository != null) localRepository.close();
         liveStore.close();
         archiveStore.close();
+    }
+
+    private boolean useResolvedLocalTime() {
+        return !rawOnly
+                && localRepository != null
+                && UiPreferences.getTimeBasis(appContext) == AppTimeBasis.LOCAL;
     }
 
     private void queryArchive(List<Observation> out, String meter, ArchiveFamilyPeriod.Family family,
