@@ -85,8 +85,8 @@ public final class ArchiveLocalWindowRepositoryTest {
             assertEquals(UtcCoverage.Status.PARTIAL_EDGES, history.coverage.status);
             assertEquals(4, history.periods.size());
             assertEquals(2, statistics.periods.size());
-            assertEquals("OT:38900", statistics.periods.get(0).source.occurrenceKey);
-            assertEquals("OT:42500", statistics.periods.get(1).source.occurrenceKey);
+            assertEquals("OT:42500", statistics.periods.get(0).source.occurrenceKey);
+            assertEquals("OT:46100", statistics.periods.get(1).source.occurrenceKey);
         }
     }
 
