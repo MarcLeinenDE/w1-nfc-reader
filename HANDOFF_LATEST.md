@@ -18,9 +18,10 @@ Read strictly in this order before changing the v2.1 implementation:
 8. `docs/V2_HISTORY_SYNC_ARCHITECTURE.md`
 9. `docs/V2_BREAKING_CHANGES.md`
 10. `docs/PROTOCOL_SAFETY.md`
-11. `docs/RELEASING.md`
-12. `CHANGELOG.md`
-13. `AGENTS.md`
+11. `docs/research/PUBLIC_QW1_EVIDENCE.md`
+12. `docs/RELEASING.md`
+13. `CHANGELOG.md`
+14. `AGENTS.md`
 
 Then inspect the actual development code at the exact development head. The handoff branch is coordination-only; never develop directly on it.
 
@@ -36,10 +37,11 @@ Active development branch:
 - `dev/v2.1.0-real-time-timeline`
 
 Current development head:
-- `50852719e9e93e7a4f921e95156663920756fdc9`
-- commit: `docs: pin corrected live-time validation candidate`
-- Android CI run `34320664008`: SUCCESS
-- this head is documentation-only on top of the functional candidate below.
+- `404dc90c1f974fb145d80cce23508825d8de16b9`
+- commit: `docs: add public support for v2.1 timing evidence`
+- Android CI run `34362370166`: SUCCESS
+- this head and the two preceding commits are documentation-only on top of the functional candidate below.
+- compare from previous docs head `50852719e9e93e7a4f921e95156663920756fdc9`: exactly three Markdown files changed; no product/NFC/parser/resource code changed.
 
 Exact functional/code checkpoint:
 - `e4f458d9ff47a088926772a13d9bf19946f4bc48`
@@ -113,9 +115,18 @@ Implemented:
 - schema-2 restore remains supported without inventing missing timing evidence;
 - six-locale product translation contract remains green.
 
+Documentation-only supporting-evidence update completed after the functional candidate:
+
+- `docs/research/PUBLIC_QW1_EVIDENCE.md` records public Axioma/FCC/ST evidence with explicit scope/guardrails;
+- current Axioma manual `QW1_V22.4_EN` (2026-05-11) describes integrated NFC as intended for data reading only, independently supporting the existing read-focused safety policy;
+- the manual documents total operating time / operating time without error in Hour/Day/Month archives, consistent with retained ON_TIME evidence but **not** a proof of the app's UTC reconstruction method;
+- nominal logger capacities `1480 / 1130 / 36` are documented as informational only and are **not** app traversal/synchronization limits;
+- a public 2020 FCC-era QW1 BOM identifies an ST25DV04K Fast Transfer Mode device in that historical revision; this is supporting hardware evidence only, never an app hardware dependency;
+- `PROTOCOL_SAFETY.md` was also corrected from stale v2.0 identity/time wording to the already implemented occurrence-safe v2.1 semantics.
+
 ## 5. Safety boundary — do not regress
 
-No v2.1 timeline work introduced a new NFC command or changed protected transport/parser/traversal behavior.
+No v2.1 timeline or public-evidence documentation work introduced a new NFC command or changed protected transport/parser/traversal behavior.
 
 Remain protected:
 
@@ -126,10 +137,12 @@ Remain protected:
 - incremental known overlap must remain secure; timestamp-only overlap is forbidden;
 - ambiguous selected requests are never blindly retried;
 - final Default Restore/Live verification remains required for COMPLETE;
+- semantic terminal/overlap behavior remains authoritative; public nominal archive capacities must not become hardcoded stop limits;
 - no cumulative consumption across physical meter replacement;
 - no intentional persistent meter/radio/calibration/firmware writes;
 - `QalcosonicReader.java`, `MbusParser.java` and physically validated NFC/mailbox/archive traversal paths are protected;
-- raw meter/logger time remains source evidence and is never overwritten by derived UTC/local presentation.
+- raw meter/logger time remains source evidence and is never overwritten by derived UTC/local presentation;
+- public evidence is supporting context, not permission to introduce ST25-specific or revision-specific assumptions.
 
 If the physical v2.1 test exposes a protocol/read regression, stop and reopen the safety gate. Do not patch around it by changing meter commands in the same validation pass.
 
