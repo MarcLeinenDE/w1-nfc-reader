@@ -44,6 +44,20 @@ public final class ArchiveKnownRecordMatcherTest {
         assertTrue(matcher.securelyKnown(evidence(known, 100_000L)));
     }
 
+    @Test public void repeatedRawTimestampUsesOccurrenceRatherThanCollapsingSnapshot() {
+        ArchiveFamilyPeriod first = period("2026-10-25 02:00", "12.345 m3", "100000 s", "shape-a");
+        ArchiveFamilyPeriod second = period("2026-10-25 02:00", "12.445 m3", "103600 s", "shape-b");
+        store.upsert(METER, first);
+        store.upsert(METER, second);
+
+        ArchiveKnownRecordMatcher matcher = new ArchiveKnownRecordMatcher(store, METER, FAMILY);
+
+        assertEquals(2, matcher.snapshotSize());
+        assertTrue(matcher.securelyKnown(evidence(first, 100_000L)));
+        assertTrue(matcher.securelyKnown(evidence(second, 103_600L)));
+        assertFalse(matcher.securelyKnown(evidence(first, 103_600L)));
+    }
+
     @Test public void timestampOnlyOrWrongOnTimeNeverQualifies() {
         ArchiveFamilyPeriod known = period("2026-09-07 10:00", "12.345 m3", "100000 s", "shape-a");
         store.upsert(METER, known);
