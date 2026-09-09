@@ -78,7 +78,8 @@ final class ArchiveUtcRepository implements AutoCloseable {
                 project(meterId, family));
     }
 
-    private ZoneId meterZone(String meterId) {
+    /** Returns only the persisted per-meter IANA zone; never substitutes the phone zone. */
+    ZoneId meterZone(String meterId) {
         MeterTimeModelStore.Profile profile = meterId == null || meterId.isEmpty()
                 ? null : timeStore.getProfile(meterId);
         if (profile == null) return null;
