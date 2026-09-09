@@ -139,7 +139,7 @@ final class HistoryStatisticsRepository implements AutoCloseable {
             "max_temperature", "max_temperature_at", "min_temperature", "min_temperature_at",
             "temperature", "external_temperature", "battery_percent", "error_flags",
             "on_time", "operating_time", "observation_count", "identical_content_confirmations",
-            "revision_count", "conflict_flags", "source", "validation"
+            "revision_count", "conflict_flags", "source", "validation", "occurrence_key"
     };
 
     private static final String[] LIVE_COLUMNS = {
@@ -257,7 +257,7 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         String firstDisplayedStart = null;
         try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
                 selection.toString(), args.toArray(new String[0]), null, null,
-                "logger_timestamp ASC")) {
+                "logger_timestamp ASC, occurrence_key ASC")) {
             while (cursor.moveToNext()) {
                 Observation observation = readArchive(cursor, false);
                 out.add(observation);
@@ -275,7 +275,7 @@ final class HistoryStatisticsRepository implements AutoCloseable {
             try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
                     "meter_id = ? AND archive_family = ? AND logger_timestamp > ?",
                     new String[]{meter, family.name(), window.archiveEnd}, null, null,
-                    "logger_timestamp ASC", "1")) {
+                    "logger_timestamp ASC, occurrence_key ASC", "1")) {
                 if (cursor.moveToFirst()) {
                     Observation candidate = readArchive(cursor, false);
                     if (HistoryCustomRangeSemantics.overlaps(candidate, window)) {
@@ -308,7 +308,7 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
                 "meter_id = ? AND archive_family = ? AND logger_timestamp > ? AND logger_timestamp <= ?",
                 new String[]{meter, family.name(), window.archiveStart, window.archiveEnd},
-                null, null, "logger_timestamp ASC")) {
+                null, null, "logger_timestamp ASC, occurrence_key ASC")) {
             while (cursor.moveToNext()) {
                 Observation observation = readArchive(cursor, false);
                 if (!HistoryCustomRangeSemantics.fullyContained(observation, window)) continue;
@@ -328,7 +328,8 @@ final class HistoryStatisticsRepository implements AutoCloseable {
                                      ArchiveFamilyPeriod.Family family, String boundary) {
         try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
                 "meter_id = ? AND archive_family = ? AND logger_timestamp = ?",
-                new String[]{meter, family.name(), boundary}, null, null, null, "1")) {
+                new String[]{meter, family.name(), boundary}, null, null,
+                "occurrence_key ASC", "1")) {
             if (cursor.moveToFirst()) {
                 Observation context = readArchive(cursor, true);
                 boolean duplicate = false;
@@ -372,9 +373,10 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         String meter = c.getString(0);
         ArchiveFamilyPeriod.Family family = ArchiveFamilyPeriod.Family.valueOf(c.getString(1));
         String timestamp = c.getString(2);
+        String occurrenceKey = c.getString(28);
         HistorySemanticTimeline.Granularity granularity = granularity(family);
         return new Observation(
-                family.name() + "|" + meter + "|" + timestamp,
+                ArchiveRecordIdentity.of(family, meter, timestamp, occurrenceKey),
                 meter, granularity, timestamp, HistoryTimePresentation.floatingSortMs(timestamp),
                 0L, false, contextOnly, "",
                 measurement(c.getString(3)), measurement(c.getString(4)), measurement(c.getString(5)),
