@@ -88,7 +88,7 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
 
     HistoryLocalQueryRepository(Context context) {
         Context app = context.getApplicationContext();
-        history = new HistoryStatisticsRepository(app);
+        history = new HistoryStatisticsRepository(app, true);
         utc = new ArchiveUtcRepository(app);
     }
 
