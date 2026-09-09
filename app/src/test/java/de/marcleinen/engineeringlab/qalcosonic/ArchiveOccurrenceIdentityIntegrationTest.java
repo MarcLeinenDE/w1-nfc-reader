@@ -39,7 +39,10 @@ public final class ArchiveOccurrenceIdentityIntegrationTest {
         insertArchive(1L, "2026-10-25 02:00", "OT:22800", 22_800L, "10.000");
         insertArchive(2L, "2026-10-25 02:00", "OT:26400", 26_400L, "10.100");
 
-        try (HistoryStatisticsRepository repository = new HistoryStatisticsRepository(context)) {
+        // This test intentionally verifies the raw occurrence-safe archive mapping without a
+        // meter zone or verified Live anchor. LOCAL projection is covered separately by the
+        // resolved-time integration tests and correctly fails closed without that evidence.
+        try (HistoryStatisticsRepository repository = new HistoryStatisticsRepository(context, true)) {
             List<HistoryStatisticsRepository.Observation> rows = repository.queryHistory(
                     HistorySemanticTimeline.Granularity.HOUR, null, false);
 
