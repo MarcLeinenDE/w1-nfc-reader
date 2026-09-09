@@ -51,6 +51,7 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
     private HistorySemanticTimeline.Granularity statsResolutionOverride;
     private HistorySemanticTimeline.Granularity statsDisplayGranularity =
             HistorySemanticTimeline.Granularity.DAY;
+    private AppTimeBasis renderedTimeBasis;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -65,6 +66,15 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         setIntent(intent);
         applyIntent(intent);
         render();
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        AppTimeBasis current = UiPreferences.getTimeBasis(this);
+        if (repository != null && pageHost != null && renderedTimeBasis != null
+                && current != renderedTimeBasis) {
+            render();
+        }
     }
 
     @Override protected void onDestroy() {
@@ -109,6 +119,7 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         pageHost.addView(currentNav == NAV_STATS ? buildStatisticsPage() : buildHistoryPage(),
                 new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
                         FrameLayout.LayoutParams.MATCH_PARENT));
+        renderedTimeBasis = UiPreferences.getTimeBasis(this);
     }
 
     private View buildHistoryPage() {
@@ -173,18 +184,16 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         HistorySemanticTimeline.Granularity effective = window.customRange
                 && statsResolutionOverride != null ? statsResolutionOverride : automatic;
         statsDisplayGranularity = effective;
+        int expected = repository.expectedBuckets(window, effective);
 
         addStatisticsSelectors(content, window, availability, automatic, effective);
         if (window.customRange) {
             addAvailabilityLine(content, availability);
-            addCustomRangePrecision(content, window, availability, effective);
+            addCustomRangePrecision(content, window, availability, effective, expected);
         }
 
         List<HistoryStatisticsRepository.Observation> observations =
                 repository.queryStatistics(window, effective);
-        int expected = window.customRange
-                ? HistoryCustomRangeSemantics.expectedFullBuckets(window, effective)
-                : window.expectedBuckets;
         addStatisticsMetric(content, observations, window, effective, expected);
 
         ScrollView scroll = new ScrollView(this);
@@ -405,8 +414,8 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
     private void addCustomRangePrecision(LinearLayout parent,
                                          HistoryPeriodNavigator.Window window,
                                          HistoryStatisticsRepository.Availability availability,
-                                         HistorySemanticTimeline.Granularity granularity) {
-        int expected = HistoryCustomRangeSemantics.expectedFullBuckets(window, granularity);
+                                         HistorySemanticTimeline.Granularity granularity,
+                                         int expected) {
         TextView note;
         if (expected <= 0) {
             note = MaterialUi.body(this, getString(R.string.v2_range_no_full_buckets,
@@ -657,8 +666,14 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         TextView meter = MaterialUi.body(this, getString(R.string.m3_meter_id, observation.meterId));
         meter.setPadding(0, MaterialUi.dp(this, 4), 0, 0);
         content.addView(meter);
-        if (observation.live && observation.meterTime != null && !observation.meterTime.isEmpty()) {
-            content.addView(MaterialUi.body(this, getString(R.string.m3_meter_time, observation.meterTime)));
+        if (UiPreferences.getTimeBasis(this) == AppTimeBasis.LOCAL
+                && observation.meterTime != null && !observation.meterTime.isEmpty()) {
+            String rawMeterTime = observation.live
+                    ? HistoryTimePresentation.formatExactFloatingDateTime(locale(), observation.meterTime)
+                    : HistoryTimePresentation.formatArchivePeriod(
+                            locale(), observation.granularity, observation.meterTime);
+            content.addView(MaterialUi.body(this,
+                    getString(R.string.m3_meter_time, rawMeterTime)));
         }
         if (observation.batteryPercent != null) {
             content.addView(MaterialUi.body(this, getString(R.string.m3_battery) + ": "
