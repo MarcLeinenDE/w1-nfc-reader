@@ -8,10 +8,10 @@ v2.1 introduces a conservative real-time timeline without changing the proven NF
 
 The Android app exposes one global presentation/query preference:
 
-- `LOCAL` — default. Archive periods are selected and ordered on the resolved UTC timeline and presented in the persisted per-meter IANA zone.
-- `METER` — compatibility path. Existing floating/raw meter/logger wall-clock semantics remain available unchanged.
+- `LOCAL` — default. Real/local time is primary. Archive periods are selected and ordered on the resolved UTC timeline and presented in the persisted per-meter IANA zone. Live selection/order uses the actual Android acquisition epoch. Raw meter time remains secondary evidence.
+- `METER` — raw meter/logger wall-clock time is primary. Bounded Live History selection/order uses persisted `meter_time`; archive selection retains the established raw/floating path. Trustworthy real/local time is shown as secondary evidence where available.
 
-Changing this preference never rewrites stored archive measurements, raw meter timestamps or the canonical integration-facing UTC contract.
+Changing this preference never rewrites stored archive measurements, raw meter timestamps or the canonical integration-facing UTC contract. Missing meter time is not replaced by guessed Android time in bounded METER Live queries.
 
 ## Per-meter time model
 
@@ -54,7 +54,8 @@ LOCAL navigator input is interpreted in the meter-assigned IANA zone and convert
 
 - nonexistent local times are rejected;
 - repeated local times are not guessed;
-- selection and ordering operate on UTC occurrences, not formatted wall time.
+- archive selection and ordering operate on UTC occurrences, not formatted wall time;
+- Live selection/order operates on the actual Android acquisition epoch.
 
 Coverage distinguishes `EXACT`, `PARTIAL_EDGES`, `OVERLAP_ONLY`, `GAP` and `UNRESOLVED_TIME`.
 
@@ -62,11 +63,13 @@ Coverage distinguishes `EXACT`, `PARTIAL_EDGES`, `OVERLAP_ONLY`, `GAP` and `UNRE
 
 `HistoryStatisticsRepository` is the single query router.
 
-- In `METER`, the previous SQL/floating-time path remains active.
+- In `METER`, archive queries retain the previous SQL/floating-time path.
+- In `METER`, Live History uses persisted raw `meter_time` for bounded range selection, predecessor lookup and ordering.
 - In `LOCAL`, archive queries delegate to the resolved UTC read model while Live rows retain their real device epoch.
 - The LOCAL adapter uses an internal raw-only repository to avoid recursion and keeps measurement mapping single-sourced.
-- Deltas receive the occurrence-safe real predecessor as context.
+- Deltas receive a predecessor from the same selected time basis.
 - The same repository instance reacts dynamically to a changed global time-basis preference.
+- For METER archive cards, a passive secondary projection provides trustworthy resolved local time without changing the raw METER query semantics.
 
 ## DST-aware Statistics completeness
 
@@ -81,10 +84,14 @@ If participating archive evidence has no persisted zone, a boundary is unsafe/am
 ## Presentation and failure transparency
 
 - Settings exposes the global `Local time / Meter time` switch; `LOCAL` is the default.
-- History/Statistics rerenders after returning from Settings only when the time basis actually changed.
-- LOCAL History cards retain raw meter/logger time as secondary evidence.
+- Overview, Live History and archive History now honor the same global time-basis contract.
+- LOCAL Overview/Live History use real acquisition time as primary and raw meter time as secondary when available.
+- METER Overview/Live History use raw meter time as primary and real/local acquisition time as secondary.
+- METER archive History keeps raw meter/logger time primary and shows trustworthy resolved local time as secondary evidence when available.
+- History/Statistics rerenders after returning from Settings when the time basis changed; Overview refreshes on resume and therefore reflects the same setting without requiring an app restart.
+- Raw Live meter time is always formatted for the active locale before display. Storage text such as `yyyy-MM-dd HH:mm` remains unchanged in persistence/backup but is not exposed directly as product date formatting. Meter Details uses the same locale-aware formatter.
 - Meter Details exposes per-meter IANA zone and provenance and permits validated manual correction.
-- LOCAL History/Statistics now distinguish and explicitly explain:
+- LOCAL History/Statistics distinguish and explicitly explain:
   - missing per-meter timezone;
   - unsafe/ambiguous/nonexistent LOCAL range boundaries;
   - archive periods whose timing evidence is insufficient for a safe LOCAL projection.
@@ -98,6 +105,7 @@ Schema-3 `.qw1backup` preserves:
 - per-meter timezone profiles;
 - verified Live anchors;
 - occurrence-safe archive envelope;
+- raw Live meter time already stored with successful Live readings;
 - global time-basis preference.
 
 Schema-2 restore remains supported and does not fabricate missing zone, Type-F, IV/SU or anchor evidence. Restoring on a device in another timezone preserves the backed-up meter timezone rather than adopting the receiving phone timezone.
@@ -114,10 +122,14 @@ Android CI run `34313630120` was fully green for commit `3f134673b636c7464a6e0f3
 
 ### LOCAL resolution transparency checkpoint
 
-Android CI run `34316796172` is the current green code checkpoint for commit `2191147a96db59b2857af7526fa07826bffc8967`:
+Android CI run `34316796172` was fully green for commit `2191147a96db59b2857af7526fa07826bffc8967`. That APK is superseded as a physical candidate because the later product-contract audit found incomplete Live METER presentation/query routing.
 
-- product translation contract: success;
-- unit/Robolectric tests: success;
+### Completed Live LOCAL/METER + locale checkpoint — pinned physical candidate
+
+Android CI run `34320334896` is fully green for functional commit `e4f458d9ff47a088926772a13d9bf19946f4bc48`:
+
+- product translation contract: success — 227 translatable keys across 6 locales;
+- 346 unit/Robolectric tests: success;
 - debug APK build: success;
 - APK signature verification: success;
 - APK SHA-256 recording: success;
@@ -125,8 +137,11 @@ Android CI run `34316796172` is the current green code checkpoint for commit `21
 
 Artifact:
 - name: `w1-nfc-reader-debug`
-- artifact id: `10090392521`
-- digest: `sha256:2f9f873bd426f3d38e9eb67939e52208d96eaa2d99bac8170d61a032d3192441`
+- artifact id: `10091656517`
+- ZIP digest: `sha256:a7ad4eb0c09a331836a508cd3e3e96210fa8966710502a0ab8a3d7feb1eae775`
+- independently recalculated APK SHA-256: `44d8896f92b10c586eb4ae51a0c05ff7118f87c8656e43ba14393ca11487e95a`
+
+This is the candidate to use for the limited real-device gate in `docs/V2_1_REAL_DEVICE_VALIDATION.md` unless a later functional change explicitly supersedes it.
 
 ## Safety boundary
 
@@ -134,7 +149,7 @@ The timeline implementation is passive with respect to the meter protocol. It do
 
 ## Remaining release gates
 
-1. perform limited real-device validation of the complete v2.1 time-model/query/UI path using `docs/V2_1_REAL_DEVICE_VALIDATION.md`;
+1. perform limited real-device validation of the complete v2.1 time-model/query/UI path using the pinned candidate in `docs/V2_1_REAL_DEVICE_VALIDATION.md`;
 2. after physical acceptance, advance the stable release identity/version metadata and curated changelog/release notes;
 3. run the normal signed release-candidate/release workflow and preserve the existing immutable v2.0.0 release/tag.
 
