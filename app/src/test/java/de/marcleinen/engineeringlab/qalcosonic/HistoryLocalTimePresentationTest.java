@@ -4,7 +4,6 @@ import org.junit.Test;
 
 import java.time.Instant;
 import java.time.ZoneId;
-import java.util.Collections;
 import java.util.Locale;
 
 import static org.junit.Assert.assertFalse;
@@ -46,6 +45,8 @@ public final class HistoryLocalTimePresentationTest {
         return new HistoryLocalArchiveReadModel.Row(
                 null,
                 "test",
+                null,
+                "previous-test",
                 start,
                 end,
                 zone,
