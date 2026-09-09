@@ -32,8 +32,9 @@ public final class LiveTimePresentationContractTest {
 
     @Test public void meterDetailsRoutesMeterTimeThroughLocaleAwarePresentation() throws Exception {
         String source = read(DETAILS);
+        assertTrue(source.contains("String raw = d.meterTime"));
         assertTrue(source.contains("HistoryTimePresentation.formatExactFloatingDateTime("));
-        assertTrue(source.contains("rawMeterTime"));
+        assertTrue(source.contains("getResources().getConfiguration().getLocales().get(0), raw"));
         assertFalse(source.contains("return value(value);"));
     }
 

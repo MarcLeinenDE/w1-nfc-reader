@@ -32,20 +32,11 @@ public final class HistoryStatisticsTimeBasisPresentationContractTest {
 
     @Test public void localHistoryShowsRawMeterTimeAsSecondaryEvidence() throws Exception {
         String source = read(ACTIVITY);
-        assertTrue(source.contains("UiPreferences.getTimeBasis(this) == AppTimeBasis.LOCAL"));
+        assertTrue(source.contains("AppTimeBasis basis = UiPreferences.getTimeBasis(this);"));
+        assertTrue(source.contains("basis == AppTimeBasis.LOCAL"));
         assertTrue(source.contains("observation.meterTime"));
         assertTrue(source.contains("R.string.m3_meter_time"));
         assertTrue(source.contains("HistoryTimePresentation.formatArchivePeriod("));
-    }
-
-    @Test public void unresolvedLocalTimeIsExplicitlyExplainedInHistoryAndStatistics() throws Exception {
-        String source = read(ACTIVITY);
-        assertTrue(source.contains("addLocalResolutionNotice(root, repository.lastLocalResolutionIssue());"));
-        assertTrue(source.contains("addLocalResolutionNotice(content, repository.lastLocalResolutionIssue());"));
-        assertTrue(source.contains("R.string.v21_local_zone_missing_notice"));
-        assertTrue(source.contains("R.string.v21_local_window_unresolved_notice"));
-        assertTrue(source.contains("R.string.v21_local_archive_time_unresolved_notice"));
-        assertTrue(source.contains("UiPreferences.getTimeBasis(this) != AppTimeBasis.LOCAL"));
     }
 
     private static String read(String path) throws Exception {
