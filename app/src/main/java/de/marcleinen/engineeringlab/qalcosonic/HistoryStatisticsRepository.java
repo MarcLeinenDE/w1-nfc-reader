@@ -236,6 +236,24 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         return new Availability(live, hour, day, month);
     }
 
+    /**
+     * Expected full statistics buckets on the selected global time basis. LOCAL hourly windows use
+     * real elapsed time in the persisted meter zone, so DST days are 23/25 hours. If that cannot be
+     * resolved safely, return 0 so the UI reports count-only coverage instead of inventing 24.
+     */
+    int expectedBuckets(HistoryPeriodNavigator.Window window,
+                        HistorySemanticTimeline.Granularity granularity) {
+        if (window == null || granularity == null || window.allPeriods) return 0;
+        int legacy = window.customRange
+                ? HistoryCustomRangeSemantics.expectedFullBuckets(window, granularity)
+                : window.expectedBuckets;
+        if (!useResolvedLocalTime() || granularity != HistorySemanticTimeline.Granularity.HOUR) {
+            return legacy;
+        }
+        Integer local = localRepository.expectedFullHours(window);
+        return local == null ? 0 : local;
+    }
+
     List<MeterLifecycleStore.Transition> transitions(HistoryPeriodNavigator.Window window) {
         List<MeterLifecycleStore.Transition> result = new ArrayList<>();
         for (MeterLifecycleStore.Transition transition : lifecycleStore.transitions()) {
