@@ -48,6 +48,19 @@ Key rules:
 - raw meter/logger clock alignment is diagnostic evidence only; a stable wall-clock origin offset is not allowed to rewrite canonical UTC.
 - unresolved evidence stays unresolved; the implementation does not invent UTC, offsets or timezone information.
 
+### Public supporting evidence for operating-time fields
+
+Axioma Metering's public Qalcosonic W1 manual `QW1_V22.4_EN` dated 2026-05-11 documents **total operating time** and **operating time without error** among the parameters retained in Hour, Day and Month archives.
+
+Public mirror of the Axioma document:
+https://device.report/m/d4a0014787f6accc0035156bf0096d94be5bb5429de79aded8d0422b322e7436
+
+This is consistent with the application's independently observed `ON_TIME` evidence and supports retaining operating time as first-class timing evidence. It does **not** prove the application's UTC reconstruction formula or timezone model; those remain derived from repository/real-device evidence and verified Live anchors.
+
+The same manual lists nominal capacities of up to 1480 Hour, 1130 Day and 36 Month records. Those values are informative only and are **not synchronization/traversal limits**. Existing semantic terminal handling and secure known-overlap termination remain authoritative.
+
+See `docs/research/PUBLIC_QW1_EVIDENCE.md` for source interpretation and explicit non-implications.
+
 ## LOCAL range semantics
 
 LOCAL navigator input is interpreted in the meter-assigned IANA zone and converted to canonical UTC boundaries. DST transitions are explicit:
@@ -146,6 +159,8 @@ This is the candidate to use for the limited real-device gate in `docs/V2_1_REAL
 ## Safety boundary
 
 The timeline implementation is passive with respect to the meter protocol. It does not introduce new NFC commands, alter mailbox behavior, change archive traversal semantics, or reinterpret protected parser fields. `QalcosonicReader.java`, `MbusParser.java` and the physically validated NFC/mailbox/archive traversal paths remain protected.
+
+Current Axioma documentation independently supports the read-focused NFC boundary, and a public 2020 QW1 FCC-era parts list documents an ST25DV04K Fast Transfer Mode device in that historical hardware revision. These public references are supporting evidence only and do not create hardware-specific application assumptions. See `docs/research/PUBLIC_QW1_EVIDENCE.md`.
 
 ## Remaining release gates
 
