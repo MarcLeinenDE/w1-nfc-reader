@@ -27,11 +27,11 @@ import java.util.zip.ZipOutputStream;
 /**
  * v2.1 lossless backup facade.
  *
- * <p>The proven v2 core portability implementation remains the compatibility engine for all
- * pre-v2.1 product data. Schema 3 wraps that payload with the durable per-meter time model and an
- * occurrence-safe archive envelope. The envelope is staged before the archive DB migration so
- * future repeated raw wall-clock periods and typed time evidence cannot be collapsed by the old
- * schema-2 identity during backup/restore evolution.</p>
+ * <p>The proven v2 core portability implementation remains the compatibility engine for pre-v2.1
+ * non-archive product data. Schema 3 wraps that payload with the durable per-meter time model and
+ * an occurrence-safe archive envelope. Since meter_archive.db v2, archive restore consumes that
+ * envelope directly so repeated raw wall-clock periods cannot be collapsed back to timestamp-only
+ * identity.</p>
  */
 final class DataPortabilityV3 {
     static final int BACKUP_SCHEMA = 3;
@@ -95,7 +95,7 @@ final class DataPortabilityV3 {
         }
         if (parsed.schemaVersion != BACKUP_SCHEMA) throw new IOException("BACKUP_VERSION_UNSUPPORTED");
 
-        byte[] legacyCore = downgradeToLegacyCore(parsed);
+        byte[] legacyCore = legacyCore(parsed, true);
         DataPortability.BackupPreview core = DataPortability.inspectBackup(
                 new ByteArrayInputStream(legacyCore));
         return new DataPortability.BackupPreview(
@@ -115,16 +115,18 @@ final class DataPortabilityV3 {
 
     static void restoreBackup(Context context, byte[] backupBytes) throws IOException, JSONException {
         ParsedBackup incoming = parse(backupBytes);
-        if (incoming.schemaVersion == LEGACY_BACKUP_SCHEMA) {
-            // Legacy data contains no trustworthy per-meter ZoneId/SU/anchor evidence and no v2.1
-            // time-basis preference. Restore the proven core only and deliberately preserve the
-            // receiving installation's v2.1-only state.
-            DataPortability.restoreBackup(context, backupBytes);
-            return;
-        }
-        if (incoming.schemaVersion != BACKUP_SCHEMA) throw new IOException("BACKUP_VERSION_UNSUPPORTED");
+        JSONArray incomingPeriods = incoming.schemaVersion == BACKUP_SCHEMA
+                ? incoming.data.getJSONArray(ARCHIVE_PERIODS_V2)
+                : buildArchivePeriodsV2(incoming.data.getJSONArray("archive_periods"));
+        JSONArray incomingConflicts = incoming.schemaVersion == BACKUP_SCHEMA
+                ? incoming.data.getJSONArray(ARCHIVE_CONFLICTS_V2)
+                : buildArchiveConflictsV2(incoming.data.getJSONArray("archive_conflicts"), incomingPeriods);
 
         byte[] coreBefore = writeLegacyBackup(context);
+        ParsedBackup before = parse(coreBefore);
+        JSONArray periodsBefore = buildArchivePeriodsV2(before.data.getJSONArray("archive_periods"));
+        JSONArray conflictsBefore = buildArchiveConflictsV2(
+                before.data.getJSONArray("archive_conflicts"), periodsBefore);
         AppTimeBasis timeBasisBefore = UiPreferences.getTimeBasis(context);
         JSONObject timeBefore;
         MeterTimeModelStore store = new MeterTimeModelStore(context);
@@ -135,17 +137,21 @@ final class DataPortabilityV3 {
         }
 
         try {
-            // Until meter_archive.db v2 lands, the proven schema-2 core remains the physical archive
-            // restore path. The occurrence-safe envelope is already validated and retained in the
-            // backup format so the DB migration can switch restore to it without another format bump.
-            DataPortability.restoreBackup(context, downgradeToLegacyCore(incoming));
-            MeterTimeModelStore timeStore = new MeterTimeModelStore(context);
-            try {
-                timeStore.mergeJson(incoming.data.getJSONObject(TIME_MODEL));
-            } finally {
-                timeStore.close();
+            // Restore every proven schema-2 product-data component except archive rows. Archive data
+            // is merged separately by the v2 native key so repeated raw timestamps stay distinct.
+            DataPortability.restoreBackup(context, legacyCore(incoming, false));
+            ArchiveOccurrencePortability.merge(context, incomingPeriods, incomingConflicts);
+
+            if (incoming.schemaVersion == BACKUP_SCHEMA) {
+                MeterTimeModelStore timeStore = new MeterTimeModelStore(context);
+                try {
+                    timeStore.mergeJson(incoming.data.getJSONObject(TIME_MODEL));
+                } finally {
+                    timeStore.close();
+                }
+                UiPreferences.setTimeBasis(context, portableTimeBasis(incoming.data));
             }
-            UiPreferences.setTimeBasis(context, portableTimeBasis(incoming.data));
+            // Schema-2 backups deliberately do not modify v2.1-only timezone/anchor/time-basis state.
         } catch (Exception error) {
             try {
                 DataPortability.clearMeterData(context);
@@ -155,7 +161,8 @@ final class DataPortabilityV3 {
                 } finally {
                     rollbackStore.close();
                 }
-                DataPortability.restoreBackup(context, coreBefore);
+                DataPortability.restoreBackup(context, legacyCore(before, false));
+                ArchiveOccurrencePortability.merge(context, periodsBefore, conflictsBefore);
                 MeterTimeModelStore restoreStore = new MeterTimeModelStore(context);
                 try {
                     restoreStore.restoreJson(timeBefore);
@@ -189,11 +196,9 @@ final class DataPortabilityV3 {
         return out.toByteArray();
     }
 
-    private static byte[] downgradeToLegacyCore(ParsedBackup parsed)
+    /** Builds a schema-2 core accepted by the proven portability engine. */
+    private static byte[] legacyCore(ParsedBackup parsed, boolean includeArchive)
             throws IOException, JSONException {
-        if (parsed.schemaVersion != BACKUP_SCHEMA) {
-            throw new IOException("SCHEMA3_REQUIRED_FOR_DOWNGRADE");
-        }
         JSONObject data = cloneJson(parsed.data);
         data.remove(TIME_MODEL);
         data.remove(ARCHIVE_PERIODS_V2);
@@ -201,6 +206,10 @@ final class DataPortabilityV3 {
         data.put("schema_version", LEGACY_BACKUP_SCHEMA);
         JSONObject preferences = data.optJSONObject("preferences");
         if (preferences != null) preferences.remove("time_basis");
+        if (!includeArchive) {
+            data.put("archive_periods", new JSONArray());
+            data.put("archive_conflicts", new JSONArray());
+        }
         byte[] dataBytes = data.toString().getBytes(StandardCharsets.UTF_8);
 
         JSONObject manifest = cloneJson(parsed.manifest);
@@ -209,6 +218,13 @@ final class DataPortabilityV3 {
         manifest.remove("meter_time_anchors");
         manifest.remove("archive_periods_v2");
         manifest.remove("archive_conflicts_v2");
+        if (!includeArchive) {
+            manifest.put("archive_periods", 0);
+            manifest.put("archive_hour_periods", 0);
+            manifest.put("archive_day_periods", 0);
+            manifest.put("archive_month_periods", 0);
+            manifest.put("archive_conflicts", 0);
+        }
         manifest.put("data_sha256", sha256(dataBytes));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -283,14 +299,24 @@ final class DataPortabilityV3 {
         JSONArray out = new JSONArray();
         for (int i = 0; i < legacyPeriods.length(); i++) {
             JSONObject row = cloneJson(legacyPeriods.getJSONObject(i));
-            String onTimeDisplay = nullableString(row, "on_time");
-            Long onTimeSeconds = ArchiveOccurrenceKey.parseDurationSeconds(onTimeDisplay);
-            row.put("occurrence_key", ArchiveOccurrenceKey.fromEvidence(onTimeSeconds, null));
-            if (onTimeSeconds == null) row.put("on_time_seconds", JSONObject.NULL);
-            else row.put("on_time_seconds", onTimeSeconds.longValue());
-            row.put("raw_type_f_hex", JSONObject.NULL);
-            row.put("type_f_iv", JSONObject.NULL);
-            row.put("type_f_su", JSONObject.NULL);
+            String occurrence = nullableString(row, "occurrence_key");
+            if (occurrence == null) {
+                String onTimeDisplay = nullableString(row, "on_time");
+                Long onTimeSeconds = ArchiveOccurrenceKey.parseDurationSeconds(onTimeDisplay);
+                occurrence = ArchiveOccurrenceKey.fromEvidence(onTimeSeconds, null);
+                row.put("occurrence_key", occurrence);
+                if (onTimeSeconds == null) row.put("on_time_seconds", JSONObject.NULL);
+                else row.put("on_time_seconds", onTimeSeconds.longValue());
+                row.put("raw_type_f_hex", JSONObject.NULL);
+                row.put("type_f_iv", JSONObject.NULL);
+                row.put("type_f_su", JSONObject.NULL);
+            } else {
+                if (!row.has("on_time_seconds")) row.put("on_time_seconds", JSONObject.NULL);
+                if (!row.has("raw_type_f_hex")) row.put("raw_type_f_hex", JSONObject.NULL);
+                if (!row.has("type_f_iv")) row.put("type_f_iv", JSONObject.NULL);
+                if (!row.has("type_f_su")) row.put("type_f_su", JSONObject.NULL);
+            }
+            validateOccurrence(row, occurrence);
             out.put(row);
         }
         return out;
@@ -308,9 +334,20 @@ final class DataPortabilityV3 {
         JSONArray out = new JSONArray();
         for (int i = 0; i < legacyConflicts.length(); i++) {
             JSONObject row = cloneJson(legacyConflicts.getJSONObject(i));
-            String occurrence = occurrenceByLegacyKey.get(legacyArchiveKey(row));
-            if (occurrence == null) throw new JSONException("archive conflict without canonical occurrence");
-            row.put("occurrence_key", occurrence);
+            String occurrence = nullableString(row, "occurrence_key");
+            if (occurrence == null) {
+                occurrence = occurrenceByLegacyKey.get(legacyArchiveKey(row));
+                if (occurrence == null) throw new JSONException("archive conflict without canonical occurrence");
+                row.put("occurrence_key", occurrence);
+            }
+            if (!row.has("on_time_seconds")) {
+                Long seconds = ArchiveOccurrenceKey.parseDurationSeconds(nullableString(row, "on_time"));
+                if (seconds == null) row.put("on_time_seconds", JSONObject.NULL);
+                else row.put("on_time_seconds", seconds.longValue());
+            }
+            if (!row.has("raw_type_f_hex")) row.put("raw_type_f_hex", JSONObject.NULL);
+            if (!row.has("type_f_iv")) row.put("type_f_iv", JSONObject.NULL);
+            if (!row.has("type_f_su")) row.put("type_f_su", JSONObject.NULL);
             out.put(row);
         }
         return out;
@@ -421,8 +458,6 @@ final class DataPortabilityV3 {
         }
         JSONArray profiles = timeModel.getJSONArray("profiles");
         JSONArray anchors = timeModel.getJSONArray("anchors");
-        // Validate every portable object now so malformed backups fail at preview/inspect time,
-        // before the user confirms a restore.
         for (int i = 0; i < profiles.length(); i++) {
             MeterTimeModelStore.Profile.fromJson(profiles.getJSONObject(i));
         }
