@@ -31,6 +31,25 @@ final class ArchiveUtcRepository implements AutoCloseable {
                 timeStore.anchors(meter));
     }
 
+    ArchiveLocalWindowSelection.Result selectLocal(
+            String meterId,
+            ArchiveFamilyPeriod.Family family,
+            LocalDateTime startLocal,
+            LocalDateTime endLocal,
+            ZoneOffset explicitStartOffset,
+            ZoneOffset explicitEndOffset,
+            ArchiveLocalWindowSelection.Semantics semantics) {
+        String meter = meterId == null ? null : meterId.trim();
+        return ArchiveLocalWindowSelection.select(
+                startLocal,
+                endLocal,
+                meterZone(meter),
+                explicitStartOffset,
+                explicitEndOffset,
+                project(meter, family),
+                semantics);
+    }
+
     ArchiveWindowCoverage.Result coverageLocal(
             String meterId,
             ArchiveFamilyPeriod.Family family,
@@ -39,21 +58,10 @@ final class ArchiveUtcRepository implements AutoCloseable {
             ZoneOffset explicitStartOffset,
             ZoneOffset explicitEndOffset) {
         String meter = meterId == null ? null : meterId.trim();
-        MeterTimeModelStore.Profile profile = meter == null || meter.isEmpty()
-                ? null : timeStore.getProfile(meter);
-        ZoneId meterZone = null;
-        if (profile != null) {
-            try {
-                meterZone = ZoneId.of(profile.zoneId);
-            } catch (DateTimeException ignored) {
-                // Store validation normally prevents this. Preserve fail-closed window semantics
-                // for any externally corrupted state instead of silently using the phone zone.
-            }
-        }
         return ArchiveWindowCoverage.evaluateLocal(
                 startLocal,
                 endLocal,
-                meterZone,
+                meterZone(meter),
                 explicitStartOffset,
                 explicitEndOffset,
                 project(meter, family));
@@ -68,6 +76,19 @@ final class ArchiveUtcRepository implements AutoCloseable {
                 startUtcMs,
                 endUtcMs,
                 project(meterId, family));
+    }
+
+    private ZoneId meterZone(String meterId) {
+        MeterTimeModelStore.Profile profile = meterId == null || meterId.isEmpty()
+                ? null : timeStore.getProfile(meterId);
+        if (profile == null) return null;
+        try {
+            return ZoneId.of(profile.zoneId);
+        } catch (DateTimeException ignored) {
+            // Store validation normally prevents this. Preserve fail-closed window semantics
+            // for any externally corrupted state instead of silently using the phone zone.
+            return null;
+        }
     }
 
     @Override public void close() {
