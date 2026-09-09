@@ -129,6 +129,36 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
         return new HistoryStatisticsRepository.Availability(live, hour, day, month);
     }
 
+    /**
+     * Returns a fail-closed real-hour expectation for LOCAL statistics. Only meters that actually
+     * have hourly archive evidence participate. Missing zones, ambiguous boundaries or different
+     * DST outcomes across participating meter zones deliberately produce null instead of a guess.
+     */
+    Integer expectedFullHours(HistoryPeriodNavigator.Window window) {
+        HistoryLocalWindowInput local = HistoryLocalWindowInput.from(window);
+        if (local == null) return null;
+
+        Integer expected = null;
+        boolean hasHourlyArchiveEvidence = false;
+        for (String meterId : history.meterIds()) {
+            List<ArchiveUtcProjection.Period> periods = utc.project(
+                    meterId, ArchiveFamilyPeriod.Family.HOUR);
+            if (periods.isEmpty()) continue;
+            hasHourlyArchiveEvidence = true;
+
+            ZoneId zone = utc.meterZone(meterId);
+            if (zone == null) return null;
+            Integer candidate = HistoryLocalBucketExpectation.fullHours(local.start, local.end, zone);
+            if (candidate == null) return null;
+            if (expected == null) {
+                expected = candidate;
+            } else if (!expected.equals(candidate)) {
+                return null;
+            }
+        }
+        return hasHourlyArchiveEvidence ? expected : null;
+    }
+
     Result queryArchive(
             HistorySemanticTimeline.Granularity granularity,
             HistoryPeriodNavigator.Window window,
