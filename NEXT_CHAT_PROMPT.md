@@ -3,94 +3,71 @@
 Copy the following block into a new project chat.
 
 ```text
-Wir setzen die Entwicklung von W1 NFC Reader mit Version 2.1.0 fort.
+Wir setzen die Entwicklung von W1 NFC Reader v2.1.0 fort.
 
 Öffentliches Repository:
 MarcLeinenDE/w1-nfc-reader
 
 Bitte zuerst strikt den kanonischen Handoff auf folgendem Branch lesen:
-
 handoff/v2.1.0-current
 
 Zuerst:
 1. HANDOFF_LATEST.md
 2. CURRENT_STATE.json
 
-Danach die dort angegebene Required-Reading-Reihenfolge vollständig einhalten.
+Danach die dort angegebene Required-Reading-Reihenfolge vollständig einhalten. Repository-, GitHub-Actions- und Real-Device-Evidence ist autoritativ gegenüber altem Chatwissen.
 
-Repository-, GitHub-Actions-, Dokumentations- und Real-Device-Evidence ist autoritativ gegenüber altem Chatwissen.
-
-Aktueller main-Stand:
-841630bc7ea8dea2f1fb8d25a4fa41a56d83a6c8
-
-Der öffentliche Release v2.0.0 ist abgeschlossen und unveränderlich.
-Tag v2.0.0 niemals verschieben, neu erzeugen oder ersetzen.
-
-Für v2.1.0 ist die kanonische Produktentscheidung:
-
-docs/product-decisions/v2.1-real-time-timeline-and-coverage.md
-
-Wesentliche neue Produktentscheidung:
-Die Android-App bekommt global eine auswählbare Zeitbasis:
-
-1. LOCAL / Lokale Zeit (empfohlen und Standard)
-   - reale/lokale Zeit ist primär;
-   - Zählerzeit bleibt sekundäre technische Information;
-   - History-/Statistik-Navigator arbeitet in der dem Zähler zugeordneten lokalen Zeitzone und wird intern auf UTC abgebildet;
-   - History verwendet UTC-Overlap-Semantik;
-   - Statistik verwendet explizite Coverage-/Full-Containment-Semantik ohne erfundene Teilperioden.
-
-2. METER / Zählerzeit
-   - rohe Zähler-/Loggerzeit ist primär;
-   - aufgelöste lokale Zeit ist sekundär, sofern zuverlässig verfügbar;
-   - History-/Statistik-Navigator interpretiert Eingaben direkt als rohe Zählerzeit;
-   - keine LOCAL-Partial-Edge-Warnung nur wegen Zeitversatz;
-   - echte Datenlücken, Zählerwechsel und Granularitätsregeln bleiben unverändert relevant.
-
-Die Auswahl ist nur eine Android-Darstellungs-/Navigationspräferenz. Sie darf weder rohe Zählerdaten noch die kanonische UTC-Zeitachse verändern.
-
-Lokale Zeit bedeutet nicht dauerhaft die jeweils aktuelle Handy-Zeitzone.
-Stattdessen bekommt jeder physische Zähler eine eigene zugeordnete IANA-Zeitzone, z. B. Europe/Berlin.
-
-Beim ersten erfolgreichen verifizierten Live-/Default-Read eines Zählers ohne bestehende Zeitzonen-Zuordnung soll grundsätzlich die aktuelle Android-IANA-Zeitzone übernommen und mit Provenienz gespeichert werden, z. B. DEVICE_AT_FIRST_VERIFIED_LIVE.
-Dafür soll keine GPS-/Standortberechtigung eingeführt werden.
-
-Die Zähler-Zeitzone darf später nicht automatisch wechseln, nur weil der Nutzer reist oder das Handy eine andere Zeitzone nutzt. Sie muss in Einstellungen/Zählerdetails einsehbar und manuell änderbar sein. Backup/Restore soll diese per-Zähler-Zeitzone erhalten und darf sie nicht durch die Zeitzone des Restore-Geräts ersetzen.
-
-Home Assistant ist vom Android LOCAL/METER-Schalter unabhängig:
-Ein späterer Home-Assistant-Connector muss immer dieselbe kanonische UTC-Zeitachse verwenden, die auch LOCAL zugrunde liegt. Rohe Zählerzeit darf dort höchstens Diagnose-Metadatum sein, nicht primärer Statistikzeitpunkt.
-
-Besonders wichtig:
-Die v2.1-Arbeit darf nicht mit Änderungen am NFC-Transport beginnen.
-QalcosonicReader.java, MbusParser.java sowie die physisch validierten NFC/Mailbox/Archive-Traversal-Pfade sind geschützt.
-
-Als ersten Arbeitsschritt bitte anhand des aktuellen öffentlichen Codes und der im Handoff genannten eingefrorenen privaten Research-Evidence exakt ermitteln:
-
-- welche Type-F-Zeitinformationen derzeit dekodiert werden;
-- welche raw meter time / Logger-Zeit tatsächlich persistiert wird;
-- ob und wo SU/Summer-Time gespeichert wird;
-- ob und wo On-Time pro Live- bzw. Archivbeobachtung gespeichert wird;
-- welche Android-Acquisition-Time/UTC-Evidence als Real-Time-Anchor vorhanden ist;
-- ob heute bereits irgendeine ZoneId-/Timezone-Evidence persistiert wird;
-- welche dieser Informationen heute in DB, .qw1backup und CSV erhalten bleiben;
-- welche Evidence für einen belastbaren UTC-TimeResolver noch fehlt.
-
-Danach bitte zusätzlich prüfen:
-
-- wie eine per-Zähler-IANA-Zeitzone sauber persistiert und in Backup/Restore erhalten werden sollte;
-- wie die globale LOCAL/METER-Präferenz technisch gekapselt werden sollte;
-- welche bestehenden History-/Statistics-Abfragen auf rohe Loggerzeit fest verdrahtet sind;
-- wie LOCAL- und METER-Navigator-Semantik ohne doppelte oder widersprüchliche Logik umgesetzt werden kann;
-- wie bestehende v2.0-Daten migriert bzw. nach einem neuen validen Live-Anker nachträglich zeitlich aufgelöst werden können;
-- welche deterministischen Tests für DST, Drift, On-Time-Reset, Zählerwechsel, Zeitzonenänderung, Backup/Restore und Coverage nötig sind.
-
-Erst danach einen konkreten v2.1-Datenmodell-, Migrations-, Backup-/Export-, TimeResolver- und Navigator-Plan festlegen.
-
-Für die Implementierung später einen eigenen Entwicklungsbranch vom aktuellen main anlegen, bevorzugt:
-
+Aktiver Entwicklungsbranch:
 dev/v2.1.0-real-time-timeline
 
-Nicht direkt auf dem Handoff-Branch entwickeln.
+Aktueller Entwicklungs-Head:
+2128ef5946d1a7c4886be68758f01113a96dc36e
 
-Bitte nach dem Einlesen zunächst den vorgefundenen Zustand, die relevante Evidence, offene Risiken/Unklarheiten und den vorgeschlagenen ersten v2.1-Implementierungsschnitt zusammenfassen, bevor Repository-Änderungen vorgenommen werden.
+Aktueller funktionaler Code-Checkpoint:
+2191147a96db59b2857af7526fa07826bffc8967
+
+Draft-PR:
+#22 — WIP: add v2.1 real-time timeline foundation
+
+Der v2.1-Zeitmodell-/Query-/UI-Slice ist inzwischen implementiert und CI-grün. Nicht erneut von der Architekturplanung anfangen.
+
+Besonders wichtig umgesetzt sind:
+- global LOCAL / METER, LOCAL als Standard;
+- stabile per-Zähler-IANA-Zeitzone mit Provenienz;
+- verifizierte Live-Zeitanker;
+- occurrence-safe Archividentität für wiederholte rohe Zeitstempel;
+- kanonische UTC-Projektion ohne Überschreiben roher Zählerzeit;
+- LOCAL-History/Statistics über die aufgelöste UTC-Zeitachse;
+- METER als unveränderter raw/floating Kompatibilitätspfad;
+- DST-sichere LOCAL-Bereiche;
+- 23/24/25-Stunden-Statistiknenner;
+- Zählerzeit als sekundäre Evidence in LOCAL;
+- Zeitzonenanzeige/-korrektur in Zählerdetails;
+- explizite LOCAL-Warnungen bei fehlender Zone, nicht sicher auflösbarer Zeitgrenze oder fehlender Archiv-Zeitevidence;
+- schema-3 Backup/Restore mit Zone, Ankern, occurrence identity und globaler Zeitbasis;
+- sechs Sprachen.
+
+Die NFC-/Mailbox-/Archiv-Traversal-Pfade wurden dabei nicht verändert. QalcosonicReader.java, MbusParser.java und die physisch validierten Protokollpfade bleiben geschützt.
+
+Der nächste Gate ist NICHT weitere Architekturarbeit, sondern die begrenzte physische Validierung aus:
+docs/V2_1_REAL_DEVICE_VALIDATION.md
+
+Exakter physischer Testkandidat:
+- Commit 2191147a96db59b2857af7526fa07826bffc8967
+- CI 34316796172: SUCCESS
+- Artifact w1-nfc-reader-debug
+- Artifact ID 10090392521
+- Artifact digest sha256:2f9f873bd426f3d38e9eb67939e52208d96eaa2d99bac8170d61a032d3192441
+- APK SHA-256 773ef13392dc1eb6bb707138d7fb4f11087ad42ab3c08dff3e31430b459262e7
+
+Bitte beim Weiterarbeiten:
+1. den bestehenden Stand verifizieren, nicht neu entwerfen;
+2. PR #22 Draft lassen, solange der Real-Device-Gate offen ist;
+3. VersionName 2.0.0 / VersionCode 43 noch NICHT auf 2.1.0 bumpen;
+4. zuerst die physische A–F-Prüfung begleiten/auswerten;
+5. erst nach erfolgreicher physischer Akzeptanz Version, Changelog/Release Notes und signed Release Candidate vorbereiten;
+6. v2.0.0 und v1.0.0 Tags/Releases niemals verschieben, neu erzeugen oder ersetzen;
+7. keine privaten Meter-IDs, Verbrauchsdaten, Captures oder NFC-Rohdaten öffentlich committen.
+
+Wenn der Nutzer die physische Prüfung noch nicht durchführen kann, darf Release-/Handoff-Dokumentation weiter vorbereitet werden, aber kein stabiler v2.1.0 Release-Kandidat vorgetäuscht oder veröffentlicht werden.
 ```
