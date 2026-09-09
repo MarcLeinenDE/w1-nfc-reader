@@ -12,10 +12,13 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 @RunWith(RobolectricTestRunner.class)
@@ -37,21 +40,7 @@ public final class ArchiveUtcRepositoryTest {
     @Test public void realStoresProjectRepeatedRawHourOccurrencesToDistinctUtc() {
         insertArchive(1L, "2026-10-25 02:00", 22_800L, "OT:22800", 1);
         insertArchive(2L, "2026-10-25 02:00", 26_400L, "OT:26400", 0);
-
-        long center = Instant.parse("2026-10-25T02:30:00Z").toEpochMilli();
-        MeterTimeModelStore timeStore = new MeterTimeModelStore(context);
-        try {
-            VerifiedLiveTimeAnchor anchor = new VerifiedLiveTimeAnchor(
-                    "M1", center - 100L, center + 100L,
-                    "2026-10-25 03:30", "04 6D 1E 03",
-                    false, false, 30_000L);
-            timeStore.recordAnchor(
-                    anchor,
-                    MeterTimeModelStore.ANCHOR_PROVENANCE_VERIFIED_LIVE_DEFAULT,
-                    MeterTimeModelStore.ANCHOR_VALIDATION_COMPLETE);
-        } finally {
-            timeStore.close();
-        }
+        insertAnchor(false);
 
         try (ArchiveUtcRepository repository = new ArchiveUtcRepository(context)) {
             List<ArchiveUtcProjection.Period> projected = repository.project(
@@ -66,6 +55,48 @@ public final class ArchiveUtcRepositoryTest {
             assertTrue(projected.get(1).resolvedInterval());
             assertEquals(3_600_000L,
                     projected.get(1).endUtcMs.longValue() - projected.get(1).startUtcMs.longValue());
+        }
+    }
+
+    @Test public void storedMeterZoneDrivesLocalWindowAndOldestOpenEdgeDoesNotPoisonIt() {
+        insertArchive(1L, "2026-10-25 02:00", 22_800L, "OT:22800", 1);
+        insertArchive(2L, "2026-10-25 02:00", 26_400L, "OT:26400", 0);
+        insertAnchor(true);
+
+        try (ArchiveUtcRepository repository = new ArchiveUtcRepository(context)) {
+            ArchiveWindowCoverage.Result result = repository.coverageLocal(
+                    "M1",
+                    ArchiveFamilyPeriod.Family.HOUR,
+                    LocalDateTime.of(2026, 10, 25, 0, 30),
+                    LocalDateTime.of(2026, 10, 25, 1, 30),
+                    null,
+                    null);
+
+            assertTrue(result.windowResolved());
+            assertEquals("UTC", result.window.zoneId.getId());
+            assertFalse(result.relevantUnresolvedTime);
+            assertEquals(UtcCoverage.Status.EXACT, result.coverage.status);
+            assertEquals(1, result.coverage.fullyContainedIntervals);
+        }
+    }
+
+    @Test public void missingMeterZoneFailsClosedBeforeCoverageMath() {
+        insertArchive(1L, "2026-10-25 02:00", 22_800L, "OT:22800", 1);
+        insertArchive(2L, "2026-10-25 02:00", 26_400L, "OT:26400", 0);
+        insertAnchor(false);
+
+        try (ArchiveUtcRepository repository = new ArchiveUtcRepository(context)) {
+            ArchiveWindowCoverage.Result result = repository.coverageLocal(
+                    "M1",
+                    ArchiveFamilyPeriod.Family.HOUR,
+                    LocalDateTime.of(2026, 10, 25, 0, 30),
+                    LocalDateTime.of(2026, 10, 25, 1, 30),
+                    null,
+                    null);
+
+            assertFalse(result.windowResolved());
+            assertEquals(LocalTimeWindowResolver.Status.ZONE_MISSING, result.window.status);
+            assertNull(result.coverage);
         }
     }
 
@@ -94,6 +125,30 @@ public final class ArchiveUtcRepositoryTest {
                     projected.get(0).endBoundary.status);
             assertEquals(ArchiveUtcProjection.PeriodStatus.END_BOUNDARY_UNRESOLVED,
                     projected.get(0).status);
+        }
+    }
+
+    private void insertAnchor(boolean assignZone) {
+        long center = Instant.parse("2026-10-25T02:30:00Z").toEpochMilli();
+        MeterTimeModelStore timeStore = new MeterTimeModelStore(context);
+        try {
+            VerifiedLiveTimeAnchor anchor = new VerifiedLiveTimeAnchor(
+                    "M1", center - 100L, center + 100L,
+                    "2026-10-25 03:30", "04 6D 1E 03",
+                    false, false, 30_000L);
+            if (assignZone) {
+                timeStore.assignZoneIfMissing(
+                        "M1",
+                        "UTC",
+                        MeterTimeModelStore.ZONE_SOURCE_DEVICE_AT_FIRST_VERIFIED_LIVE,
+                        anchor.anchorEpochMs);
+            }
+            timeStore.recordAnchor(
+                    anchor,
+                    MeterTimeModelStore.ANCHOR_PROVENANCE_VERIFIED_LIVE_DEFAULT,
+                    MeterTimeModelStore.ANCHOR_VALIDATION_COMPLETE);
+        } finally {
+            timeStore.close();
         }
     }
 
