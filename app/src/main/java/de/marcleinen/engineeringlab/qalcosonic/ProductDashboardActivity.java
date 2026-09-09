@@ -141,31 +141,39 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
 
     private void performLiveContact(NfcV nfcv, Tag tag) throws Exception {
         runOnUiThread(() -> setState(R.string.m3_state_reading_title, R.string.m3_state_reading_body));
+        long readBeforeEpochMs = System.currentTimeMillis();
         QalcosonicReader.Readout readout = new QalcosonicReader(nfcv, tag.getId()).read();
+        long readAfterEpochMs = System.currentTimeMillis();
         MbusParser.MeterData meter = MbusParser.parse(readout.meterResponse);
         long now = System.currentTimeMillis();
+        VerifiedLiveTimeAnchor timeAnchor = LiveTimeAnchorPersistence.candidate(
+                meter.meterId, readBeforeEpochMs, readAfterEpochMs, readout);
         String active = lifecycleStore.activeMeterId();
         if (active == null) {
             lifecycleStore.adoptInitialMeter(meter.meterId);
-            persistLive(meter, now);
+            persistLive(meter, now, timeAnchor);
             displayMeterId = meter.meterId;
             runOnUiThread(this::liveAcceptedUi);
             return;
         }
         if (!active.equals(meter.meterId)) {
-            pendingMeter = new PendingMeter(meter, now, active);
+            pendingMeter = new PendingMeter(meter, now, active, timeAnchor);
             runOnUiThread(() -> showNewMeterDialog(pendingMeter));
             return;
         }
-        persistLive(meter, now);
+        persistLive(meter, now, timeAnchor);
         displayMeterId = meter.meterId;
         runOnUiThread(this::liveAcceptedUi);
     }
 
-    private void persistLive(MbusParser.MeterData meter, long atMs) {
+    private void persistLive(
+            MbusParser.MeterData meter,
+            long atMs,
+            VerifiedLiveTimeAnchor timeAnchor) {
         liveMetadataStore.record(meter, atMs);
         liveDetailStore.record(meter, atMs);
         try { liveStore.insertSuccessful(meter, atMs); } catch (RuntimeException ignored) { }
+        LiveTimeAnchorPersistence.persist(this, timeAnchor);
     }
 
     private void liveAcceptedUi() {
@@ -200,7 +208,7 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
     private void acceptReplacement(PendingMeter candidate) {
         if (candidate == null || candidate != pendingMeter) return;
         try {
-            persistLive(candidate.meter, candidate.readAtMs);
+            persistLive(candidate.meter, candidate.readAtMs, candidate.timeAnchor);
             lifecycleStore.confirmReplacement(candidate.previousMeterId, candidate.meter.meterId,
                     candidate.readAtMs, candidate.readAtMs,
                     candidate.meter.waterUsageM3 == null ? 0.0 : candidate.meter.waterUsageM3);
@@ -243,9 +251,9 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
 
     private void startFreshWith(PendingMeter candidate) {
         if (candidate == null || candidate != pendingMeter) return;
-        DataPortability.clearMeterData(this);
+        DataPortabilityV3.clearMeterData(this);
         lifecycleStore.startFresh(candidate.meter.meterId);
-        persistLive(candidate.meter, candidate.readAtMs);
+        persistLive(candidate.meter, candidate.readAtMs, candidate.timeAnchor);
         displayMeterId = candidate.meter.meterId;
         pendingMeter = null;
         liveAcceptedUi();
@@ -683,11 +691,17 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         final MbusParser.MeterData meter;
         final long readAtMs;
         final String previousMeterId;
+        final VerifiedLiveTimeAnchor timeAnchor;
 
-        PendingMeter(MbusParser.MeterData meter, long readAtMs, String previousMeterId) {
+        PendingMeter(
+                MbusParser.MeterData meter,
+                long readAtMs,
+                String previousMeterId,
+                VerifiedLiveTimeAnchor timeAnchor) {
             this.meter = meter;
             this.readAtMs = readAtMs;
             this.previousMeterId = previousMeterId;
+            this.timeAnchor = timeAnchor;
         }
     }
 
