@@ -128,7 +128,7 @@ public final class ArchiveUtcProjectionTest {
             Integer su) {
         return new ArchiveFamilyStore.StoredPeriod(
                 id, meter, ArchiveFamilyPeriod.Family.HOUR, raw,
-                occurrenceKey, ArchiveFamilyPeriod.LOGGER_TIME_BASIS_FLOATING,
+                occurrenceKey, ArchiveFamilyPeriod.TIME_BASIS_METER_LOCAL,
                 onTimeSeconds, rawTypeFHex, iv, su,
                 "2026-09-09T00:00:00Z", 1L,
                 "2026-09-09T00:00:00Z", 1L,
