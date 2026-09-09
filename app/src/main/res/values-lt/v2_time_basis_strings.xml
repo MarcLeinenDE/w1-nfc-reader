@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_time_basis">Laiko rodymas</string>
+    <string name="v21_time_basis_local">Vietinis laikas</string>
+    <string name="v21_time_basis_meter">Skaitiklio laikas</string>
+</resources>
