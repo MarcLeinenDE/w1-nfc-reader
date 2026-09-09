@@ -10,10 +10,17 @@
   },
   "development": {
     "branch": "dev/v2.1.0-real-time-timeline",
-    "head": "50852719e9e93e7a4f921e95156663920756fdc9",
-    "head_commit": "docs: pin corrected live-time validation candidate",
-    "head_ci_run": 34320664008,
+    "head": "404dc90c1f974fb145d80cce23508825d8de16b9",
+    "head_commit": "docs: add public support for v2.1 timing evidence",
+    "head_ci_run": 34362370166,
     "head_ci_conclusion": "success",
+    "head_is_documentation_only": true,
+    "head_docs_compare_base": "50852719e9e93e7a4f921e95156663920756fdc9",
+    "head_docs_changed_files": [
+      "docs/PROTOCOL_SAFETY.md",
+      "docs/V2_1_TIME_MODEL_IMPLEMENTATION.md",
+      "docs/research/PUBLIC_QW1_EVIDENCE.md"
+    ],
     "functional_code_checkpoint": "e4f458d9ff47a088926772a13d9bf19946f4bc48",
     "functional_code_ci_run": 34320334896,
     "functional_code_ci_conclusion": "success",
@@ -39,6 +46,26 @@
       "ci_run": 34316796172,
       "reason": "predates corrected Live LOCAL/METER routing and locale-aware live meter-time presentation"
     }
+  },
+  "public_qw1_evidence": {
+    "document": "docs/research/PUBLIC_QW1_EVIDENCE.md",
+    "status": "supporting documentation only; no functional candidate change",
+    "current_axioma_manual": "QW1_V22.4_EN 2026-05-11",
+    "supported_points": [
+      "Axioma states integrated NFC is intended for data reading only",
+      "Axioma documents total operating time and operating time without error in Hour/Day/Month archives",
+      "nominal logger capacities 1480/1130/36 are informational only and are not traversal limits",
+      "a public 2020 QW1 FCC-era BOM identifies ST25DV04K Fast Transfer Mode hardware for that historical revision",
+      "ST25 hardware evidence is not an implementation dependency"
+    ],
+    "explicit_non_changes": [
+      "no NFC command change",
+      "no parser change",
+      "no archive traversal change",
+      "no sync-depth constant change",
+      "no UTC derivation change",
+      "no hardware-specific dependency"
+    ]
   },
   "v2_1": {
     "status": "implementation feature-complete and CI-green; corrected Live time-basis/i18n candidate pinned; physical validation pending",
@@ -75,7 +102,8 @@
       "explicit LOCAL unresolved-state warnings",
       "six-locale translation coverage",
       "346 unit/Robolectric tests",
-      "debug APK build/signature/SHA/artifact CI"
+      "debug APK build/signature/SHA/artifact CI",
+      "public QW1 supporting evidence documentation with no product-code change"
     ],
     "remaining_gates": [
       "limited real-device validation sections A-F against exact candidate e4f458d9ff47a088926772a13d9bf19946f4bc48",
@@ -112,10 +140,12 @@
     "accepted archive observations are persisted immediately",
     "ambiguous selected requests are never blindly retried",
     "failed later incremental/full re-sync does not erase an authoritative COMPLETE baseline",
+    "semantic terminal/overlap behavior remains authoritative; public nominal logger capacities are not hardcoded traversal limits",
     "never calculate cumulative consumption across meter replacement",
     "no intentional persistent meter/radio/calibration/firmware writes",
     "QalcosonicReader.java, MbusParser.java and validated NFC/mailbox/archive traversal paths are protected",
-    "raw meter/logger time remains preserved source evidence"
+    "raw meter/logger time remains preserved source evidence",
+    "public hardware evidence never creates an ST25- or revision-specific product dependency"
   ],
   "private_research": {
     "repository": "MarcLeinenDE/engineering-lab",
