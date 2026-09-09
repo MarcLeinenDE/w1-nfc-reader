@@ -6,12 +6,12 @@ v2.1 introduces a conservative real-time timeline without changing the proven NF
 
 ## Time bases
 
-The application exposes one global presentation/query preference:
+The Android app exposes one global presentation/query preference:
 
 - `LOCAL` — default. Archive periods are selected and ordered on the resolved UTC timeline and presented in the persisted per-meter IANA zone.
 - `METER` — compatibility path. Existing floating/raw meter/logger wall-clock semantics remain available unchanged.
 
-Changing this preference never rewrites stored archive measurements or raw meter timestamps.
+Changing this preference never rewrites stored archive measurements, raw meter timestamps or the canonical integration-facing UTC contract.
 
 ## Per-meter time model
 
@@ -22,11 +22,11 @@ Changing this preference never rewrites stored archive measurements or raw meter
 - verified Live acquisition anchors with Android before/after epoch bounds and uncertainty;
 - anchor validation/provenance metadata.
 
-The first automatic zone assignment is stable: a later phone timezone change cannot silently replace an already assigned meter zone. Manual changes use the explicit `USER_SELECTED` provenance.
+The first automatic zone assignment is stable: a later phone timezone change cannot silently replace an already assigned meter zone. Meter Details exposes the persisted zone and provenance and permits an explicit validated user correction. Manual changes use `USER_SELECTED`, preserve the original assignment time and never rewrite raw meter/archive data. Fixed numeric offsets remain rejected as durable meter zones.
 
 ## Archive occurrence identity
 
-Archive identity is occurrence-safe and does not use derived UTC as the native key. The persisted identity is based on:
+Archive identity is occurrence-safe and does not use derived UTC as the native key:
 
 `meter_id + archive_family + raw_logger_timestamp + occurrence_key`
 
@@ -45,7 +45,7 @@ This permits two physical archive periods to keep the same raw wall-clock timest
 Key rules:
 
 - ON_TIME progression is preferred for occurrence ordering and UTC reconstruction when supported by verified anchors.
-- raw meter/logger clock alignment is diagnostic evidence only; a small stable wall-clock origin offset is not allowed to rewrite canonical UTC.
+- raw meter/logger clock alignment is diagnostic evidence only; a stable wall-clock origin offset is not allowed to rewrite canonical UTC.
 - unresolved evidence stays unresolved; the implementation does not invent UTC, offsets or timezone information.
 
 ## LOCAL range semantics
@@ -53,10 +53,10 @@ Key rules:
 LOCAL navigator input is interpreted in the meter-assigned IANA zone and converted to canonical UTC boundaries. DST transitions are explicit:
 
 - nonexistent local times are rejected;
-- repeated local times require disambiguation where an exact boundary would otherwise be ambiguous;
+- repeated local times are not guessed;
 - selection and ordering operate on UTC occurrences, not formatted wall time.
 
-Coverage distinguishes exact, partial-edge, overlap-only, gap and unresolved-time states.
+Coverage distinguishes `EXACT`, `PARTIAL_EDGES`, `OVERLAP_ONLY`, `GAP` and `UNRESOLVED_TIME`.
 
 ## History and Statistics routing
 
@@ -66,31 +66,30 @@ Coverage distinguishes exact, partial-edge, overlap-only, gap and unresolved-tim
 - In `LOCAL`, archive queries delegate to the resolved UTC read model while Live rows retain their real device epoch.
 - The LOCAL adapter uses an internal raw-only repository to avoid recursion and keeps measurement mapping single-sourced.
 - Deltas receive the occurrence-safe real predecessor as context.
-
-The same repository instance reacts dynamically to a changed global time-basis preference.
+- The same repository instance reacts dynamically to a changed global time-basis preference.
 
 ## DST-aware Statistics completeness
 
-Hourly Statistics no longer assume every civil day contains 24 real hours in LOCAL mode.
-
-`HistoryLocalBucketExpectation` resolves the selected local calendar boundaries through the persisted meter zone and counts only complete real hourly intervals:
+Hourly Statistics no longer assume every civil day contains 24 real hours in LOCAL mode. `HistoryLocalBucketExpectation` resolves selected local calendar boundaries through the persisted meter zone and counts only complete real hourly intervals:
 
 - normal civil day: 24;
 - spring-forward day: 23;
 - fall-back day: 25.
 
-If a participating meter has no persisted zone, a boundary is unsafe/ambiguous, or participating meter zones produce inconsistent expectations, the LOCAL expected-bucket count fails closed to count-only coverage instead of guessing 24.
+If participating archive evidence has no persisted zone, a boundary is unsafe/ambiguous, or participating zones produce inconsistent expectations, the expected-bucket count fails closed instead of inventing 24. `METER` retains the previous floating-time expectation semantics. Chart coverage and KPI total/known-total decisions use the same expected-bucket definition.
 
-`METER` retains the previous floating-time expected-bucket semantics.
-
-The same expected-bucket value drives chart coverage and the Statistics KPI decision between total and known-total, preventing competing completeness definitions.
-
-## Presentation
+## Presentation and failure transparency
 
 - Settings exposes the global `Local time / Meter time` switch; `LOCAL` is the default.
 - History/Statistics rerenders after returning from Settings only when the time basis actually changed.
-- LOCAL History cards retain the raw meter/logger time as secondary evidence rather than hiding it.
-- Ambiguous DST periods expose offsets only when needed for disambiguation; ordinary rows avoid unnecessary UTC-offset noise.
+- LOCAL History cards retain raw meter/logger time as secondary evidence.
+- Meter Details exposes per-meter IANA zone and provenance and permits validated manual correction.
+- LOCAL History/Statistics now distinguish and explicitly explain:
+  - missing per-meter timezone;
+  - unsafe/ambiguous/nonexistent LOCAL range boundaries;
+  - archive periods whose timing evidence is insufficient for a safe LOCAL projection.
+- Meters without archive evidence for the currently selected granularity do not create false missing-zone warnings.
+- Raw data remains accessible through `METER` when LOCAL projection is not trustworthy.
 
 ## Portability
 
@@ -101,30 +100,42 @@ Schema-3 `.qw1backup` preserves:
 - occurrence-safe archive envelope;
 - global time-basis preference.
 
-Schema-2 restore remains supported and does not fabricate missing zone, Type-F, IV/SU or anchor evidence. Restoring on a device in another timezone preserves the backed-up meter timezone rather than adopting the current phone timezone.
+Schema-2 restore remains supported and does not fabricate missing zone, Type-F, IV/SU or anchor evidence. Restoring on a device in another timezone preserves the backed-up meter timezone rather than adopting the receiving phone timezone.
 
-## Current verification checkpoint
+## Verification checkpoints
 
-Android CI run `34313028533` is fully green for commit `ceec923ce90804689d350c4ff92ddcf7a4cf2b1d`:
+### Time-basis / DST checkpoint
+
+Android CI run `34313028533` was fully green for commit `ceec923ce90804689d350c4ff92ddcf7a4cf2b1d`, including translations, unit tests, debug APK build, signature verification, SHA recording and artifact upload.
+
+### Per-meter timezone UI checkpoint
+
+Android CI run `34313630120` was fully green for commit `3f134673b636c7464a6e0f3a9a2596b05867de16`.
+
+### LOCAL resolution transparency checkpoint
+
+Android CI run `34316796172` is the current green code checkpoint for commit `2191147a96db59b2857af7526fa07826bffc8967`:
 
 - product translation contract: success;
-- 332 unit tests: success;
+- unit/Robolectric tests: success;
 - debug APK build: success;
 - APK signature verification: success;
 - APK SHA-256 recording: success;
 - artifact upload: success.
 
-Artifact `w1-nfc-reader-debug` has digest:
-
-`sha256:6aa2c2c3b1afcc1272209f593639a2e66dc7383a281e76aab783bf4c72657262`
+Artifact:
+- name: `w1-nfc-reader-debug`
+- artifact id: `10090392521`
+- digest: `sha256:2f9f873bd426f3d38e9eb67939e52208d96eaa2d99bac8170d61a032d3192441`
 
 ## Safety boundary
 
-The timeline implementation is passive with respect to the meter protocol. It does not introduce new NFC commands, alter mailbox behavior, change archive traversal semantics, or reinterpret protected parser fields. Time-model persistence, UTC projection, query routing and presentation are downstream of the existing acquisition path.
+The timeline implementation is passive with respect to the meter protocol. It does not introduce new NFC commands, alter mailbox behavior, change archive traversal semantics, or reinterpret protected parser fields. `QalcosonicReader.java`, `MbusParser.java` and the physically validated NFC/mailbox/archive traversal paths remain protected.
 
-## Remaining implementation gates
+## Remaining release gates
 
-1. expose the persisted per-meter IANA timezone and provenance in Meter Details and allow an explicit, validated user correction without changing raw meter data;
-2. make missing/unresolved meter-zone state clearly visible where LOCAL presentation cannot be resolved;
-3. perform limited real-device validation of the complete v2.1 time-model/query/UI path;
-4. update release/handoff documentation and complete release hardening.
+1. perform limited real-device validation of the complete v2.1 time-model/query/UI path using `docs/V2_1_REAL_DEVICE_VALIDATION.md`;
+2. after physical acceptance, advance the stable release identity/version metadata and curated changelog/release notes;
+3. run the normal signed release-candidate/release workflow and preserve the existing immutable v2.0.0 release/tag.
+
+Do not mark PR #22 ready or merge it solely from CI evidence. Real-device evidence remains a release gate.
