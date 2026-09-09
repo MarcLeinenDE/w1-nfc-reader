@@ -1,6 +1,7 @@
 package de.marcleinen.engineeringlab.qalcosonic;
 
 import android.content.Context;
+import android.database.Cursor;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -16,6 +17,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -128,6 +131,51 @@ public final class DataPortabilityV3Test {
         assertEquals(1, preview.hourPeriods);
     }
 
+    @Test public void schema3RoundTripPreservesRepeatedRawTimestampAndConflictParentOccurrence() throws Exception {
+        new MeterLifecycleStore(context).adoptInitialMeter("M1");
+        String repeated = "2026-10-25 02:00";
+        try (ArchiveFamilyStore archive = new ArchiveFamilyStore(context)) {
+            ArchiveFamilyPeriod first = archivePeriod(repeated, "10.000 m3", "100000 s", "shape-a");
+            ArchiveFamilyPeriod second = archivePeriod(repeated, "20.000 m3", "103600 s", "shape-b");
+            ArchiveFamilyPeriod changedFirst = archivePeriod(repeated, "10.100 m3", "100000 s", "shape-a");
+            assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED, archive.upsert("M1", first));
+            assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED, archive.upsert("M1", second));
+            assertEquals(ArchivePersistenceCoordinator.WriteOutcome.CONFLICT_RECORDED,
+                    archive.upsert("M1", changedFirst));
+        }
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        DataPortabilityV3.writeBackup(context, out);
+        byte[] backup = out.toByteArray();
+        JSONObject data = dataJson(backup);
+        JSONArray portablePeriods = data.getJSONArray("archive_periods_v2");
+        assertEquals(2, portablePeriods.length());
+        Set<String> portableOccurrences = new HashSet<>();
+        for (int i = 0; i < portablePeriods.length(); i++) {
+            portableOccurrences.add(portablePeriods.getJSONObject(i).getString("occurrence_key"));
+        }
+        assertTrue(portableOccurrences.contains("OT:100000"));
+        assertTrue(portableOccurrences.contains("OT:103600"));
+        assertEquals(1, data.getJSONArray("archive_conflicts_v2").length());
+        assertEquals("OT:100000",
+                data.getJSONArray("archive_conflicts_v2").getJSONObject(0).getString("occurrence_key"));
+
+        DataPortabilityV3.clearMeterData(context);
+        DataPortabilityV3.restoreBackup(context, backup);
+
+        try (ArchiveFamilyStore restored = new ArchiveFamilyStore(context)) {
+            assertEquals(2, restored.getPeriods("M1", ArchiveFamilyPeriod.Family.HOUR).size());
+            assertEquals(1, restored.conflictCount("M1", ArchiveFamilyPeriod.Family.HOUR, repeated));
+            try (Cursor c = restored.getReadableDatabase().rawQuery(
+                    "SELECT p.occurrence_key FROM " + ArchiveFamilyStore.TABLE_CONFLICTS + " c JOIN "
+                            + ArchiveFamilyStore.TABLE_PERIODS + " p ON p.id=c.archive_period_id",
+                    null)) {
+                assertTrue(c.moveToFirst());
+                assertEquals("OT:100000", c.getString(0));
+            }
+        }
+    }
+
     @Test public void legacySchema2RestoreDoesNotInventTimeModelEvidence() throws Exception {
         new MeterLifecycleStore(context).adoptInitialMeter("M1");
         ByteArrayOutputStream legacy = new ByteArrayOutputStream();
@@ -181,6 +229,19 @@ public final class DataPortabilityV3Test {
         DataPortability.BackupPreview preview = DataPortabilityV3.inspectBackup(
                 new ByteArrayInputStream(legacy.toByteArray()));
         assertEquals("M1", preview.activeMeterId);
+    }
+
+    private static ArchiveFamilyPeriod archivePeriod(String timestamp, String total, String onTime, String shape) {
+        ArchiveNormalizedValues.Builder values = ArchiveNormalizedValues.builder().totalVolume(total);
+        values.onTime = onTime;
+        return new ArchiveFamilyPeriod(
+                ArchiveFamilyPeriod.Family.HOUR,
+                timestamp,
+                "2026-10-25T03:30:00Z",
+                shape,
+                "NFC_ARCHIVE",
+                "COMPLETE",
+                values.build());
     }
 
     private static JSONObject dataJson(byte[] backup) throws Exception {
