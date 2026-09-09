@@ -36,14 +36,17 @@ Active development branch:
 - `dev/v2.1.0-real-time-timeline`
 
 Current development head:
-- `2128ef5946d1a7c4886be68758f01113a96dc36e`
-- commit: `docs: prepare v2.1 real-device validation gate`
-- Android CI run `34317123342`: SUCCESS
+- `50852719e9e93e7a4f921e95156663920756fdc9`
+- commit: `docs: pin corrected live-time validation candidate`
+- Android CI run `34320664008`: SUCCESS
+- this head is documentation-only on top of the functional candidate below.
 
-Current functional/code checkpoint immediately below the docs-only commit:
-- `2191147a96db59b2857af7526fa07826bffc8967`
-- commit: `feat: explain unresolved local-time history`
-- Android CI run `34316796172`: SUCCESS
+Exact functional/code checkpoint:
+- `e4f458d9ff47a088926772a13d9bf19946f4bc48`
+- commit: `test: relax time-basis presentation source contracts`
+- Android CI run `34320334896`: SUCCESS
+- 346 tests passed
+- product i18n contract: 227 translatable keys across 6 locales
 
 Open Draft PR:
 - `#22 — WIP: add v2.1 real-time timeline foundation`
@@ -53,16 +56,23 @@ Open Draft PR:
 
 ## 3. Exact physical validation candidate
 
-Use the CI artifact from the functional code checkpoint, not a later documentation-only build:
+Use this exact CI artifact for the next physical A–F validation:
 
-- source commit: `2191147a96db59b2857af7526fa07826bffc8967`
-- Actions run: `34316796172`
+- source commit: `e4f458d9ff47a088926772a13d9bf19946f4bc48`
+- Actions run: `34320334896`
 - artifact: `w1-nfc-reader-debug`
-- artifact id: `10090392521`
-- artifact digest: `sha256:2f9f873bd426f3d38e9eb67939e52208d96eaa2d99bac8170d61a032d3192441`
-- APK SHA-256 from the artifact's `SHA256SUMS.txt`: `773ef13392dc1eb6bb707138d7fb4f11087ad42ab3c08dff3e31430b459262e7`
+- artifact id: `10091656517`
+- artifact digest: `sha256:a7ad4eb0c09a331836a508cd3e3e96210fa8966710502a0ab8a3d7feb1eae775`
+- APK SHA-256: `44d8896f92b10c586eb4ae51a0c05ff7118f87c8656e43ba14393ca11487e95a`
 
 Debug uses the `.dev` application-id suffix and can coexist with the stable app.
+
+The previous candidate:
+- `2191147a96db59b2857af7526fa07826bffc8967`
+- CI `34316796172`
+- artifact id `10090392521`
+
+is **obsolete and must not be used for v2.1 physical acceptance**. It predates the corrected Live LOCAL/METER routing and locale-aware Live meter-time presentation.
 
 The physical sequence and acceptance rules are canonical in:
 - `docs/V2_1_REAL_DEVICE_VALIDATION.md`
@@ -74,7 +84,6 @@ The implementation is feature-complete for the planned real-time timeline slice 
 Implemented:
 
 - global Android `LOCAL` / `METER` time-basis preference; `LOCAL` is default;
-- existing raw/floating METER History/Statistics semantics retained as compatibility path;
 - verified Live acquisition anchors from the production default-read path;
 - stable per-meter IANA timezone assignment after first verified Live read;
 - explicit per-meter timezone display/provenance/editing in Meter Details;
@@ -84,17 +93,21 @@ Implemented:
 - passive archive timing evidence persisted without changing traversal semantics;
 - canonical UTC projection from retained evidence, fail-closed when evidence is insufficient;
 - LOCAL History/Statistics query routing over resolved UTC intervals;
+- LOCAL Live rows use the real Android acquisition epoch for bounded selection/order;
+- METER Live rows use `meter_time` for bounded selection, order and predecessor context;
+- METER bounded periods do not silently include a Live row with missing meter time by falling back to phone time;
 - occurrence-safe predecessor context for consumption deltas;
 - LOCAL navigator/range DST handling without guessing nonexistent or repeated local times;
 - hourly LOCAL Statistics expected buckets use real civil-day duration: 23/24/25 hours as applicable;
 - missing zone/ambiguous boundary/inconsistent zone evidence fails closed instead of assuming 24;
 - chart coverage and KPI known-total logic share one expected-bucket definition;
 - raw meter/logger time remains visible as secondary evidence in LOCAL History;
+- METER History can show resolved local time as secondary evidence when trustworthy;
+- Live meter time is formatted locale-aware in Overview, History and Meter Details instead of exposing the raw stored `yyyy-MM-dd HH:mm` form;
+- raw meter time remains unchanged in persistence/backup; only product presentation/query semantics changed;
+- German example for raw `2026-09-09 14:05`: `09.09.2026 · 14:05`;
 - History/Statistics rerender after a LOCAL/METER setting change;
-- explicit LOCAL warnings distinguish:
-  - missing meter timezone;
-  - unsafe/ambiguous/nonexistent LOCAL boundary;
-  - insufficient archive timing evidence;
+- explicit LOCAL warnings distinguish missing meter timezone, unsafe/ambiguous/nonexistent LOCAL boundary and insufficient archive timing evidence;
 - meters without data for the selected archive granularity do not create false zone warnings;
 - schema-3 backup/restore preserves time-basis preference, per-meter zones, verified anchors and occurrence-safe archive data;
 - schema-2 restore remains supported without inventing missing timing evidence;
@@ -140,10 +153,12 @@ Run sections A–F from `docs/V2_1_REAL_DEVICE_VALIDATION.md` using the exact ca
 
 A. install / confirm LOCAL default;
 B. protected normal Live read + automatic zone assignment;
-C. LOCAL History/Statistics smoke;
-D. LOCAL ↔ METER switch and immediate rerender;
+C. LOCAL History/Statistics smoke, including locale-aware raw meter-time secondary evidence;
+D. LOCAL ↔ METER switch and immediate rerender; verify Live rows/ranges actually follow the selected basis, not only the label;
 E. timezone edit-dialog invalid-input smoke (no successful production-zone mutation required);
 F. final normal Live regression read.
+
+During the physical smoke also verify on German UI that Live meter time is no longer shown as raw `yyyy-MM-dd HH:mm`, but in locale-aware German form.
 
 After A–F pass:
 
