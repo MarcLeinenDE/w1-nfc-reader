@@ -142,7 +142,7 @@ public final class ArchiveWindowCoverageTest {
                 MeterTimeResolver.Status.RESOLVED,
                 MeterTimeResolver.ClockRelation.ALIGNED,
                 0L,
-                MeterTimeResolver.METHOD_ON_TIME_LIVE_ANCHOR_V1);
+                MeterTimeResolver.METHOD_ON_TIME_LIVE_ANCHOR);
     }
 
     private static ArchiveUtcProjection.Boundary unresolvedBoundary() {
