@@ -10,37 +10,51 @@
   },
   "development": {
     "branch": "dev/v2.1.0-real-time-timeline",
-    "head": "2128ef5946d1a7c4886be68758f01113a96dc36e",
-    "head_commit": "docs: prepare v2.1 real-device validation gate",
-    "head_ci_run": 34317123342,
+    "head": "50852719e9e93e7a4f921e95156663920756fdc9",
+    "head_commit": "docs: pin corrected live-time validation candidate",
+    "head_ci_run": 34320664008,
     "head_ci_conclusion": "success",
-    "functional_code_checkpoint": "2191147a96db59b2857af7526fa07826bffc8967",
-    "functional_code_ci_run": 34316796172,
+    "functional_code_checkpoint": "e4f458d9ff47a088926772a13d9bf19946f4bc48",
+    "functional_code_ci_run": 34320334896,
     "functional_code_ci_conclusion": "success",
+    "unit_test_count": 346,
+    "translation_key_count": 227,
+    "translation_locale_count": 6,
     "pull_request": 22,
     "pull_request_state": "open",
     "pull_request_draft": true,
     "pull_request_base": "main"
   },
   "physical_validation_candidate": {
-    "source_commit": "2191147a96db59b2857af7526fa07826bffc8967",
-    "ci_run": 34316796172,
+    "source_commit": "e4f458d9ff47a088926772a13d9bf19946f4bc48",
+    "ci_run": 34320334896,
     "artifact_name": "w1-nfc-reader-debug",
-    "artifact_id": 10090392521,
-    "artifact_digest": "sha256:2f9f873bd426f3d38e9eb67939e52208d96eaa2d99bac8170d61a032d3192441",
-    "apk_sha256": "773ef13392dc1eb6bb707138d7fb4f11087ad42ab3c08dff3e31430b459262e7",
+    "artifact_id": 10091656517,
+    "artifact_digest": "sha256:a7ad4eb0c09a331836a508cd3e3e96210fa8966710502a0ab8a3d7feb1eae775",
+    "apk_sha256": "44d8896f92b10c586eb4ae51a0c05ff7118f87c8656e43ba14393ca11487e95a",
     "validation_document": "docs/V2_1_REAL_DEVICE_VALIDATION.md",
-    "status": "ready for limited real-device validation"
+    "status": "ready for limited real-device validation",
+    "supersedes": {
+      "source_commit": "2191147a96db59b2857af7526fa07826bffc8967",
+      "ci_run": 34316796172,
+      "reason": "predates corrected Live LOCAL/METER routing and locale-aware live meter-time presentation"
+    }
   },
   "v2_1": {
-    "status": "implementation feature-complete and CI-green; physical validation pending",
+    "status": "implementation feature-complete and CI-green; corrected Live time-basis/i18n candidate pinned; physical validation pending",
     "canonical_decision": "docs/product-decisions/v2.1-real-time-timeline-and-coverage.md",
     "implementation_document": "docs/V2_1_TIME_MODEL_IMPLEMENTATION.md",
     "app_time_basis": {
       "default": "LOCAL",
       "values": ["LOCAL", "METER"],
-      "local_mode": "canonical UTC selection plus per-meter IANA local presentation; raw meter time retained as secondary evidence",
-      "meter_mode": "existing raw/floating meter/logger time semantics retained as compatibility path"
+      "local_mode": "canonical UTC selection plus per-meter IANA local presentation; Live rows use real Android acquisition epoch and raw meter time remains secondary evidence",
+      "meter_mode": "raw/floating meter/logger semantics; Live bounded-period selection/order/predecessor context use meter_time rather than Android read time"
+    },
+    "live_time_presentation": {
+      "raw_storage_unchanged": true,
+      "locale_aware_ui": true,
+      "surfaces": ["Overview", "History", "Meter Details"],
+      "example_de": "09.09.2026 · 14:05"
     },
     "completed_gates": [
       "verified Live acquisition-anchor model and production persistence",
@@ -50,16 +64,22 @@
       "schema-3 backup/restore with schema-2 compatibility",
       "LOCAL/METER Settings preference and dynamic query routing",
       "LOCAL History/Statistics UTC selection and occurrence-safe predecessor context",
+      "METER Live range selection/order/predecessor context by meter_time",
+      "LOCAL Live ordering by real Android acquisition epoch",
+      "locale-aware Live meter-time presentation without changing raw persistence",
       "DST-safe local range resolution",
       "23/24/25-hour LOCAL Statistics completeness",
       "raw meter time secondary evidence in LOCAL History",
+      "resolved local time secondary evidence in METER History when trustworthy",
       "per-meter timezone display and validated edit UI",
       "explicit LOCAL unresolved-state warnings",
       "six-locale translation coverage",
+      "346 unit/Robolectric tests",
       "debug APK build/signature/SHA/artifact CI"
     ],
     "remaining_gates": [
-      "limited real-device validation sections A-F",
+      "limited real-device validation sections A-F against exact candidate e4f458d9ff47a088926772a13d9bf19946f4bc48",
+      "explicit physical smoke of LOCAL/METER Live time behavior and locale-aware meter-time display",
       "after physical acceptance: stable version bump and curated changelog/release notes",
       "signed release candidate and exact-candidate physical acceptance",
       "publication without moving/replacing immutable prior tags"
@@ -104,5 +124,5 @@
     "head": "65358d55ee52a6911ab4fa8d1a66bc0d0dda0fd0",
     "rule": "Consult only if protocol/time-evidence behavior itself must be revisited; never publish private evidence."
   },
-  "next_action": "Run docs/V2_1_REAL_DEVICE_VALIDATION.md sections A-F against the exact functional candidate 2191147a96db59b2857af7526fa07826bffc8967. Keep PR #22 draft and do not bump to v2.1.0 until physical acceptance."
+  "next_action": "Run docs/V2_1_REAL_DEVICE_VALIDATION.md sections A-F against exact candidate e4f458d9ff47a088926772a13d9bf19946f4bc48 / CI 34320334896 / artifact 10091656517. Keep PR #22 draft and do not bump to v2.1.0 until physical acceptance."
 }
