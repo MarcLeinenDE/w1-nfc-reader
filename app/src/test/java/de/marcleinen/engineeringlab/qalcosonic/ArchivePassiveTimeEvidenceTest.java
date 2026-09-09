@@ -42,7 +42,7 @@ public final class ArchivePassiveTimeEvidenceTest {
 
         ArchiveFamilyPeriod period = period("2026-07-01 09:15", "1234 s", time);
         assertEquals("OT:1234", period.occurrenceKey());
-        assertEquals("0F 89 21 37", period.rawTypeFHex);
+        assertEquals("0F 89 41 37", period.rawTypeFHex);
         assertEquals(Integer.valueOf(0), period.typeFIv);
         assertEquals(Integer.valueOf(1), period.typeFSu);
 
@@ -51,7 +51,7 @@ public final class ArchivePassiveTimeEvidenceTest {
                 "M1", ArchiveFamilyPeriod.Family.HOUR).get(0);
         assertEquals("OT:1234", stored.occurrenceKey);
         assertEquals(Long.valueOf(1234L), stored.onTimeSeconds);
-        assertEquals("0F 89 21 37", stored.rawTypeFHex);
+        assertEquals("0F 89 41 37", stored.rawTypeFHex);
         assertEquals(Integer.valueOf(0), stored.typeFIv);
         assertEquals(Integer.valueOf(1), stored.typeFSu);
     }
@@ -63,16 +63,16 @@ public final class ArchivePassiveTimeEvidenceTest {
         assertNull(time.onTimeSeconds);
 
         ArchiveFamilyPeriod period = period("2026-01-02 03:04", null, time);
-        assertEquals("TF:84836231", period.occurrenceKey());
+        assertEquals("TF:84034231", period.occurrenceKey());
         assertEquals(Integer.valueOf(1), period.typeFIv);
         assertEquals(Integer.valueOf(0), period.typeFSu);
 
         assertEquals(ArchivePersistenceCoordinator.WriteOutcome.INSERTED, store.upsert("M1", period));
         ArchiveFamilyStore.StoredPeriod stored = store.getPeriods(
                 "M1", ArchiveFamilyPeriod.Family.HOUR).get(0);
-        assertEquals("TF:84836231", stored.occurrenceKey);
+        assertEquals("TF:84034231", stored.occurrenceKey);
         assertNull(stored.onTimeSeconds);
-        assertEquals("84 03 62 31", stored.rawTypeFHex);
+        assertEquals("84 03 42 31", stored.rawTypeFHex);
         assertEquals(Integer.valueOf(1), stored.typeFIv);
         assertEquals(Integer.valueOf(0), stored.typeFSu);
     }
@@ -98,7 +98,7 @@ public final class ArchivePassiveTimeEvidenceTest {
         assertEquals(2, stored.observationCount);
         assertEquals(0, stored.revisionCount);
         assertEquals(0, stored.conflictFlags);
-        assertEquals("0F 89 21 37", stored.rawTypeFHex);
+        assertEquals("0F 89 41 37", stored.rawTypeFHex);
         assertEquals(Integer.valueOf(0), stored.typeFIv);
         assertEquals(Integer.valueOf(1), stored.typeFSu);
     }
