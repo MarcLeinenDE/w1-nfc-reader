@@ -1,5 +1,5 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "project": "W1 NFC Reader",
   "date": "2026-09-10",
   "public_repository": "MarcLeinenDE/w1-nfc-reader",
@@ -10,15 +10,12 @@
   },
   "development": {
     "branch": "dev/v2.1.0-real-time-timeline",
-    "head": "404dc90c1f974fb145d80cce23508825d8de16b9",
-    "head_commit": "docs: add public support for v2.1 timing evidence",
-    "head_ci_run": 34362370166,
+    "head": "474067fbdf51ad3b892053bd5694a7ffcea765d8",
+    "head_commit": "test: bound LOCAL family regression to resolved coverage",
+    "functional_local_fix_root": "854b358bca24f43c360ecfde8897de0e0af5c5e3",
+    "head_ci_run": 34512260812,
     "head_ci_conclusion": "success",
-    "head_is_documentation_only": true,
-    "functional_code_checkpoint": "e4f458d9ff47a088926772a13d9bf19946f4bc48",
-    "functional_code_ci_run": 34320334896,
-    "functional_code_ci_conclusion": "success",
-    "unit_test_count": 346,
+    "unit_test_count": 355,
     "translation_key_count": 227,
     "translation_locale_count": 6,
     "pull_request": 22,
@@ -27,24 +24,24 @@
     "pull_request_base": "main"
   },
   "physical_validation_candidate": {
-    "source_commit": "e4f458d9ff47a088926772a13d9bf19946f4bc48",
-    "ci_run": 34320334896,
+    "source_commit": "474067fbdf51ad3b892053bd5694a7ffcea765d8",
+    "ci_run": 34512260812,
     "artifact_name": "w1-nfc-reader-debug",
-    "artifact_id": 10091656517,
-    "artifact_digest": "sha256:a7ad4eb0c09a331836a508cd3e3e96210fa8966710502a0ab8a3d7feb1eae775",
-    "apk_sha256": "44d8896f92b10c586eb4ae51a0c05ff7118f87c8656e43ba14393ca11487e95a",
+    "artifact_id": 10166329385,
+    "artifact_zip_sha256": "4bc1f9d4ca039612d1463168600b3e0c9572b9074b67d9055d57f716ac9b9067",
+    "apk_sha256": "82fb77ce20d7bd6592aa694a7bc38371928c52952673b3f93e690a44176eaa8c",
+    "artifact_integrity": "independently verified after CI: downloaded ZIP digest, SHA256SUMS.txt and actual APK hash all match",
     "validation_document": "docs/V2_1_REAL_DEVICE_VALIDATION.md",
-    "status": "physical validation in progress",
+    "status": "replacement candidate awaiting selective physical retest C-F",
     "supersedes": {
-      "source_commit": "2191147a96db59b2857af7526fa07826bffc8967",
-      "ci_run": 34316796172,
-      "reason": "predates corrected Live LOCAL/METER routing and locale-aware live meter-time presentation"
+      "source_commit": "e4f458d9ff47a088926772a13d9bf19946f4bc48",
+      "reason": "real-device Section C exposed downstream LOCAL History/Statistics period-assignment defect"
     }
   },
   "physical_validation_progress": {
     "date": "2026-09-10",
     "section_a": {
-      "status": "partial-pass",
+      "status": "partial-pass-on-former-candidate",
       "confirmed": [
         "debug candidate installed and usable",
         "LOCAL mode in use",
@@ -52,10 +49,11 @@
       ],
       "not_explicitly_recorded": [
         "fresh debug-app state showed Local time as default before any setting change"
-      ]
+      ],
+      "retest_required_for_local_fix": false
     },
     "section_b": {
-      "status": "pass-with-minor-ui-note",
+      "status": "pass-with-minor-ui-note-on-former-candidate",
       "confirmed": [
         "normal protected Live NFC read succeeds on real meter",
         "German locale formatting of Live meter time is correct",
@@ -64,25 +62,49 @@
         "Meter Details meter time is German locale formatted",
         "no unintended automatic History synchronization reported"
       ],
-      "minor_ui_note": "Meter Details timestamp labelled 'Am Handy ausgelesen' is correctly localized but lacks the centered separator dot between date and time used by other product timestamps. Treat as cosmetic presentation consistency issue, not NFC/time-model failure; do not replace candidate mid-test solely for this."
+      "minor_ui_note": "Meter Details timestamp labelled 'Am Handy ausgelesen' is correctly localized but lacks the centered separator dot between date and time used by other product timestamps.",
+      "retest_required_for_local_fix": false,
+      "final_protected_regression_covered_by": "Section F normal Live read"
     },
     "section_c": {
-      "status": "next",
-      "instructions": [
-        "stay in LOCAL mode",
-        "inspect History Live primary real acquisition time and secondary meter time",
-        "inspect Hour/Day/Month primary resolved local time and secondary raw meter/logger time",
-        "check chronological plausibility and absence of false missing-zone warning",
-        "if no archive data exists, run only normal explicit History synchronization",
-        "inspect bounded Statistics range for plausible coverage/values and no invented zero total",
-        "screenshots are welcome in the next project chat"
-      ]
+      "status": "failed-on-former-candidate; fix CI-green; selective physical retest required",
+      "failed_candidate": "e4f458d9ff47a088926772a13d9bf19946f4bc48",
+      "root_cause": [
+        "LOCAL Statistics treated projected physical interval adjacency like civil calendar adjacency across DST",
+        "valid archive period could be dropped across a timezone offset transition",
+        "statistics/chart period ownership reused predecessor token and could shift a value to the preceding period"
+      ],
+      "replacement_candidate": "474067fbdf51ad3b892053bd5694a7ffcea765d8"
     },
-    "sections_d_e_f": "pending"
+    "section_d": "pending-selective-retest",
+    "section_e": "pending-selective-retest",
+    "section_f": "pending-final-normal-live-regression"
+  },
+  "local_time_model_hardening": {
+    "canonical_rule": "canonical UTC interval identity is authoritative; IANA LOCAL is a reversible query/presentation projection and never rewrites archive ownership",
+    "native_physical_durations": {
+      "HOUR": "exactly 1 elapsed hour",
+      "DAY": "exactly 24 elapsed hours",
+      "MONTH": "exactly 28, 29, 30 or 31 elapsed days",
+      "YEAR": "exactly 365 or 366 elapsed days"
+    },
+    "civil_navigation_rule": "LOCAL civil windows may legitimately span 23/24/25 hours around DST; this is separate from native W1 archive-record duration",
+    "automated_coverage": [
+      "every Java ZoneId.getAvailableZoneIds() timezone",
+      "UTC identity round-trip for Hour/Day/all Month lengths/both Year lengths",
+      "normal, spring-DST and autumn-DST LOCAL windows",
+      "ambiguous folds and nonexistent gaps fail closed unless explicit valid offset is provided",
+      "repeated fall-back Hour remains occurrence-safe and distinguishable",
+      "end-to-end repository -> UTC projection -> LOCAL selection -> resolved observation -> statistics for Hour/Day/Month",
+      "missing native buckets are not compressed",
+      "different assigned zones do not join as one adjacent series"
+    ],
+    "private_backup_audit": "private real-meter backup was structurally checked for Hour/Day/Month progression, ON_TIME progression and canonical UTC monotonicity; results were consistent. No private IDs, values or backup payload were published.",
+    "home_assistant_implication": "future integrations should export/store canonical UTC interval boundaries as identity and derive LOCAL labels/windows from IANA zone rules"
   },
   "public_qw1_evidence": {
     "document": "docs/research/PUBLIC_QW1_EVIDENCE.md",
-    "status": "supporting documentation only; no functional candidate change",
+    "status": "supporting documentation only",
     "guardrails": [
       "Axioma NFC read-only statement supports existing safety boundary",
       "ON_TIME manufacturer information is supporting evidence only",
@@ -95,7 +117,7 @@
     "current_stable_version": "2.0.0",
     "current_stable_version_code": 43,
     "v2_1_version_bump_allowed": false,
-    "v2_1_version_bump_gate": "physical validation A-F must pass first"
+    "v2_1_version_bump_gate": "replacement candidate must pass selective physical retest C-F first"
   },
   "protected_invariants": [
     "normal NFC contact remains protected Live/default read only",
@@ -109,7 +131,8 @@
     "never calculate cumulative consumption across meter replacement",
     "no intentional persistent meter/radio/calibration/firmware writes",
     "QalcosonicReader.java, MbusParser.java and validated NFC/mailbox/archive traversal paths are protected",
-    "raw meter/logger time remains preserved source evidence"
+    "raw meter/logger time remains preserved source evidence",
+    "LOCAL projection never rewrites canonical UTC archive identity"
   ],
   "private_research": {
     "repository": "MarcLeinenDE/engineering-lab",
@@ -118,5 +141,5 @@
     "head": "65358d55ee52a6911ab4fa8d1a66bc0d0dda0fd0",
     "rule": "Consult only if protocol/time-evidence behavior itself must be revisited; never publish private evidence."
   },
-  "next_action": "Continue physical validation at Section C in LOCAL mode. New project chat should accept phone screenshots, evaluate History Live/Hour/Day/Month and Statistics, then proceed to D/E/F. Keep exact candidate e4f458d9ff47a088926772a13d9bf19946f4bc48, PR #22 draft, and do not bump to v2.1.0 until A-F pass."
+  "next_action": "Install/use exact candidate 474067fbdf51ad3b892053bd5694a7ffcea765d8 and selectively retest C, D, E and F. C must confirm correct LOCAL Hour/Day/Month period ownership and Statistics; D checks LOCAL/METER identity stability; E fail-closed timezone validation; F is final protected normal Live regression. Keep PR #22 Draft and do not bump/release v2.1.0 before these gates pass."
 }
