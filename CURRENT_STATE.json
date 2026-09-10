@@ -1,7 +1,7 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "project": "W1 NFC Reader",
-  "date": "2026-09-09",
+  "date": "2026-09-10",
   "public_repository": "MarcLeinenDE/w1-nfc-reader",
   "handoff_branch": "handoff/v2.1.0-current",
   "main": {
@@ -15,12 +15,6 @@
     "head_ci_run": 34362370166,
     "head_ci_conclusion": "success",
     "head_is_documentation_only": true,
-    "head_docs_compare_base": "50852719e9e93e7a4f921e95156663920756fdc9",
-    "head_docs_changed_files": [
-      "docs/PROTOCOL_SAFETY.md",
-      "docs/V2_1_TIME_MODEL_IMPLEMENTATION.md",
-      "docs/research/PUBLIC_QW1_EVIDENCE.md"
-    ],
     "functional_code_checkpoint": "e4f458d9ff47a088926772a13d9bf19946f4bc48",
     "functional_code_ci_run": 34320334896,
     "functional_code_ci_conclusion": "success",
@@ -40,112 +34,82 @@
     "artifact_digest": "sha256:a7ad4eb0c09a331836a508cd3e3e96210fa8966710502a0ab8a3d7feb1eae775",
     "apk_sha256": "44d8896f92b10c586eb4ae51a0c05ff7118f87c8656e43ba14393ca11487e95a",
     "validation_document": "docs/V2_1_REAL_DEVICE_VALIDATION.md",
-    "status": "ready for limited real-device validation",
+    "status": "physical validation in progress",
     "supersedes": {
       "source_commit": "2191147a96db59b2857af7526fa07826bffc8967",
       "ci_run": 34316796172,
       "reason": "predates corrected Live LOCAL/METER routing and locale-aware live meter-time presentation"
     }
   },
+  "physical_validation_progress": {
+    "date": "2026-09-10",
+    "section_a": {
+      "status": "partial-pass",
+      "confirmed": [
+        "debug candidate installed and usable",
+        "LOCAL mode in use",
+        "no installation/coexistence problem reported"
+      ],
+      "not_explicitly_recorded": [
+        "fresh debug-app state showed Local time as default before any setting change"
+      ]
+    },
+    "section_b": {
+      "status": "pass-with-minor-ui-note",
+      "confirmed": [
+        "normal protected Live NFC read succeeds on real meter",
+        "German locale formatting of Live meter time is correct",
+        "Meter Details shows Europe/Berlin",
+        "timezone provenance indicates automatic assignment from first verified Live/device context",
+        "Meter Details meter time is German locale formatted",
+        "no unintended automatic History synchronization reported"
+      ],
+      "minor_ui_note": "Meter Details timestamp labelled 'Am Handy ausgelesen' is correctly localized but lacks the centered separator dot between date and time used by other product timestamps. Treat as cosmetic presentation consistency issue, not NFC/time-model failure; do not replace candidate mid-test solely for this."
+    },
+    "section_c": {
+      "status": "next",
+      "instructions": [
+        "stay in LOCAL mode",
+        "inspect History Live primary real acquisition time and secondary meter time",
+        "inspect Hour/Day/Month primary resolved local time and secondary raw meter/logger time",
+        "check chronological plausibility and absence of false missing-zone warning",
+        "if no archive data exists, run only normal explicit History synchronization",
+        "inspect bounded Statistics range for plausible coverage/values and no invented zero total",
+        "screenshots are welcome in the next project chat"
+      ]
+    },
+    "sections_d_e_f": "pending"
+  },
   "public_qw1_evidence": {
     "document": "docs/research/PUBLIC_QW1_EVIDENCE.md",
     "status": "supporting documentation only; no functional candidate change",
-    "current_axioma_manual": "QW1_V22.4_EN 2026-05-11",
-    "supported_points": [
-      "Axioma states integrated NFC is intended for data reading only",
-      "Axioma documents total operating time and operating time without error in Hour/Day/Month archives",
-      "nominal logger capacities 1480/1130/36 are informational only and are not traversal limits",
-      "a public 2020 QW1 FCC-era BOM identifies ST25DV04K Fast Transfer Mode hardware for that historical revision",
-      "ST25 hardware evidence is not an implementation dependency"
-    ],
-    "explicit_non_changes": [
-      "no NFC command change",
-      "no parser change",
-      "no archive traversal change",
-      "no sync-depth constant change",
-      "no UTC derivation change",
-      "no hardware-specific dependency"
-    ]
-  },
-  "v2_1": {
-    "status": "implementation feature-complete and CI-green; corrected Live time-basis/i18n candidate pinned; physical validation pending",
-    "canonical_decision": "docs/product-decisions/v2.1-real-time-timeline-and-coverage.md",
-    "implementation_document": "docs/V2_1_TIME_MODEL_IMPLEMENTATION.md",
-    "app_time_basis": {
-      "default": "LOCAL",
-      "values": ["LOCAL", "METER"],
-      "local_mode": "canonical UTC selection plus per-meter IANA local presentation; Live rows use real Android acquisition epoch and raw meter time remains secondary evidence",
-      "meter_mode": "raw/floating meter/logger semantics; Live bounded-period selection/order/predecessor context use meter_time rather than Android read time"
-    },
-    "live_time_presentation": {
-      "raw_storage_unchanged": true,
-      "locale_aware_ui": true,
-      "surfaces": ["Overview", "History", "Meter Details"],
-      "example_de": "09.09.2026 · 14:05"
-    },
-    "completed_gates": [
-      "verified Live acquisition-anchor model and production persistence",
-      "per-meter stable IANA timezone assignment and provenance",
-      "occurrence-safe archive DB migration with repeated raw timestamp support",
-      "passive archive timing-evidence persistence",
-      "schema-3 backup/restore with schema-2 compatibility",
-      "LOCAL/METER Settings preference and dynamic query routing",
-      "LOCAL History/Statistics UTC selection and occurrence-safe predecessor context",
-      "METER Live range selection/order/predecessor context by meter_time",
-      "LOCAL Live ordering by real Android acquisition epoch",
-      "locale-aware Live meter-time presentation without changing raw persistence",
-      "DST-safe local range resolution",
-      "23/24/25-hour LOCAL Statistics completeness",
-      "raw meter time secondary evidence in LOCAL History",
-      "resolved local time secondary evidence in METER History when trustworthy",
-      "per-meter timezone display and validated edit UI",
-      "explicit LOCAL unresolved-state warnings",
-      "six-locale translation coverage",
-      "346 unit/Robolectric tests",
-      "debug APK build/signature/SHA/artifact CI",
-      "public QW1 supporting evidence documentation with no product-code change"
-    ],
-    "remaining_gates": [
-      "limited real-device validation sections A-F against exact candidate e4f458d9ff47a088926772a13d9bf19946f4bc48",
-      "explicit physical smoke of LOCAL/METER Live time behavior and locale-aware meter-time display",
-      "after physical acceptance: stable version bump and curated changelog/release notes",
-      "signed release candidate and exact-candidate physical acceptance",
-      "publication without moving/replacing immutable prior tags"
+    "guardrails": [
+      "Axioma NFC read-only statement supports existing safety boundary",
+      "ON_TIME manufacturer information is supporting evidence only",
+      "1480/1130/36 capacities are not sync-depth constants",
+      "semantic terminal and secure overlap remain authoritative",
+      "historical ST25DV04K evidence creates no implementation dependency"
     ]
   },
   "release_identity": {
     "current_stable_version": "2.0.0",
     "current_stable_version_code": 43,
-    "development_still_uses_stable_identity_intentionally": true,
     "v2_1_version_bump_allowed": false,
     "v2_1_version_bump_gate": "physical validation A-F must pass first"
-  },
-  "stable_release": {
-    "version": "2.0.0",
-    "tag": "v2.0.0",
-    "tag_sha": "5c094a70e75cba52fbdaef96d39b6c72e2011f9d",
-    "release_id": 384651482,
-    "published_at": "2026-09-08T18:53:57Z",
-    "application_id": "de.marcleinen.w1nfcreader",
-    "version_code": 43,
-    "apk_sha256": "211c5dcb94047dcc12d0aa68534b6eaf154103a8c08c600f293c097c2188d2f4",
-    "immutable": true
   },
   "protected_invariants": [
     "normal NFC contact remains protected Live/default read only",
     "History starts only from explicit user action",
     "Hour/Day/Month synchronization families remain independent",
-    "COMPLETE requires supported traversal completion plus verified final Default Restore/Live",
+    "COMPLETE requires semantic terminal plus verified final Default Restore/Live",
     "incremental KNOWN_RECORD_REACHED requires secure overlap; timestamp-only overlap is forbidden",
     "accepted archive observations are persisted immediately",
-    "ambiguous selected requests are never blindly retried",
-    "failed later incremental/full re-sync does not erase an authoritative COMPLETE baseline",
-    "semantic terminal/overlap behavior remains authoritative; public nominal logger capacities are not hardcoded traversal limits",
+    "failed later sync does not erase authoritative COMPLETE baseline",
+    "semantic terminal/overlap behavior remains authoritative; public logger capacities are not traversal limits",
     "never calculate cumulative consumption across meter replacement",
     "no intentional persistent meter/radio/calibration/firmware writes",
     "QalcosonicReader.java, MbusParser.java and validated NFC/mailbox/archive traversal paths are protected",
-    "raw meter/logger time remains preserved source evidence",
-    "public hardware evidence never creates an ST25- or revision-specific product dependency"
+    "raw meter/logger time remains preserved source evidence"
   ],
   "private_research": {
     "repository": "MarcLeinenDE/engineering-lab",
@@ -154,5 +118,5 @@
     "head": "65358d55ee52a6911ab4fa8d1a66bc0d0dda0fd0",
     "rule": "Consult only if protocol/time-evidence behavior itself must be revisited; never publish private evidence."
   },
-  "next_action": "Run docs/V2_1_REAL_DEVICE_VALIDATION.md sections A-F against exact candidate e4f458d9ff47a088926772a13d9bf19946f4bc48 / CI 34320334896 / artifact 10091656517. Keep PR #22 draft and do not bump to v2.1.0 until physical acceptance."
+  "next_action": "Continue physical validation at Section C in LOCAL mode. New project chat should accept phone screenshots, evaluate History Live/Hour/Day/Month and Statistics, then proceed to D/E/F. Keep exact candidate e4f458d9ff47a088926772a13d9bf19946f4bc48, PR #22 draft, and do not bump to v2.1.0 until A-F pass."
 }
