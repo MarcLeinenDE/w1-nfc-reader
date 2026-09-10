@@ -10,18 +10,26 @@ Confirm on a real compatible Qalcosonic W1 that the v2.1 time-model, global LOCA
 
 Use exactly the CI-green debug APK below. Debug builds use the `.dev` application-id suffix and can coexist with the stable public app.
 
+Current replacement candidate after the two Section-C findings:
+
 - branch: `dev/v2.1.0-real-time-timeline`
-- functional commit: `e4f458d9ff47a088926772a13d9bf19946f4bc48`
-- CI run: `34320334896` — success
-- unit/Robolectric tests: 346 — success
+- functional commit: `14a8ae4100ed801f19627c6489afa9ad3757c1aa`
+- CI run: `34519245337` — success
+- complete unit/Robolectric suite: success; includes 9 dedicated LOCAL resolution-warning matrix tests on top of the previously green 355-test suite
+- product i18n contract: 227 keys / 6 locales — success
 - artifact: `w1-nfc-reader-debug`
-- artifact id: `10091656517`
-- artifact ZIP digest: `sha256:a7ad4eb0c09a331836a508cd3e3e96210fa8966710502a0ab8a3d7feb1eae775`
-- APK SHA-256: `44d8896f92b10c586eb4ae51a0c05ff7118f87c8656e43ba14393ca11487e95a`
+- artifact id: `10169014402`
+- artifact ZIP digest: `sha256:eadf6ba16d1d5386dd613ba54b645e0c980cfc01cfa817116fd4ed348eed5a51`
+- APK SHA-256: `c08bcff4152e075a5e59f2b8d90409f0786f2a5a559e047e594743136677ddc3`
 
-The artifact was downloaded after CI and the APK hash was independently recalculated from the downloaded ZIP; it matched `SHA256SUMS.txt` exactly.
+The artifact was independently downloaded after CI. The downloaded ZIP digest matches GitHub's artifact digest, and the actual APK hash matches `SHA256SUMS.txt` exactly.
 
-Do not substitute the earlier `2191147a…` artifact: that checkpoint predates the completed Live LOCAL/METER presentation/query contract and is superseded.
+Superseded physical candidates:
+
+- `e4f458d9ff47a088926772a13d9bf19946f4bc48`: Section C exposed incorrect LOCAL period ownership/adjacency around projected archive periods;
+- `474067fbdf51ad3b892053bd5694a7ffcea765d8`: corrected the period-ownership defect, but a real-device custom-range check exposed a false-positive LOCAL unresolved-time warning when an archive family had no data in the requested time range and only began much later.
+
+Do not use either superseded candidate for acceptance.
 
 ## Safety rules
 
@@ -31,6 +39,25 @@ Do not substitute the earlier `2191147a…` artifact: that checkpoint predates t
 - Do not alter meter/radio/calibration/firmware state.
 - If NFC behavior differs from the previously validated v2.0 path, stop and treat it as a regression rather than adapting the protocol during the same test.
 - Do not commit private meter IDs, consumption values, captures or raw NFC traffic to the public repository.
+
+## LOCAL resolution-warning contract
+
+The red LOCAL time-resolution warning is a fail-closed signal, not a generic no-data message.
+
+It may be shown only when the selected LOCAL window is genuinely unsafe to interpret, or when unresolved archive timing can actually affect the selected window. In particular:
+
+- an empty Hour/Day/Month family must not show the warning;
+- a family whose stored coverage begins later than the requested window must not show the warning solely because its oldest stored native bucket lacks a predecessor boundary;
+- the `All` view must not inherit a warning from an unrelated empty/out-of-range granularity;
+- Statistics with no fully contained bucket must not show a time-resolution warning merely because it returns zero points;
+- a normal coverage gap is not itself a time-resolution problem;
+- a genuinely missing per-meter zone remains fail-closed when archive selection cannot be interpreted safely;
+- an ambiguous fall-back boundary or nonexistent spring-forward boundary remains fail-closed;
+- genuinely unresolved archive timing that can overlap the requested window remains fail-closed.
+
+For warning relevance only, the natural unknown start of the oldest stored native record is conservatively bounded by the maximum physical size of that one record (Hour 1 h, Day 24 h, Month 31 d, Year 366 d). This bound is **not** used to synthesize, store or render a canonical UTC interval. Interior unresolved runs and unbounded unsafe suffixes remain conservative and continue to warn when their unknown region can affect the request.
+
+Automated warning coverage includes empty families, Hour/Day/Month retention edges far outside the selected range, a selected range that actually touches the unresolved oldest bucket, `All` with valid Day data plus later Hour coverage, bounded Statistics before Hour coverage, relevant missing zone, relevant missing usable time anchor, DST fold and DST gap. Existing lower-level coverage tests continue to cover exact/partial/gap/unresolved interval states.
 
 ## Physical validation sequence
 
@@ -48,23 +75,13 @@ Expected:
 
 ### B. Protected normal Live read + localized meter time
 
-1. From Overview in LOCAL mode, perform one normal NFC read exactly as in normal use.
-2. Keep the phone on the meter until the read completes.
-3. Confirm the normal Live result appears and no archive synchronization starts automatically.
-4. Inspect the Live time information on Overview.
-5. Open Meter details and inspect both phone/read time and meter internal time.
+Already passed on the real meter before the downstream Section-C-only fixes. It does not need to be repeated solely because of these downstream changes; Section F remains the final protected NFC regression check.
 
-Expected:
+Confirmed evidence:
 - Live read succeeds through the established default-read path;
-- no unexpected extra NFC interaction is visible;
-- the physical meter is identified as usual;
-- LOCAL Overview uses the real/Android acquisition time as primary Live time and shows raw meter time as secondary technical evidence when available;
-- raw meter time is locale-formatted for the selected app language instead of exposing storage syntax such as `yyyy-MM-dd HH:mm`;
-- with German UI, a value such as `2026-09-09 14:05` is presented in German date order (for example `09.09.2026 · 14:05`), not as the raw ISO-like storage string;
-- Meter details uses the same locale-aware formatting for the meter internal time;
-- a per-meter IANA timezone is shown after the verified Live read;
-- for a device configured for Germany this will normally be `Europe/Berlin`;
-- provenance indicates automatic assignment from the device at the first verified Live read unless the debug-app state already contained an explicit user assignment.
+- no archive synchronization starts automatically;
+- German locale formatting of Live meter time is correct;
+- Meter details shows the assigned `Europe/Berlin` zone and expected automatic provenance.
 
 ### C. LOCAL History / Statistics
 
@@ -74,12 +91,17 @@ Use already synchronized archive data if the debug app contains it. If the debug
 2. Inspect Live and available Hour/Day/Month rows.
 3. Confirm Live rows use real acquisition time as primary and meter time as secondary when available.
 4. Confirm archive rows use resolved local/civil time as primary and raw meter/logger time as secondary evidence.
-5. Open Statistics for a bounded period with known data.
+5. Check a bounded/custom range both where the selected granularity has data and where one granularity has no data.
+6. In `All`, confirm an unavailable granularity does not create a false LOCAL resolution warning.
+7. Open Statistics for bounded periods with known data and also inspect a range with no fully contained bucket.
 
 Expected:
 - Live ordering follows actual acquisition epoch in LOCAL mode;
 - History does not silently reorder archive rows by raw logger text when resolved UTC evidence is available;
 - raw meter time remains visible, not overwritten;
+- Hour/Day/Month values remain owned by their canonical physical UTC intervals and are not shifted to predecessor buckets;
+- no false red LOCAL warning appears merely because a granularity is empty or begins outside the selected range;
+- a genuine unsafe LOCAL boundary/time-resolution state still warns and omits unsafe derived rows;
 - Statistics shows plausible coverage and values;
 - no `0` total is invented merely because a LOCAL projection is unavailable.
 
@@ -128,6 +150,14 @@ Expected:
 - the newly displayed real and meter timestamps are plausible and locale-formatted;
 - no stale selected archive state leaks into the Live result;
 - no protocol regression is observed.
+
+## Presentation-only follow-ups already recorded
+
+These do not change the warning/time identity model and may be handled together after the functional C–F gate:
+
+- ordinary LOCAL labels should prefer trustworthy locale-aware timezone abbreviations (for example `MEZ`/`MESZ` in German or `CET`/`CEST` in English) rather than showing only `+01:00`/`+02:00`; exact IANA zone and numeric offset remain internal/diagnostic truth;
+- the centered `·` separator is missing between date/time in `Am Handy ausgelesen` in Meter details;
+- the same centered separator is missing in the Overview `Ausgelesen` line.
 
 ## Evidence to record
 
