@@ -38,7 +38,8 @@ Active development branch:
 Current development head:
 - `4a6fe131f212874a3091c7fef78ea85818cfc3c9`
 - commit: `docs: pin LOCAL warning-scope retest candidate`
-- documentation-only on top of the exact functional candidate below.
+- documentation-only on top of the exact functional candidate below;
+- Android CI run `34519652084`: SUCCESS.
 
 Exact functional / physical-validation candidate:
 - `14a8ae4100ed801f19627c6489afa9ad3757c1aa`
