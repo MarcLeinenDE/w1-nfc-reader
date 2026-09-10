@@ -199,3 +199,12 @@ Only if protocol/time-evidence behavior itself must be revisited:
 - frozen head `65358d55ee52a6911ab4fa8d1a66bc0d0dda0fd0`
 
 Never publish private meter IDs, captures, NFC traffic, backup payloads or consumption data.
+
+## 9. Post-validation UI follow-ups
+
+Do not alter the pinned candidate during C–F solely for these presentation items. After the functional gate, evaluate them together before preparing the v2.1 release candidate:
+
+- replace raw displayed UTC offsets such as `+01:00` / `+02:00` in ordinary LOCAL period labels with locale-aware timezone abbreviations where the platform provides a trustworthy localized name (for example German `MEZ` / `MESZ`, English `CET` / `CEST` for `Europe/Berlin`);
+- keep the canonical IANA zone and exact numeric UTC offset internally and in diagnostic/ambiguity handling; the friendly abbreviation is presentation only and must never become time identity;
+- repeated fall-back hours must remain unambiguous even if localized abbreviations are equal or unavailable, so the UI may fall back to or additionally expose the numeric offset when necessary;
+- retain the separate cosmetic note for the missing centered separator in `Am Handy ausgelesen`.
