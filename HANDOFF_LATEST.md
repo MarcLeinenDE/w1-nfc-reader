@@ -35,74 +35,102 @@ Stable `main` baseline:
 Active development branch:
 - `dev/v2.1.0-real-time-timeline`
 
-Current development head:
-- `404dc90c1f974fb145d80cce23508825d8de16b9`
-- commit: `docs: add public support for v2.1 timing evidence`
-- Android CI run `34362370166`: SUCCESS
-- documentation-only on top of the functional candidate.
-
-Exact functional / physical-validation candidate:
-- `e4f458d9ff47a088926772a13d9bf19946f4bc48`
-- Android CI run `34320334896`: SUCCESS
-- 346 tests passed
+Current development head and replacement physical-validation candidate:
+- `474067fbdf51ad3b892053bd5694a7ffcea765d8`
+- final commit in the LOCAL hardening block: `test: bound LOCAL family regression to resolved coverage`
+- functional LOCAL fix begins at `854b358bca24f43c360ecfde8897de0e0af5c5e3`
+- subsequent hardening commits: `c1fe9214146ffde09d50dfb6c2851c50add7989c`, `98fdc258d78c08a887b901308c49cec58d35a688`, `474067fbdf51ad3b892053bd5694a7ffcea765d8`
+- Android CI run `34512260812`: SUCCESS
+- complete `testDebugUnitTest` suite: SUCCESS; 355 tests in this suite
 - product i18n contract: 227 keys across 6 locales
+- debug assemble/signature verification: SUCCESS
 - artifact `w1-nfc-reader-debug`
-- artifact id `10091656517`
-- artifact digest `sha256:a7ad4eb0c09a331836a508cd3e3e96210fa8966710502a0ab8a3d7feb1eae775`
-- APK SHA-256 `44d8896f92b10c586eb4ae51a0c05ff7118f87c8656e43ba14393ca11487e95a`
+- artifact id `10166329385`
+- artifact ZIP digest `sha256:4bc1f9d4ca039612d1463168600b3e0c9572b9074b67d9055d57f716ac9b9067`
+- APK SHA-256 `82fb77ce20d7bd6592aa694a7bc38371928c52952673b3f93e690a44176eaa8c`
+- the downloaded artifact was independently re-hashed after CI; ZIP digest, `SHA256SUMS.txt` and actual APK hash all match.
 
 Open Draft PR:
 - `#22 — WIP: add v2.1 real-time timeline foundation`
 - base `main`
 - head `dev/v2.1.0-real-time-timeline`
-- keep Draft until real-device validation succeeds.
+- currently still Draft; keep Draft until replacement-candidate physical validation succeeds.
 
-The older candidate `2191147a96db59b2857af7526fa07826bffc8967` is obsolete and must not be used.
+Do not use the former physical candidate `e4f458d9ff47a088926772a13d9bf19946f4bc48` for acceptance. It is preserved as evidence for the Section-C failure described below.
 
 ## 3. Real-device validation progress — 2026-09-10
 
-The user currently has physical access to the meter and started the A–F validation from `docs/V2_1_REAL_DEVICE_VALIDATION.md` using the pinned candidate above.
-
 ### Section A — installation/default state
 
-Observed:
-- debug candidate is installed and usable;
-- LOCAL mode is being used successfully;
-- no installation/coexistence problem was reported.
+Previously observed on the former candidate:
+- debug app installed and usable;
+- LOCAL mode in use;
+- no installation/coexistence problem reported.
 
-Not explicitly recorded in chat:
-- whether a fresh debug-app state showed **Local time as the default** before any setting change.
+Not explicitly recorded:
+- whether a completely fresh debug-app state showed Local time as default before any setting change.
 
-This can be verified without another NFC contact if needed.
+This does not require another NFC contact.
 
 ### Section B — protected normal Live read + localized meter time
 
-Confirmed on the real meter:
-- normal protected Live NFC read succeeds;
-- German locale formatting of the Live meter time is correct;
-- Meter Details shows a per-meter timezone;
-- the shown timezone is `Europe/Berlin`;
-- provenance correctly indicates automatic assignment from the first verified Live read / device context;
-- Meter Details also shows the meter time in German locale format;
-- no unintended automatic History synchronization was reported after the normal Live read.
+PASS on real device / real meter using the former candidate:
+- normal protected Live NFC read succeeded;
+- German locale formatting of Live meter time was correct;
+- Meter Details showed `Europe/Berlin` and correct automatic zone provenance;
+- Meter Details meter time was locale formatted;
+- no unintended automatic History synchronization was reported.
 
-Minor UI discrepancy found:
-- in Meter Details, the **`Am Handy ausgelesen`** timestamp is correctly formatted but lacks the centered separator dot between date and time that other product timestamps use.
-- treat this as a small presentation consistency issue, not a time-model/NFC failure;
-- do not change the pinned candidate in the middle of the A–F test just for this cosmetic issue. Record it for the post-validation fix/retest decision.
+Minor cosmetic note remains:
+- `Am Handy ausgelesen` is correctly localized but lacks the centered separator dot used by other product timestamps.
+- this is presentation-only and did not cause the Section-C failure.
 
-### Next physical step — Section C
+### Section C — LOCAL History / Statistics
 
-Continue in **LOCAL** mode and inspect History / Statistics. Screenshots from the phone are explicitly welcome in the new project chat.
+**FAIL on former candidate `e4f458d9ff47a088926772a13d9bf19946f4bc48`.**
 
-Check in order:
-1. History → Live: real acquisition time primary, meter time secondary when available.
-2. History → Hour / Day / Month: resolved local/civil time primary, raw meter/logger time secondary.
-3. Ordering must look chronologically plausible; no false missing-timezone warning should appear.
-4. If the debug app has no archive data, start only the normal explicit History synchronization needed to establish the data. Do not use experimental NFC options.
-5. Statistics: use a bounded range with known data; coverage/values should be plausible and no artificial zero total should be invented because LOCAL projection is unavailable.
+Root cause was reproduced downstream of the protected NFC/parser/archive path:
+- LOCAL Statistics could validate physical archive adjacency as if the projected interval had to be one civil calendar Hour/Day/Month in the selected IANA zone;
+- a valid physical archive interval crossing DST could therefore be dropped;
+- chart/statistics ownership also reused a predecessor time token, allowing a valid value to be labelled as the preceding period.
 
-After Section C, continue with D (LOCAL ↔ METER), E (invalid timezone input smoke) and F (final normal Live regression read).
+The private real-meter backup was structurally audited during diagnosis. Its Hour/Day/Month archive progression, ON_TIME progression and canonical UTC ordering were internally consistent. No private meter identifier, consumption value, backup payload or raw private evidence was added to this public repository. Public regression fixtures are synthetic/minimised representations of the structural timing cases only.
+
+### Replacement fix / hardening
+
+The current candidate `474067fbdf51ad3b892053bd5694a7ffcea765d8` fixes and guards the failure:
+- LOCAL statistics retain the **current resolved canonical UTC interval** as period ownership instead of shifting to the predecessor token;
+- temperature, flow, battery and alarm statistics retain the same resolved interval ownership;
+- physical archive adjacency is checked on native elapsed UTC duration, not civil DST duration;
+- native physical durations are exact: Hour = 1 h, Day = 24 h, Month = 28/29/30/31 d, Year = 365/366 d;
+- a 23 h or 25 h **LOCAL civil navigation day** remains valid where the IANA zone requires it, but must never be mistaken for the duration of one physical W1 Day archive record;
+- shifted Day/Month/Year physical intervals are displayed as explicit LOCAL ranges rather than silently receiving a false civil calendar label;
+- repeated fall-back clock hours remain distinguishable by canonical UTC identity and displayed offset;
+- missing native buckets are not compressed into one chart/statistics bucket;
+- different assigned meter zones cannot be treated as one adjacent resolved series.
+
+Exhaustive automated timezone coverage now includes:
+- every zone returned by Java `ZoneId.getAvailableZoneIds()`;
+- UTC identity round-trip for Hour, Day, all valid Month lengths and both Year lengths;
+- normal, spring-DST and autumn-DST LOCAL navigator windows;
+- ambiguous folds and nonexistent gaps fail closed unless an explicit valid offset resolves the ambiguity;
+- end-to-end repository → UTC projection → LOCAL selection → resolved observation → statistics tests for Hour, Day and Month, including the repeated autumn hour and a spring-DST Day sequence.
+
+This separation is also the required basis for later Home Assistant integration: canonical UTC interval identity is authoritative; IANA LOCAL time is a reversible presentation/query projection and must never rewrite archive ownership.
+
+### Next physical action — selective retest C–F
+
+Use only candidate `474067fbdf51ad3b892053bd5694a7ffcea765d8` / artifact `10166329385`.
+
+A and B do not need to be repeated solely because of this downstream fix; no protected NFC/mailbox/parser/traversal code changed. Section F still provides the final normal Live regression read.
+
+Retest in this order:
+1. C — LOCAL History Live/Hour/Day/Month and bounded Statistics, including the previously wrong period assignment.
+2. D — switch LOCAL ↔ METER and verify that data identity/value does not change, only the intended time basis/presentation/query semantics.
+3. E — invalid/fixed-offset-like timezone input must remain rejected/fail closed as documented.
+4. F — final normal protected Live NFC read; no unintended History sync or protocol regression.
+
+Screenshots are useful evidence for C/D. Do not use experimental NFC options for this gate.
 
 ## 4. Current v2.1 implementation state
 
@@ -112,10 +140,11 @@ Feature-complete and CI-green for the planned time-model/query/UI slice. Importa
 - stable per-meter IANA timezone + provenance;
 - occurrence-safe archive identity (`raw timestamp + occurrence_key`);
 - passive archive timing evidence and fail-closed UTC projection;
-- LOCAL History/Statistics on resolved UTC timeline;
+- LOCAL History/Statistics on resolved canonical UTC timeline;
 - LOCAL Live selection/order on Android acquisition epoch;
 - METER Live bounded selection/order/predecessor on `meter_time`;
-- DST-safe local navigation and 23/24/25-hour Statistics completeness;
+- DST-safe LOCAL navigation with real 23/24/25-hour civil-day completeness where appropriate;
+- native physical archive period duration kept separate from civil navigation duration;
 - raw meter time secondary in LOCAL;
 - trustworthy resolved local time secondary in METER;
 - locale-aware Live meter-time display in Overview / History / Meter Details;
@@ -147,7 +176,7 @@ Remain protected:
 - `QalcosonicReader.java`, `MbusParser.java` and validated NFC/mailbox/archive traversal paths remain protected;
 - raw meter/logger time remains source evidence and is never overwritten by derived UTC/local presentation.
 
-If the physical test exposes a protocol/read regression, stop and reopen the safety gate rather than modifying NFC commands during the same test.
+The LOCAL fix/hardening block did not change NFC command, mailbox, parser or archive traversal behavior.
 
 ## 7. Release gate
 
@@ -159,7 +188,7 @@ Do not:
 - merge PR #22;
 - create/move a v2.1.0 tag/release.
 
-First complete physical sections A–F. After physical acceptance, prepare version metadata, changelog/release notes and the exact signed release candidate, then physically accept that exact candidate before publication.
+First pass the selective replacement-candidate physical retest C–F. After physical acceptance, prepare version metadata, changelog/release notes and the exact signed release candidate, then physically accept that exact candidate before publication.
 
 ## 8. Private Research authority
 
@@ -169,4 +198,4 @@ Only if protocol/time-evidence behavior itself must be revisited:
 - branch `research/w1-nfc-archive-analysis`
 - frozen head `65358d55ee52a6911ab4fa8d1a66bc0d0dda0fd0`
 
-Never publish private meter IDs, captures, NFC traffic or consumption data.
+Never publish private meter IDs, captures, NFC traffic, backup payloads or consumption data.
