@@ -17,6 +17,8 @@ final class HistoryResolvedTimeToken {
     private static final String PREFIX = "@W1RT|";
     private static final String TYPE_INTERVAL = "I";
     private static final String TYPE_BOUNDARY = "B";
+    private static final long HOUR_MS = 60L * 60L * 1000L;
+    private static final long DAY_MS = 24L * HOUR_MS;
 
     static final class Parsed {
         final boolean interval;
@@ -85,6 +87,15 @@ final class HistoryResolvedTimeToken {
         }
     }
 
+    /**
+     * Checks whether a resolved interval can represent exactly one physical archive bucket.
+     *
+     * <p>This deliberately validates elapsed UTC duration rather than adding a civil hour/day/month
+     * to {@code startLocal()}. A W1 archive family is created by the meter, while LOCAL is a later
+     * projection of that physical interval into an IANA zone. DST or a meter clock offset can make
+     * one valid physical Day/Month start and end on different civil boundaries. Conversely, a
+     * genuinely missing native bucket must still not be compressed into one statistics bucket.</p>
+     */
     static boolean adjacent(
             String previous,
             String current,
@@ -94,24 +105,21 @@ final class HistoryResolvedTimeToken {
         if (first == null || second == null || !second.interval || granularity == null) return false;
         if (!first.zoneId.equals(second.zoneId) || first.boundaryUtcMs() != second.startUtcMs) return false;
 
-        ZonedDateTime expectedEnd;
-        ZonedDateTime start = second.startLocal();
+        long durationMs = second.endUtcMs - second.startUtcMs;
         switch (granularity) {
             case HOUR:
-                expectedEnd = start.plusHours(1);
-                break;
+                return durationMs == HOUR_MS;
             case DAY:
-                expectedEnd = start.plusDays(1);
-                break;
+                // Covers 23/24/25-hour civil days without treating a two-day archive gap as one Day.
+                return durationMs >= 23L * HOUR_MS && durationMs <= 25L * HOUR_MS;
             case MONTH:
-                expectedEnd = start.plusMonths(1);
-                break;
+                // Calendar months plus plausible DST transitions stay far below a missing-month gap.
+                return durationMs >= 27L * DAY_MS && durationMs <= 32L * DAY_MS;
             case YEAR:
-                expectedEnd = start.plusYears(1);
-                break;
+                // Covers leap years and civil offset changes while rejecting a missing whole year.
+                return durationMs >= 364L * DAY_MS && durationMs <= 367L * DAY_MS;
             default:
                 return false;
         }
-        return expectedEnd.toInstant().toEpochMilli() == second.endUtcMs;
     }
 }

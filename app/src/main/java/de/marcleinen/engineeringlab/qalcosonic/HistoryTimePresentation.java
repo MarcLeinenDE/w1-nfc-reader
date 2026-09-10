@@ -53,7 +53,9 @@ final class HistoryTimePresentation {
         Locale use = locale == null ? Locale.getDefault() : locale;
         HistoryResolvedTimeToken.Parsed resolved = HistoryResolvedTimeToken.parse(startTimestamp);
         if (resolved != null) {
-            return formatResolvedPoint(use, granularity, resolved.startLocal(), false);
+            return resolved.interval
+                    ? formatResolvedInterval(use, granularity, resolved)
+                    : formatResolvedPoint(use, granularity, resolved.startLocal(), false);
         }
         Date start = parseFloating(startTimestamp);
         if (start == null) return startTimestamp == null ? "" : startTimestamp;
@@ -124,7 +126,9 @@ final class HistoryTimePresentation {
         Locale use = locale == null ? Locale.getDefault() : locale;
         HistoryResolvedTimeToken.Parsed resolved = HistoryResolvedTimeToken.parse(timestamp);
         if (resolved != null) {
-            return formatResolvedPoint(use, granularity, resolved.startLocal(), false);
+            return resolved.interval
+                    ? formatResolvedInterval(use, granularity, resolved)
+                    : formatResolvedPoint(use, granularity, resolved.startLocal(), false);
         }
         Date floating = parseFloating(timestamp);
         if (floating == null) return timestamp == null ? "" : timestamp;
@@ -191,17 +195,7 @@ final class HistoryTimePresentation {
         Locale use = locale == null ? Locale.getDefault() : locale;
         HistoryResolvedTimeToken.Parsed resolved = HistoryResolvedTimeToken.parse(timestamp);
         if (resolved != null) {
-            ZonedDateTime point = resolved.startLocal();
-            if (granularity == HistorySemanticTimeline.Granularity.HOUR) {
-                return formatResolvedTime(use, point, isAmbiguous(point));
-            }
-            if (granularity == HistorySemanticTimeline.Granularity.DAY) {
-                return DateTimeFormatter.ofPattern("d", use).format(point);
-            }
-            if (granularity == HistorySemanticTimeline.Granularity.MONTH) {
-                return DateTimeFormatter.ofPattern("MMM", use).format(point);
-            }
-            return formatResolvedDate(use, point);
+            return formatResolvedAxis(use, granularity, resolved);
         }
         Date floating = parseFloating(timestamp);
         if (floating == null) return timestamp == null ? "" : timestamp;
@@ -271,18 +265,116 @@ final class HistoryTimePresentation {
                             + formatResolvedTime(locale, start, showOffsets) + "–"
                             + formatResolvedTime(locale, end, showOffsets);
                 }
-                return formatResolvedExact(locale, start) + " – " + formatResolvedExact(locale, end);
+                return formatResolvedExact(locale, start, showOffsets)
+                        + " – " + formatResolvedExact(locale, end, showOffsets);
             }
             case DAY:
-                return formatResolvedDate(locale, start);
+                if (isExactCivilPeriod(start, end, useGranularity)) {
+                    return formatResolvedDate(locale, start);
+                }
+                return formatResolvedRange(locale, start, end);
             case MONTH:
-                return DateTimeFormatter.ofPattern("MMMM yyyy", locale).format(start);
+                if (isExactCivilPeriod(start, end, useGranularity)) {
+                    return DateTimeFormatter.ofPattern("MMMM yyyy", locale).format(start);
+                }
+                return formatResolvedRange(locale, start, end);
             case YEAR:
-                return DateTimeFormatter.ofPattern("yyyy", locale).format(start);
+                if (isExactCivilPeriod(start, end, useGranularity)) {
+                    return DateTimeFormatter.ofPattern("yyyy", locale).format(start);
+                }
+                return formatResolvedRange(locale, start, end);
             case LIVE:
             default:
                 return formatResolvedExact(locale, start);
         }
+    }
+
+    private static String formatResolvedAxis(
+            Locale locale,
+            HistorySemanticTimeline.Granularity granularity,
+            HistoryResolvedTimeToken.Parsed resolved) {
+        HistorySemanticTimeline.Granularity useGranularity = granularity == null
+                ? HistorySemanticTimeline.Granularity.HOUR : granularity;
+        ZonedDateTime start = resolved.startLocal();
+        if (!resolved.interval) {
+            return formatResolvedPoint(locale, useGranularity, start, false);
+        }
+        ZonedDateTime end = resolved.endLocal();
+        switch (useGranularity) {
+            case HOUR:
+                return formatResolvedTime(locale, start,
+                        !start.getOffset().equals(end.getOffset()) || isAmbiguous(start));
+            case DAY:
+                if (isExactCivilPeriod(start, end, useGranularity)) {
+                    return DateTimeFormatter.ofPattern("d", locale).format(start);
+                }
+                if (start.getYear() == end.getYear()
+                        && start.getMonthValue() == end.getMonthValue()) {
+                    return DateTimeFormatter.ofPattern("d", locale).format(start)
+                            + "–" + DateTimeFormatter.ofPattern("d", locale).format(end);
+                }
+                return DateTimeFormatter.ofPattern("d MMM", locale).format(start)
+                        + "–" + DateTimeFormatter.ofPattern("d MMM", locale).format(end);
+            case MONTH:
+                if (isExactCivilPeriod(start, end, useGranularity)) {
+                    return DateTimeFormatter.ofPattern("MMM", locale).format(start);
+                }
+                if (start.getYear() == end.getYear()) {
+                    return DateTimeFormatter.ofPattern("MMM", locale).format(start)
+                            + "–" + DateTimeFormatter.ofPattern("MMM", locale).format(end);
+                }
+                return DateTimeFormatter.ofPattern("MMM yyyy", locale).format(start)
+                        + "–" + DateTimeFormatter.ofPattern("MMM yyyy", locale).format(end);
+            case YEAR:
+                if (isExactCivilPeriod(start, end, useGranularity)) {
+                    return DateTimeFormatter.ofPattern("yyyy", locale).format(start);
+                }
+                return DateTimeFormatter.ofPattern("yyyy", locale).format(start)
+                        + "–" + DateTimeFormatter.ofPattern("yyyy", locale).format(end);
+            case LIVE:
+            default:
+                return formatResolvedDate(locale, start);
+        }
+    }
+
+    /**
+     * A compact Day/Month/Year label is safe only when the resolved interval really follows that
+     * meter-zone civil boundary. Shifted physical W1 intervals are shown as explicit ranges instead
+     * of being silently assigned to the calendar date/month containing their start instant.
+     */
+    private static boolean isExactCivilPeriod(
+            ZonedDateTime start,
+            ZonedDateTime end,
+            HistorySemanticTimeline.Granularity granularity) {
+        if (start == null || end == null || granularity == null || !isStartOfDay(start)) return false;
+        ZonedDateTime expected;
+        switch (granularity) {
+            case DAY:
+                expected = start.plusDays(1);
+                break;
+            case MONTH:
+                if (start.getDayOfMonth() != 1) return false;
+                expected = start.plusMonths(1);
+                break;
+            case YEAR:
+                if (start.getMonthValue() != 1 || start.getDayOfMonth() != 1) return false;
+                expected = start.plusYears(1);
+                break;
+            default:
+                return false;
+        }
+        return expected.toInstant().equals(end.toInstant());
+    }
+
+    private static boolean isStartOfDay(ZonedDateTime value) {
+        return value.getHour() == 0 && value.getMinute() == 0
+                && value.getSecond() == 0 && value.getNano() == 0;
+    }
+
+    private static String formatResolvedRange(Locale locale, ZonedDateTime start, ZonedDateTime end) {
+        boolean showOffsets = !start.getOffset().equals(end.getOffset());
+        return formatResolvedExact(locale, start, showOffsets)
+                + " – " + formatResolvedExact(locale, end, showOffsets);
     }
 
     private static String formatResolvedPoint(
@@ -309,8 +401,12 @@ final class HistoryTimePresentation {
     }
 
     private static String formatResolvedExact(Locale locale, ZonedDateTime point) {
+        return formatResolvedExact(locale, point, false);
+    }
+
+    private static String formatResolvedExact(Locale locale, ZonedDateTime point, boolean includeOffset) {
         return formatResolvedDate(locale, point) + " · "
-                + formatResolvedTime(locale, point, isAmbiguous(point));
+                + formatResolvedTime(locale, point, includeOffset || isAmbiguous(point));
     }
 
     private static String formatResolvedDate(Locale locale, ZonedDateTime point) {

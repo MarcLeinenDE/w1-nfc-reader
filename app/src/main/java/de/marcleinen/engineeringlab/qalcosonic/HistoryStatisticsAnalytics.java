@@ -197,16 +197,19 @@ final class HistoryStatisticsAnalytics {
                 // feature and must never be promoted into natural Hour/Day/Month chart buckets.
                 if (observation.live) continue;
 
-                // Archive rows are end boundaries. The exact window-start boundary may be context
-                // only, but it is still the valid start of the first displayed period.
+                // Archive rows are end boundaries. For raw METER time the predecessor is still the
+                // completed-period start label. For a resolved LOCAL observation, however, the
+                // current token already represents the complete canonical UTC interval. Reusing the
+                // predecessor token here shifts every LOCAL chart bucket one physical period back.
                 HistoryStatisticsRepository.Observation start = delta.previous;
                 if (!HistoryTimePresentation.adjacent(start.timestamp, observation.timestamp,
                         observation.granularity)) continue;
 
+                String bucketTimestamp = metricPeriodTimestamp(observation, start.timestamp);
                 String meter = start.meterId == null ? "" : start.meterId;
-                String key = start.timestamp + '\u0000' + meter;
+                String key = bucketTimestamp + '\u0000' + meter;
                 BucketAccumulator bucket = buckets.computeIfAbsent(key,
-                        ignored -> new BucketAccumulator(start.timestamp, start.granularity, meter));
+                        ignored -> new BucketAccumulator(bucketTimestamp, observation.granularity, meter));
                 bucket.value += delta.consumptionM3;
                 bucket.count++;
             }
@@ -236,7 +239,7 @@ final class HistoryStatisticsAnalytics {
         for (HistoryStatisticsRepository.Observation observation : selected) {
             Double value = validTemperature(observation.waterTemperatureC);
             if (value == null) continue;
-            String period = periodStart(observation);
+            String period = metricPeriodTimestamp(observation, null);
             points.add(new MetricPoint(period, value, false, observation.meterId,
                     observation.granularity));
             latest = value;
@@ -258,7 +261,7 @@ final class HistoryStatisticsAnalytics {
         for (HistoryStatisticsRepository.Observation observation : selected) {
             Double value = finiteNonNegative(observation.maxFlowM3h);
             if (value == null) continue;
-            String period = periodStart(observation);
+            String period = metricPeriodTimestamp(observation, null);
             points.add(new MetricPoint(period, value, false, observation.meterId,
                     observation.granularity));
             latest = value;
@@ -282,7 +285,7 @@ final class HistoryStatisticsAnalytics {
         for (HistoryStatisticsRepository.Observation observation : selected) {
             Integer value = validBattery(observation.batteryPercent);
             if (value == null) continue;
-            String period = periodStart(observation);
+            String period = metricPeriodTimestamp(observation, null);
             points.add(new MetricPoint(period, value.doubleValue(), false,
                     observation.meterId, observation.granularity));
             if (start == null) {
@@ -317,7 +320,7 @@ final class HistoryStatisticsAnalytics {
             finalActive = active;
             if (!active) continue;
             alarmObservations++;
-            events.add(new AlarmEvent(periodStart(observation), observation.meterId, raw,
+            events.add(new AlarmEvent(metricPeriodTimestamp(observation, null), observation.meterId, raw,
                     null, AlarmEventType.OBSERVED));
         }
         return new AlarmSummary(events, finalActive, finalRaw, alarmObservations);
@@ -344,7 +347,19 @@ final class HistoryStatisticsAnalytics {
         return out;
     }
 
-    private static String periodStart(HistoryStatisticsRepository.Observation observation) {
+    /**
+     * Raw METER observations still need their predecessor boundary converted to the period start.
+     * A resolved LOCAL observation already is an explicit interval, so that interval itself must
+     * survive into charts/KPIs; reducing it to its start boundary loses ownership and can relabel a
+     * Day/Month as the preceding civil period.
+     */
+    private static String metricPeriodTimestamp(
+            HistoryStatisticsRepository.Observation observation,
+            String rawStartFallback) {
+        if (observation == null) return rawStartFallback == null ? "" : rawStartFallback;
+        HistoryResolvedTimeToken.Parsed resolved = HistoryResolvedTimeToken.parse(observation.timestamp);
+        if (resolved != null && resolved.interval) return observation.timestamp;
+        if (rawStartFallback != null) return rawStartFallback;
         String value = HistoryTimePresentation.periodStartTimestamp(
                 observation.timestamp, observation.granularity);
         return value == null ? observation.timestamp : value;
