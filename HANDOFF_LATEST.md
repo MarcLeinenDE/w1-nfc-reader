@@ -1,6 +1,6 @@
 # W1 NFC Reader — HANDOFF_LATEST
 
-Date: 2026-09-09
+Date: 2026-09-10
 
 This is the canonical coordination handoff for W1 NFC Reader v2.1. Repository state, GitHub Actions and real-device evidence are authoritative over stale chat history.
 
@@ -27,8 +27,7 @@ Then inspect the actual development code at the exact development head. The hand
 
 ## 2. Repository / branch state
 
-Public repository:
-- `MarcLeinenDE/w1-nfc-reader`
+Public repository: `MarcLeinenDE/w1-nfc-reader`
 
 Stable `main` baseline:
 - `841630bc7ea8dea2f1fb8d25a4fa41a56d83a6c8`
@@ -40,157 +39,134 @@ Current development head:
 - `404dc90c1f974fb145d80cce23508825d8de16b9`
 - commit: `docs: add public support for v2.1 timing evidence`
 - Android CI run `34362370166`: SUCCESS
-- this head and the two preceding commits are documentation-only on top of the functional candidate below.
-- compare from previous docs head `50852719e9e93e7a4f921e95156663920756fdc9`: exactly three Markdown files changed; no product/NFC/parser/resource code changed.
+- documentation-only on top of the functional candidate.
 
-Exact functional/code checkpoint:
+Exact functional / physical-validation candidate:
 - `e4f458d9ff47a088926772a13d9bf19946f4bc48`
-- commit: `test: relax time-basis presentation source contracts`
 - Android CI run `34320334896`: SUCCESS
 - 346 tests passed
-- product i18n contract: 227 translatable keys across 6 locales
+- product i18n contract: 227 keys across 6 locales
+- artifact `w1-nfc-reader-debug`
+- artifact id `10091656517`
+- artifact digest `sha256:a7ad4eb0c09a331836a508cd3e3e96210fa8966710502a0ab8a3d7feb1eae775`
+- APK SHA-256 `44d8896f92b10c586eb4ae51a0c05ff7118f87c8656e43ba14393ca11487e95a`
 
 Open Draft PR:
 - `#22 — WIP: add v2.1 real-time timeline foundation`
-- base: `main`
-- head: `dev/v2.1.0-real-time-timeline`
+- base `main`
+- head `dev/v2.1.0-real-time-timeline`
 - keep Draft until real-device validation succeeds.
 
-## 3. Exact physical validation candidate
+The older candidate `2191147a96db59b2857af7526fa07826bffc8967` is obsolete and must not be used.
 
-Use this exact CI artifact for the next physical A–F validation:
+## 3. Real-device validation progress — 2026-09-10
 
-- source commit: `e4f458d9ff47a088926772a13d9bf19946f4bc48`
-- Actions run: `34320334896`
-- artifact: `w1-nfc-reader-debug`
-- artifact id: `10091656517`
-- artifact digest: `sha256:a7ad4eb0c09a331836a508cd3e3e96210fa8966710502a0ab8a3d7feb1eae775`
-- APK SHA-256: `44d8896f92b10c586eb4ae51a0c05ff7118f87c8656e43ba14393ca11487e95a`
+The user currently has physical access to the meter and started the A–F validation from `docs/V2_1_REAL_DEVICE_VALIDATION.md` using the pinned candidate above.
 
-Debug uses the `.dev` application-id suffix and can coexist with the stable app.
+### Section A — installation/default state
 
-The previous candidate:
-- `2191147a96db59b2857af7526fa07826bffc8967`
-- CI `34316796172`
-- artifact id `10090392521`
+Observed:
+- debug candidate is installed and usable;
+- LOCAL mode is being used successfully;
+- no installation/coexistence problem was reported.
 
-is **obsolete and must not be used for v2.1 physical acceptance**. It predates the corrected Live LOCAL/METER routing and locale-aware Live meter-time presentation.
+Not explicitly recorded in chat:
+- whether a fresh debug-app state showed **Local time as the default** before any setting change.
 
-The physical sequence and acceptance rules are canonical in:
-- `docs/V2_1_REAL_DEVICE_VALIDATION.md`
+This can be verified without another NFC contact if needed.
+
+### Section B — protected normal Live read + localized meter time
+
+Confirmed on the real meter:
+- normal protected Live NFC read succeeds;
+- German locale formatting of the Live meter time is correct;
+- Meter Details shows a per-meter timezone;
+- the shown timezone is `Europe/Berlin`;
+- provenance correctly indicates automatic assignment from the first verified Live read / device context;
+- Meter Details also shows the meter time in German locale format;
+- no unintended automatic History synchronization was reported after the normal Live read.
+
+Minor UI discrepancy found:
+- in Meter Details, the **`Am Handy ausgelesen`** timestamp is correctly formatted but lacks the centered separator dot between date and time that other product timestamps use.
+- treat this as a small presentation consistency issue, not a time-model/NFC failure;
+- do not change the pinned candidate in the middle of the A–F test just for this cosmetic issue. Record it for the post-validation fix/retest decision.
+
+### Next physical step — Section C
+
+Continue in **LOCAL** mode and inspect History / Statistics. Screenshots from the phone are explicitly welcome in the new project chat.
+
+Check in order:
+1. History → Live: real acquisition time primary, meter time secondary when available.
+2. History → Hour / Day / Month: resolved local/civil time primary, raw meter/logger time secondary.
+3. Ordering must look chronologically plausible; no false missing-timezone warning should appear.
+4. If the debug app has no archive data, start only the normal explicit History synchronization needed to establish the data. Do not use experimental NFC options.
+5. Statistics: use a bounded range with known data; coverage/values should be plausible and no artificial zero total should be invented because LOCAL projection is unavailable.
+
+After Section C, continue with D (LOCAL ↔ METER), E (invalid timezone input smoke) and F (final normal Live regression read).
 
 ## 4. Current v2.1 implementation state
 
-The implementation is feature-complete for the planned real-time timeline slice and CI-verified. It is **not release-accepted yet** because the limited real-device gate is still open.
+Feature-complete and CI-green for the planned time-model/query/UI slice. Important completed behavior:
+- global `LOCAL` / `METER`, LOCAL default;
+- verified Live acquisition anchors;
+- stable per-meter IANA timezone + provenance;
+- occurrence-safe archive identity (`raw timestamp + occurrence_key`);
+- passive archive timing evidence and fail-closed UTC projection;
+- LOCAL History/Statistics on resolved UTC timeline;
+- LOCAL Live selection/order on Android acquisition epoch;
+- METER Live bounded selection/order/predecessor on `meter_time`;
+- DST-safe local navigation and 23/24/25-hour Statistics completeness;
+- raw meter time secondary in LOCAL;
+- trustworthy resolved local time secondary in METER;
+- locale-aware Live meter-time display in Overview / History / Meter Details;
+- explicit LOCAL warnings for missing zone / unsafe boundary / insufficient timing evidence;
+- schema-3 backup/restore, schema-2 compatibility;
+- six-locale product translation contract.
 
-Implemented:
+## 5. Public QW1 supporting evidence — documentation only
 
-- global Android `LOCAL` / `METER` time-basis preference; `LOCAL` is default;
-- verified Live acquisition anchors from the production default-read path;
-- stable per-meter IANA timezone assignment after first verified Live read;
-- explicit per-meter timezone display/provenance/editing in Meter Details;
-- fixed-offset-like zone input rejected; manual changes use `USER_SELECTED` provenance;
-- occurrence-safe archive DB identity using raw timestamp + `occurrence_key`;
-- repeated raw wall-clock periods remain representable across DST fall-back;
-- passive archive timing evidence persisted without changing traversal semantics;
-- canonical UTC projection from retained evidence, fail-closed when evidence is insufficient;
-- LOCAL History/Statistics query routing over resolved UTC intervals;
-- LOCAL Live rows use the real Android acquisition epoch for bounded selection/order;
-- METER Live rows use `meter_time` for bounded selection, order and predecessor context;
-- METER bounded periods do not silently include a Live row with missing meter time by falling back to phone time;
-- occurrence-safe predecessor context for consumption deltas;
-- LOCAL navigator/range DST handling without guessing nonexistent or repeated local times;
-- hourly LOCAL Statistics expected buckets use real civil-day duration: 23/24/25 hours as applicable;
-- missing zone/ambiguous boundary/inconsistent zone evidence fails closed instead of assuming 24;
-- chart coverage and KPI known-total logic share one expected-bucket definition;
-- raw meter/logger time remains visible as secondary evidence in LOCAL History;
-- METER History can show resolved local time as secondary evidence when trustworthy;
-- Live meter time is formatted locale-aware in Overview, History and Meter Details instead of exposing the raw stored `yyyy-MM-dd HH:mm` form;
-- raw meter time remains unchanged in persistence/backup; only product presentation/query semantics changed;
-- German example for raw `2026-09-09 14:05`: `09.09.2026 · 14:05`;
-- History/Statistics rerender after a LOCAL/METER setting change;
-- explicit LOCAL warnings distinguish missing meter timezone, unsafe/ambiguous/nonexistent LOCAL boundary and insufficient archive timing evidence;
-- meters without data for the selected archive granularity do not create false zone warnings;
-- schema-3 backup/restore preserves time-basis preference, per-meter zones, verified anchors and occurrence-safe archive data;
-- schema-2 restore remains supported without inventing missing timing evidence;
-- six-locale product translation contract remains green.
+`docs/research/PUBLIC_QW1_EVIDENCE.md` records public Axioma/FCC/ST supporting evidence. Guardrails remain:
+- current Axioma manual says integrated NFC is intended for data reading only;
+- ON_TIME-related manufacturer data is supporting evidence, not proof of our UTC reconstruction;
+- nominal `1480 / 1130 / 36` capacities are informational only, never hardcoded sync depth;
+- semantic terminal detection and secure `KNOWN_RECORD_REACHED` overlap remain authoritative;
+- historical ST25DV04K evidence does not create a chip/revision dependency.
 
-Documentation-only supporting-evidence update completed after the functional candidate:
-
-- `docs/research/PUBLIC_QW1_EVIDENCE.md` records public Axioma/FCC/ST evidence with explicit scope/guardrails;
-- current Axioma manual `QW1_V22.4_EN` (2026-05-11) describes integrated NFC as intended for data reading only, independently supporting the existing read-focused safety policy;
-- the manual documents total operating time / operating time without error in Hour/Day/Month archives, consistent with retained ON_TIME evidence but **not** a proof of the app's UTC reconstruction method;
-- nominal logger capacities `1480 / 1130 / 36` are documented as informational only and are **not** app traversal/synchronization limits;
-- a public 2020 FCC-era QW1 BOM identifies an ST25DV04K Fast Transfer Mode device in that historical revision; this is supporting hardware evidence only, never an app hardware dependency;
-- `PROTOCOL_SAFETY.md` was also corrected from stale v2.0 identity/time wording to the already implemented occurrence-safe v2.1 semantics.
-
-## 5. Safety boundary — do not regress
-
-No v2.1 timeline or public-evidence documentation work introduced a new NFC command or changed protected transport/parser/traversal behavior.
+## 6. Safety boundary — do not regress
 
 Remain protected:
-
-- normal NFC contact = protected fast Live/default read only;
+- normal NFC contact = fast Live/default read only;
 - History synchronization starts only after explicit user action;
 - Hour/Day/Month families remain independent;
-- accepted archive records are persisted immediately;
-- incremental known overlap must remain secure; timestamp-only overlap is forbidden;
-- ambiguous selected requests are never blindly retried;
-- final Default Restore/Live verification remains required for COMPLETE;
-- semantic terminal/overlap behavior remains authoritative; public nominal archive capacities must not become hardcoded stop limits;
+- accepted archive observations persist immediately;
+- secure known overlap only; timestamp-only overlap is forbidden;
+- semantic terminal conditions, not hardcoded record counts;
+- final Default Restore/Live verification required for COMPLETE;
 - no cumulative consumption across physical meter replacement;
 - no intentional persistent meter/radio/calibration/firmware writes;
-- `QalcosonicReader.java`, `MbusParser.java` and physically validated NFC/mailbox/archive traversal paths are protected;
-- raw meter/logger time remains source evidence and is never overwritten by derived UTC/local presentation;
-- public evidence is supporting context, not permission to introduce ST25-specific or revision-specific assumptions.
+- `QalcosonicReader.java`, `MbusParser.java` and validated NFC/mailbox/archive traversal paths remain protected;
+- raw meter/logger time remains source evidence and is never overwritten by derived UTC/local presentation.
 
-If the physical v2.1 test exposes a protocol/read regression, stop and reopen the safety gate. Do not patch around it by changing meter commands in the same validation pass.
+If the physical test exposes a protocol/read regression, stop and reopen the safety gate rather than modifying NFC commands during the same test.
 
-## 6. Stable release remains immutable
+## 7. Release gate
 
-Current public stable release:
-- version/tag: `v2.0.0`
-- immutable tag commit: `5c094a70e75cba52fbdaef96d39b6c72e2011f9d`
-- versionCode: `43`
-- public APK SHA-256: `211c5dcb94047dcc12d0aa68534b6eaf154103a8c08c600f293c097c2188d2f4`
+Current stable release remains immutable `v2.0.0` / versionCode `43`.
 
-Never move, recreate or replace `v2.0.0` (or `v1.0.0`).
+Do not:
+- bump to stable v2.1.0 yet;
+- mark PR #22 ready;
+- merge PR #22;
+- create/move a v2.1.0 tag/release.
 
-The development branch intentionally still has stable identity `versionName = 2.0.0` / `versionCode = 43`. Do **not** bump to 2.1.0 until the physical validation candidate is accepted.
-
-## 7. Remaining gates / next action
-
-The next action is physical validation, not another architecture migration.
-
-Run sections A–F from `docs/V2_1_REAL_DEVICE_VALIDATION.md` using the exact candidate in section 3:
-
-A. install / confirm LOCAL default;
-B. protected normal Live read + automatic zone assignment;
-C. LOCAL History/Statistics smoke, including locale-aware raw meter-time secondary evidence;
-D. LOCAL ↔ METER switch and immediate rerender; verify Live rows/ranges actually follow the selected basis, not only the label;
-E. timezone edit-dialog invalid-input smoke (no successful production-zone mutation required);
-F. final normal Live regression read.
-
-During the physical smoke also verify on German UI that Live meter time is no longer shown as raw `yyyy-MM-dd HH:mm`, but in locale-aware German form.
-
-After A–F pass:
-
-1. record the exact physical evidence without publishing private meter ID/consumption/captures;
-2. advance version metadata to the intended v2.1.0 stable identity;
-3. curate `CHANGELOG.md` / release notes;
-4. produce the normal signed release candidate;
-5. physically accept that exact signed candidate before publication;
-6. keep PR/release/tag handling consistent with `docs/RELEASING.md`.
-
-Until A–F pass, PR #22 stays Draft and no stable v2.1.0 release/tag should be created.
+First complete physical sections A–F. After physical acceptance, prepare version metadata, changelog/release notes and the exact signed release candidate, then physically accept that exact candidate before publication.
 
 ## 8. Private Research authority
 
-Only if protocol/time-evidence behavior itself must be revisited, consult the frozen private Research authority:
+Only if protocol/time-evidence behavior itself must be revisited:
+- private repo `MarcLeinenDE/engineering-lab`
+- path `android/qalcosonic-nfc-reader/`
+- branch `research/w1-nfc-archive-analysis`
+- frozen head `65358d55ee52a6911ab4fa8d1a66bc0d0dda0fd0`
 
-- private repo: `MarcLeinenDE/engineering-lab`
-- path: `android/qalcosonic-nfc-reader/`
-- branch: `research/w1-nfc-archive-analysis`
-- frozen head: `65358d55ee52a6911ab4fa8d1a66bc0d0dda0fd0`
-
-Rule: extend the public product architecture with frozen Research semantics; do not port/merge the private Research architecture wholesale. Never publish private meter IDs, captures, NFC traffic or consumption data.
+Never publish private meter IDs, captures, NFC traffic or consumption data.
