@@ -99,8 +99,8 @@ public final class HistoryLocalQueryFamilyRegressionTest {
         HistoryStatisticsAnalytics.ConsumptionSummary summary = statistics(
                 HistorySemanticTimeline.Granularity.DAY,
                 HistoryPeriodNavigator.Scale.MONTH,
-                "2026-03-28 23:00",
-                "2026-03-31 01:00");
+                "2026-03-28 23:59",
+                "2026-03-31 00:59");
 
         assertEquals(2, summary.availableBuckets);
         assertEquals(5.0, summary.total, 0.000001);
@@ -129,8 +129,8 @@ public final class HistoryLocalQueryFamilyRegressionTest {
         HistoryStatisticsAnalytics.ConsumptionSummary summary = statistics(
                 HistorySemanticTimeline.Granularity.MONTH,
                 HistoryPeriodNavigator.Scale.YEAR,
-                "2026-02-28 23:00",
-                "2026-05-01 01:00");
+                "2026-02-28 23:59",
+                "2026-05-01 00:59");
 
         assertEquals(2, summary.availableBuckets);
         assertEquals(11.0, summary.total, 0.000001);
