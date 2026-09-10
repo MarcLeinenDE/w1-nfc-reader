@@ -88,13 +88,13 @@ final class HistoryResolvedTimeToken {
     }
 
     /**
-     * Checks whether a resolved interval can represent exactly one physical archive bucket.
+     * Checks whether a resolved interval can represent exactly one native physical archive bucket.
      *
-     * <p>This deliberately validates elapsed UTC duration rather than adding a civil hour/day/month
-     * to {@code startLocal()}. A W1 archive family is created by the meter, while LOCAL is a later
-     * projection of that physical interval into an IANA zone. DST or a meter clock offset can make
-     * one valid physical Day/Month start and end on different civil boundaries. Conversely, a
-     * genuinely missing native bucket must still not be compressed into one statistics bucket.</p>
+     * <p>The canonical UTC projection is derived from ON_TIME elapsed seconds before an IANA zone
+     * participates at all. Therefore DST must never widen or shrink a native bucket in UTC. LOCAL is
+     * presentation only: it may make one valid interval cross civil dates, months, offsets or folds,
+     * but the elapsed physical duration stays unchanged. Exact native durations also prevent a
+     * missing archive bucket from being silently compressed into one statistics bucket.</p>
      */
     static boolean adjacent(
             String previous,
@@ -110,14 +110,14 @@ final class HistoryResolvedTimeToken {
             case HOUR:
                 return durationMs == HOUR_MS;
             case DAY:
-                // Covers 23/24/25-hour civil days without treating a two-day archive gap as one Day.
-                return durationMs >= 23L * HOUR_MS && durationMs <= 25L * HOUR_MS;
+                return durationMs == DAY_MS;
             case MONTH:
-                // Calendar months plus plausible DST transitions stay far below a missing-month gap.
-                return durationMs >= 27L * DAY_MS && durationMs <= 32L * DAY_MS;
+                return durationMs == 28L * DAY_MS
+                        || durationMs == 29L * DAY_MS
+                        || durationMs == 30L * DAY_MS
+                        || durationMs == 31L * DAY_MS;
             case YEAR:
-                // Covers leap years and civil offset changes while rejecting a missing whole year.
-                return durationMs >= 364L * DAY_MS && durationMs <= 367L * DAY_MS;
+                return durationMs == 365L * DAY_MS || durationMs == 366L * DAY_MS;
             default:
                 return false;
         }
