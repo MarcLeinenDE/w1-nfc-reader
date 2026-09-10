@@ -14,6 +14,9 @@ import java.util.List;
  * later, fully resolved requests.</p>
  */
 final class ArchiveWindowCoverage {
+    private static final long HOUR_MS = 60L * 60L * 1000L;
+    private static final long DAY_MS = 24L * HOUR_MS;
+
     static final class Result {
         final LocalTimeWindowResolver.Window window;
         final UtcCoverage.Result coverage;
@@ -101,9 +104,19 @@ final class ArchiveWindowCoverage {
     }
 
     /**
-     * Treat each unresolved period as an unknown UTC region bracketed by the nearest resolved
-     * boundary before/after it. An open prefix extends to negative infinity; an open suffix extends
-     * to positive infinity. Only an overlap with the requested window is relevant.
+     * Treat unresolved periods as unknown UTC regions bracketed by trustworthy resolved boundaries.
+     *
+     * <p>The first stored native archive record is special: its end boundary can be resolved while
+     * its start is unavailable solely because the predecessor record is no longer stored. That
+     * natural open prefix is not unbounded in physical time. A single native W1 record can span at
+     * most one Hour, one Day, 31 Days for Month, or 366 Days for Year. Using only that conservative
+     * maximum for warning relevance prevents an oldest Hour record from making every earlier date
+     * in History look time-ambiguous. It does <strong>not</strong> resolve or render the missing
+     * boundary and therefore does not weaken the fail-closed canonical UTC model.</p>
+     *
+     * <p>Interior unresolved runs and open suffixes remain conservatively bracketed by the nearest
+     * resolved evidence. If their location cannot be bounded safely, they remain open-ended and the
+     * warning is retained.</p>
      */
     private static boolean relevantUnresolved(
             long requestStartUtcMs,
@@ -121,11 +134,64 @@ final class ArchiveWindowCoverage {
                     ? period.endBoundary.utcMs
                     : nextResolvedBoundary(projected, i + 1);
 
+            if (lower == null && upper != null) {
+                lower = boundedNaturalOpenPrefixStart(period, upper, projected, i);
+            }
+
             if (unknownRegionOverlaps(requestStartUtcMs, requestEndUtcMs, lower, upper)) {
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * Returns a conservative lower bound only for the natural first-record open prefix.
+     * Any earlier unresolved record means this is an unresolved run, not a harmless retention edge.
+     */
+    private static Long boundedNaturalOpenPrefixStart(
+            ArchiveUtcProjection.Period period,
+            long resolvedUpperUtcMs,
+            List<ArchiveUtcProjection.Period> projected,
+            int index) {
+        if (period == null
+                || period.status != ArchiveUtcProjection.PeriodStatus.START_BOUNDARY_UNAVAILABLE
+                || period.source == null
+                || period.source.family == null
+                || hasEarlierPeriod(projected, index)) {
+            return null;
+        }
+        long maximumDurationMs = maximumNativeDurationMs(period.source.family);
+        if (maximumDurationMs <= 0L) return null;
+        try {
+            return Math.subtractExact(resolvedUpperUtcMs, maximumDurationMs);
+        } catch (ArithmeticException ignored) {
+            return Long.MIN_VALUE;
+        }
+    }
+
+    private static boolean hasEarlierPeriod(List<ArchiveUtcProjection.Period> projected, int index) {
+        if (projected == null) return false;
+        for (int i = index - 1; i >= 0; i--) {
+            if (projected.get(i) != null) return true;
+        }
+        return false;
+    }
+
+    private static long maximumNativeDurationMs(ArchiveFamilyPeriod.Family family) {
+        if (family == null) return -1L;
+        switch (family) {
+            case HOUR:
+                return HOUR_MS;
+            case DAY:
+                return DAY_MS;
+            case MONTH:
+                return 31L * DAY_MS;
+            case YEAR:
+                return 366L * DAY_MS;
+            default:
+                return -1L;
+        }
     }
 
     private static Long previousResolvedBoundary(
