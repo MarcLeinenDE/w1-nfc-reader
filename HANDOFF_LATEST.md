@@ -1,6 +1,6 @@
 # W1 NFC Reader — HANDOFF_LATEST
 
-Date: 2026-09-10
+Date: 2026-09-11
 
 This is the canonical coordination handoff for W1 NFC Reader v2.1. Repository state, GitHub Actions and real-device evidence are authoritative over stale chat history.
 
@@ -35,19 +35,17 @@ Stable `main` baseline:
 Active development branch:
 - `dev/v2.1.0-real-time-timeline`
 
-Current functional development head / next physical candidate:
-- `229d0a4f3abf595c36ad24a5f9a78cb50dd5009e`
-- commit: `fix: persist verified final History reads as time anchors`
-- Android CI run `34523964417`: SUCCESS
-- product i18n contract: 227 keys across 6 locales: SUCCESS
+Current functional development head / exact next physical candidate:
+- `c7b909bb288284d0a527aed599b4be46975ddf52`
+- Android CI run `34634776793`: SUCCESS
 - unit/Robolectric suite: SUCCESS
-- debug assemble: SUCCESS
-- APK signature verification: SUCCESS
+- product i18n contract: 227 keys across 6 locales: SUCCESS
+- debug assemble/signature verification: SUCCESS
 - artifact `w1-nfc-reader-debug`
-- artifact id `10170855829`
-- artifact ZIP SHA-256 `a56b188388ff3d214c6bbb3f51cfac6d9b8f51aa792a892ec86c54e62d11e4f5`
-- APK SHA-256 `44b12bb68c985d9ca5009ef562d93dd02aeedcc163d0e5a3c8492eb59c6707ca`
-- artifact independently downloaded after CI; ZIP digest, `SHA256SUMS.txt`, and actual APK SHA-256 match.
+- artifact id `10276704745`
+- artifact ZIP SHA-256 `5b62bed9d75e17627ef0231090e3179de7fc1844ae50e3886144923b6a3db9b7`
+- APK SHA-256 `32ccfd4e2504aa6eb7edba3b2accea5a1f575fe1df33b569fea66b88cc71885d`
+- artifact independently downloaded after CI; ZIP digest, `SHA256SUMS.txt`, and actual APK SHA-256 all match.
 
 Open Draft PR:
 - `#22 — WIP: add v2.1 real-time timeline foundation`
@@ -56,11 +54,12 @@ Open Draft PR:
 - keep Draft until replacement-candidate physical validation succeeds.
 
 Superseded physical candidates:
-- `e4f458d9ff47a088926772a13d9bf19946f4bc48`: Section C exposed incorrect LOCAL period ownership/adjacency and shifted statistics labels;
-- `474067fbdf51ad3b892053bd5694a7ffcea765d8`: fixed C1 but exposed a false-positive LOCAL time-resolution warning for an archive family with no data in an earlier requested range;
-- `14a8ae4100ed801f19627c6489afa9ad3757c1aa`: fixed the warning-scope defect, but real-device/current-backup comparison exposed that History final Default/Live verification was not persisted as a fresh time anchor, leaving newer archive rows legitimately unresolved in LOCAL.
+- `e4f458d9ff47a088926772a13d9bf19946f4bc48`: incorrect LOCAL period ownership/adjacency and shifted statistics labels;
+- `474067fbdf51ad3b892053bd5694a7ffcea765d8`: false-positive LOCAL warning for an empty/out-of-range archive family;
+- `14a8ae4100ed801f19627c6489afa9ad3757c1aa`: warning scope fixed, but final History Default/Live verification was not persisted as a fresh time anchor;
+- `229d0a4f3abf595c36ad24a5f9a78cb50dd5009e`: post-History anchor persistence worked physically, but statistics exposed a valid native bucket being dropped when its two UTC boundaries were resolved across two different verified anchors.
 
-## 3. Real-device validation progress — 2026-09-10
+## 3. Real-device validation progress — 2026-09-11
 
 ### Section A — installation/default state
 
@@ -87,7 +86,7 @@ B does not need repetition solely because of downstream C fixes. Section F remai
 
 ### Section C — LOCAL History / Statistics
 
-Three distinct findings occurred during physical validation.
+Four distinct findings have occurred during physical validation.
 
 #### C1 — period ownership / DST projection defect
 
@@ -96,56 +95,76 @@ FAIL on `e4f458d9ff47a088926772a13d9bf19946f4bc48`:
 - valid physical archive periods could be dropped;
 - chart/statistics ownership could reuse the predecessor time token and shift a value to the previous displayed period.
 
-The private real-meter backup was structurally audited. Hour/Day/Month progression, ON_TIME progression and canonical UTC ordering were internally consistent. No private meter identifier, consumption value, backup payload or raw capture was published.
+Fixed from `854b358bca24f43c360ecfde8897de0e0af5c5e3` and hardened with exhaustive IANA-zone/DST tests.
 
-The correction begins at `854b358bca24f43c360ecfde8897de0e0af5c5e3` and was hardened with exhaustive IANA-zone/DST tests.
-
-#### C2 — false-positive LOCAL resolution warning for empty/out-of-range family
+#### C2 — false-positive LOCAL warning for empty/out-of-range family
 
 Physical retest on `474067fbdf51ad3b892053bd5694a7ffcea765d8` showed a custom February LOCAL range where Hour had no data but still produced the red insufficient-time warning; `All` inherited the unrelated Hour warning while Day was correctly resolved.
 
-Fixed through `14a8ae4100ed801f19627c6489afa9ad3757c1aa`. Current warning contract:
-- empty Hour/Day/Month family => no LOCAL resolution warning;
-- retained family coverage that begins later than the selected earlier range => no warning solely because the oldest retained record lacks a predecessor;
-- `All` must not inherit a warning from an unrelated empty/out-of-range granularity;
-- Statistics with zero fully-contained buckets => not automatically a time-resolution warning;
-- ordinary known data/coverage gaps => not automatically a time-resolution warning;
-- genuinely missing zone, ambiguous/nonexistent LOCAL boundary, or genuinely unresolved timing affecting the query remains fail-closed and warns.
+Fixed through `14a8ae4100ed801f19627c6489afa9ad3757c1aa`. The warning is now reserved for genuinely relevant unresolved time. Empty/out-of-range granularities, zero fully-contained statistic buckets and ordinary known coverage gaps do not warn by themselves.
 
-For warning relevance only, the natural oldest-record open prefix is bounded by one maximum native record duration: Hour 1 h, Day 24 h, Month 31 d, Year 366 d. This bound never synthesizes or persists a canonical UTC interval.
+#### C3 — final History Live verification was not becoming a fresh time anchor
 
-#### C3 — History final Live verification was not becoming a fresh time anchor
+On `14a8ae4100ed801f19627c6489afa9ad3757c1aa`, current September Hour/All legitimately warned because newer archive boundaries had ON_TIME later than the only stored verified Live anchor. The actual omission was that every History family already performs a mandatory final Default Restore/Live verification, but that successful final Live evidence was not persisted as a v2.1 time anchor.
 
-Physical screenshots on `14a8ae4100ed801f19627c6489afa9ad3757c1aa` showed a red warning for the current September Hour/All view. Comparison with the private backup established that this warning was *legitimate*, not another warning-scope false positive:
-- the archive contained newer Hour records than the only stored verified Live time anchor;
-- `ArchiveUtcProjection` intentionally refuses to project an archive boundary using an anchor whose ON_TIME is older than that archive boundary;
-- therefore the newest Hour rows correctly became `NO_SUITABLE_ANCHOR` and were omitted from LOCAL while remaining available in METER.
+Fixed in `229d0a4f3abf595c36ad24a5f9a78cb50dd5009ef562d93dd02aeedcc163d0e5a3c8492eb59c6707ca` is NOT a commit; the actual fix commit is `229d0a4f3abf595c36ad24a5f9a78cb50dd5009e`.
 
-The actual design omission was downstream of the protected History safety shell: every family attempt already performs a mandatory final Default Restore/Live verification, but that successful final Live evidence was used only for safety completion and was not persisted as a v2.1 time anchor.
+Contract:
+- capture timing/readout from the already-existing final Default/Live verification;
+- persist it through `LiveTimeAnchorPersistence` only when `finalRestoreVerified()` is true;
+- no additional NFC command or additional default read;
+- Hour/Day/Month single sync and each family inside Sync All / Full Re-Sync share the common path;
+- partial archive traversal may still yield a valid anchor when the final Default/Live verification succeeds;
+- failed/unverified final restore yields no anchor;
+- anchor persistence remains additive/fail-soft.
 
-Fix in `229d0a4f3abf595c36ad24a5f9a78cb50dd5009e`:
-- the existing final Default/Live read captures its real acquisition window (`readBeforeEpochMs` / `readAfterEpochMs`) and readout;
-- only when `transport.finalRestoreVerified()` is true is that exact already-performed Live evidence converted through the existing `LiveTimeAnchorPersistence` path and persisted as a new verified anchor;
-- no additional NFC command, no additional default read, and no new protocol behavior were added;
-- single Hour, Day and Month attempts all use the common `performFamilyAttempt` path and therefore gain this behavior;
-- `Sync All` / Full Re-Sync use the same path per family, so a valid verified anchor can be added after each successfully restored family;
-- a partial archive traversal may still add a valid time anchor when its final Default/Live verification succeeds, because anchor validity is independent of archive completeness;
-- failed/unverified final restore creates no anchor;
-- anchor persistence remains additive/fail-soft and must not turn an otherwise valid History safety result into a protocol failure.
+Physical retest confirmed that the new post-History anchors are created and newer Hour data becomes LOCAL-resolvable.
 
-New regression coverage proves synthetically for Hour/Day/Month that an archive boundary newer than the old Live anchor remains unresolved before the post-sync anchor and resolves after adding the later verified anchor. Source-route tests also guard that no extra NFC/default read was introduced.
+#### C4 — valid native statistics bucket dropped at verified anchor handover
 
-### Next physical action — selective C retest with `229d0a4...`
+After a successful `Alle aktualisieren` on `229d0a4f3abf595c36ad24a5f9a78cb50dd5009e`, the user still observed:
+- September monthly statistics: `9 von 30` although the freshly exported private backup already contained the next completed Day archive record;
+- 10 September day statistics: `21 von 24` and visibly fewer bars.
 
-Installing the APK alone cannot retroactively create the missing post-sync anchor. After installing the exact candidate, perform **one normal explicit History sync** on the real meter (Hour is the most direct reproduction case). The already-required final Default/Live verification should then persist a fresh anchor automatically.
+A force-close/reopen did not change the counts, disproving the initial stale-UI-only hypothesis.
 
-After that sync:
-- current September `Stunde`: previously missing newest Hour rows should resolve in LOCAL up to the new verified anchor and the red warning should disappear unless there is some genuinely unresolved relevant evidence;
-- current September `Alle`: must likewise not warn solely because of the formerly stale anchor;
-- recheck the earlier February custom range: Hour remains normal no-data state without warning; Day remains resolved; All must not inherit a warning from empty/out-of-range Hour;
-- bounded Statistics must remain value/coverage-consistent and must not invent zero consumption.
+Private backup diagnosis, without publishing any meter ID, consumption values or payload:
+- archive synchronization and persistence were correct;
+- post-sync verified anchors were present;
+- native Hour and Day ON_TIME progression was correct;
+- one valid physical archive interval crossed from an older verified anchor to a newer post-sync verified anchor;
+- because the two independently verified anchors have slightly different real-time origin calibration, the derived UTC duration of that one otherwise-valid native interval differed slightly from the nominal native duration;
+- downstream `HistoryResolvedTimeToken.adjacent()` incorrectly revalidated native adjacency using the derived UTC duration and dropped the valid bucket.
 
-Then continue:
+This is a time-model layering bug, not missing archive data.
+
+Fix at current head `c7b909bb288284d0a527aed599b4be46975ddf52`:
+- native archive adjacency is now validated where authoritative native evidence still exists: `ArchiveUtcProjection`, using consecutive ON_TIME progression;
+- Hour requires +3600 s, Day +86400 s, Month +28/29/30/31 native days, Year +365/366 native days;
+- a missing native record becomes explicit `NATIVE_GAP` and is never compressed into one bucket;
+- once native adjacency has been validated, downstream resolved-token analytics only requires occurrence-safe shared UTC boundary plus the same assigned IANA zone and does not reject a bucket merely because an anchor handover produces a small derived-duration offset;
+- a `NATIVE_GAP` is a known coverage gap, not unresolved time, so it does not trigger the red LOCAL time-resolution warning in bounded or all-period views;
+- genuinely unresolved time continues to fail closed.
+
+Synthetic public regression tests cover Hour/Day/Month anchor handovers and a missing native Hour record. The private backup was used only for local diagnosis; no private evidence was committed.
+
+Expected physical result from the already-stored data after installing the current candidate, with no additional NFC sync needed for this first check:
+- September 2026 monthly statistics should become `10 von 30` completed Day buckets;
+- 10 September 2026 day statistics should become `22 von 24` fully-contained Hour buckets;
+- `22/24` rather than `24/24` is expected because the real LOCAL civil-day boundaries cut through two shifted physical Hour intervals; statistics intentionally counts only fully-contained buckets and does not fabricate fractional edge consumption;
+- the screenshot can visually show fewer filled bars than the coverage count because genuine `0.000 m³` buckets currently render as zero-height bars. In the private backup for this selected day, the valid fully-contained set includes genuine zero-consumption buckets. This is a chart-visibility/UX issue, not missing data.
+
+### Next physical action — selective C retest with `c7b909b...`
+
+Install the exact candidate. No new NFC contact is needed for the first verification because the database already contains the archive rows and post-sync anchors needed to reproduce C4.
+
+Check:
+- Statistics → September 2026: expected `10 von 30`;
+- Statistics → 10.09.2026: expected `22 von 24`;
+- History → current September Hour / All: no warning solely from the now-valid anchor handover;
+- earlier February no-Hour-data range: Hour remains normal empty-state without warning; Day remains resolved; All must not inherit an unrelated warning.
+
+Then finish remaining Section C statistics checks and continue:
 - D — LOCAL ↔ METER identity/value stability and actual query-basis change;
 - E — invalid/fixed-offset-like timezone input fails closed;
 - F — final normal protected Live NFC read with no unintended History sync/protocol regression.
@@ -155,16 +174,15 @@ Then continue:
 - canonical UTC interval identity is authoritative;
 - IANA LOCAL is a reversible query/presentation projection and never rewrites archive ownership;
 - raw meter/logger time remains preserved source evidence;
-- native W1 physical archive durations remain distinct from civil navigation duration;
-- native Hour = 1 elapsed hour;
-- native Day = 24 elapsed hours;
-- native Month = 28/29/30/31 elapsed days;
-- native Year = 365/366 elapsed days;
+- native adjacency/completeness is decided from native evidence (including ON_TIME), not from LOCAL labels or independently calibrated UTC interval duration;
+- native Hour = 1 elapsed hour; Day = 24 elapsed hours; Month = 28/29/30/31 elapsed days; Year = 365/366 elapsed days;
+- independently verified Live anchors may have small calibration differences; a handover between valid anchors must not itself invalidate an otherwise-native-adjacent archive bucket;
 - LOCAL civil days can legitimately be 23/24/25 hours at DST transitions;
 - repeated fall-back hours remain occurrence-safe;
-- all Java `ZoneId.getAvailableZoneIds()` zones are covered by UTC/LOCAL invariant tests;
+- missing native records remain explicit coverage gaps and are never compressed;
 - verified Live/default observations are the only anchors; never extrapolate beyond a later archive ON_TIME using an older anchor;
-- future Home Assistant integration should preserve canonical UTC boundaries as identity and derive LOCAL labels/windows through the IANA zone.
+- all Java `ZoneId.getAvailableZoneIds()` zones remain covered by UTC/LOCAL invariant tests;
+- future Home Assistant integration should preserve canonical UTC interval boundaries and explicit coverage gaps as integration identity, deriving LOCAL labels/windows from the IANA zone.
 
 ## 5. Safety boundary — do not regress
 
@@ -181,12 +199,7 @@ Remain protected:
 - `QalcosonicReader.java`, `MbusParser.java` and validated archive traversal/state-machine behavior remain protected;
 - raw meter/logger time is never overwritten by UTC/LOCAL presentation.
 
-`229d0a4...` changes only:
-- `HistorySyncActivity.java` downstream orchestration after the existing safety-shell result;
-- `MonthlyArchiveNfcWire.java` to retain timing/readout metadata from the existing default verification;
-- a new regression-test class.
-
-It does **not** add an NFC command or alter `QalcosonicReader.java`, `MbusParser.java`, archive selectors, terminal semantics, mailbox exchange cadence, overlap rules or traversal state machine.
+The C4 fix changes only downstream time projection/coverage/read-model logic and regression tests. It adds no NFC command and does not alter mailbox exchange cadence, archive selectors, terminal semantics, overlap rules or traversal state machine.
 
 ## 6. Release gate
 
@@ -212,9 +225,8 @@ Never publish private meter IDs, captures, NFC traffic, backup payloads or consu
 
 ## 8. Post-validation UI follow-ups
 
-Do not alter the exact functional candidate merely for these presentation items during the current C retest. After the functional gate, evaluate them together before preparing the v2.1 release candidate:
-
-- ordinary LOCAL period labels should prefer trustworthy locale-aware timezone abbreviations where available, for example German `MEZ` / `MESZ` and English `CET` / `CEST`, instead of showing only `+01:00` / `+02:00`;
-- canonical IANA zone and exact numeric UTC offset remain internal/diagnostic truth; ambiguous repeated hours may still need numeric-offset fallback/additional disambiguation;
+After the functional gate, evaluate these together before preparing the v2.1 release candidate:
+- ordinary LOCAL period labels should prefer trustworthy locale-aware timezone abbreviations where available, e.g. German `MEZ` / `MESZ` and English `CET` / `CEST`, while canonical IANA zone and exact numeric offset remain internal/diagnostic truth;
 - Meter Details `Am Handy ausgelesen` lacks the centered `·` separator between date and time;
-- Dashboard/Overview `Ausgelesen` has the same missing centered `·` separator.
+- Dashboard/Overview `Ausgelesen` has the same missing centered `·` separator;
+- genuine zero-consumption statistic buckets currently count correctly in coverage but render as zero-height bars, which can make the chart look as if points are missing. Evaluate a non-misleading zero marker/baseline tick rather than fabricating a positive-height bar.
