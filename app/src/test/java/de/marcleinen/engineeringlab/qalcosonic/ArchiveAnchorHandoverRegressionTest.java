@@ -45,7 +45,9 @@ public final class ArchiveAnchorHandoverRegressionTest {
                 Arrays.asList(first, afterMissing), Arrays.asList(anchor));
 
         assertEquals(2, projected.size());
+        ArchiveUtcProjection.Period oldest = projected.get(0);
         ArchiveUtcProjection.Period gap = projected.get(1);
+        assertEquals(ArchiveUtcProjection.PeriodStatus.START_BOUNDARY_UNAVAILABLE, oldest.status);
         assertEquals(ArchiveUtcProjection.PeriodStatus.NATIVE_GAP, gap.status);
         assertFalse(gap.resolvedInterval());
         assertNull(gap.coverageInterval());
@@ -56,6 +58,11 @@ public final class ArchiveAnchorHandoverRegressionTest {
                 projected);
         assertFalse(coverage.relevantUnresolvedTime);
         assertEquals(UtcCoverage.Status.GAP, coverage.coverage.status);
+
+        // An all-periods view should still warn for the genuinely unresolved oldest retained bucket,
+        // but a known native gap with two resolved real boundaries is not time ambiguity.
+        assertTrue(HistoryLocalQueryRepository.contributesUnresolvedAllPeriodsWarning(oldest));
+        assertFalse(HistoryLocalQueryRepository.contributesUnresolvedAllPeriodsWarning(gap));
     }
 
     private static void assertValidAcrossAnchorHandover(
