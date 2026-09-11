@@ -10,9 +10,14 @@ import java.util.List;
  * <p>The projection deliberately does not mutate archive rows and does not change History query
  * semantics yet. A stored raw logger timestamp is a completed-period END boundary. A complete UTC
  * interval is formed only from two consecutive resolved native boundaries of the same physical
- * meter and archive family. No nominal civil hour/day/month duration is invented.</p>
+ * meter and archive family. Native adjacency is validated from ON_TIME before the two independently
+ * resolved UTC boundaries are joined. This keeps missing native buckets from being silently
+ * compressed while allowing two valid boundaries to come from different verified Live anchors.</p>
  */
 final class ArchiveUtcProjection {
+    private static final long HOUR_SECONDS = 60L * 60L;
+    private static final long DAY_SECONDS = 24L * HOUR_SECONDS;
+
     enum BoundaryStatus {
         RESOLVED,
         NATIVE_EVIDENCE_MISSING,
@@ -25,6 +30,7 @@ final class ArchiveUtcProjection {
         RESOLVED,
         START_BOUNDARY_UNAVAILABLE,
         END_BOUNDARY_UNRESOLVED,
+        NATIVE_GAP,
         NON_MONOTONIC
     }
 
@@ -138,6 +144,8 @@ final class ArchiveUtcProjection {
                 status = PeriodStatus.END_BOUNDARY_UNRESOLVED;
             } else if (start == null || !start.resolved()) {
                 status = PeriodStatus.START_BOUNDARY_UNAVAILABLE;
+            } else if (!nativeAdjacent(start.source, source)) {
+                status = PeriodStatus.NATIVE_GAP;
             } else if (end.utcMs <= start.utcMs) {
                 status = PeriodStatus.NON_MONOTONIC;
             } else {
@@ -224,6 +232,46 @@ final class ArchiveUtcProjection {
             }
         }
         return best;
+    }
+
+    /**
+     * Validates native archive adjacency from monotonic ON_TIME evidence, not from the projected UTC
+     * duration. Independently verified Live anchors are minute-level meter evidence tied to a real
+     * acquisition instant, so a handover between two anchors can legitimately make the projected
+     * real-time duration differ slightly from the exact native elapsed duration. Missing native
+     * records must still remain a known coverage gap rather than being compressed into one bucket.
+     */
+    private static boolean nativeAdjacent(
+            ArchiveFamilyStore.StoredPeriod previous,
+            ArchiveFamilyStore.StoredPeriod current) {
+        if (previous == null || current == null
+                || previous.onTimeSeconds == null || current.onTimeSeconds == null
+                || previous.family == null || current.family == null
+                || previous.family != current.family
+                || previous.meterId == null || !previous.meterId.equals(current.meterId)) {
+            return false;
+        }
+        long delta;
+        try {
+            delta = Math.subtractExact(current.onTimeSeconds, previous.onTimeSeconds);
+        } catch (ArithmeticException error) {
+            return false;
+        }
+        switch (current.family) {
+            case HOUR:
+                return delta == HOUR_SECONDS;
+            case DAY:
+                return delta == DAY_SECONDS;
+            case MONTH:
+                return delta == 28L * DAY_SECONDS
+                        || delta == 29L * DAY_SECONDS
+                        || delta == 30L * DAY_SECONDS
+                        || delta == 31L * DAY_SECONDS;
+            case YEAR:
+                return delta == 365L * DAY_SECONDS || delta == 366L * DAY_SECONDS;
+            default:
+                return false;
+        }
     }
 
     private static boolean hasNativeEvidence(ArchiveFamilyStore.StoredPeriod source) {
