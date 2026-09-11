@@ -237,7 +237,7 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
             List<ArchiveUtcProjection.Period> projected = utc.project(meterId, family);
             boolean unresolved = false;
             for (ArchiveUtcProjection.Period period : projected) {
-                if (period != null && !period.resolvedInterval()) {
+                if (contributesUnresolvedAllPeriodsWarning(period)) {
                     unresolved = true;
                     break;
                 }
@@ -252,6 +252,13 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
         }
         sortRows(rows);
         return new Result(rows, states, false);
+    }
+
+    /** Known native archive gaps have known real boundaries and are coverage gaps, not time ambiguity. */
+    static boolean contributesUnresolvedAllPeriodsWarning(ArchiveUtcProjection.Period period) {
+        return period != null
+                && !period.resolvedInterval()
+                && period.status != ArchiveUtcProjection.PeriodStatus.NATIVE_GAP;
     }
 
     private static void appendRows(
@@ -336,6 +343,9 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
 
     private static ArchiveFamilyPeriod.Family family(
             HistorySemanticTimeline.Granularity granularity) {
+        if (granularity == HistorySemanticTimeline.Granularity.LIVE) {
+            return null;
+        }
         if (granularity == HistorySemanticTimeline.Granularity.HOUR) {
             return ArchiveFamilyPeriod.Family.HOUR;
         }
