@@ -25,68 +25,29 @@ import static org.junit.Assert.assertTrue;
 public final class HistoryLocalArchiveCalendarRegressionTest {
     private static final ZoneId BERLIN = ZoneId.of("Europe/Berlin");
 
-    @Test public void resolvedElapsedAdjacencyUsesNativeUtcDurationNotCivilDstDuration() {
-        long dayStart = Instant.parse("2026-03-28T22:59:00Z").toEpochMilli();
-        String dayPrevious = HistoryResolvedTimeToken.boundary(dayStart, BERLIN);
-        String day = HistoryResolvedTimeToken.interval(
-                dayStart,
-                Instant.ofEpochMilli(dayStart).plus(Duration.ofHours(24)).toEpochMilli(),
+    @Test public void resolvedReadModelUsesSharedBoundaryAfterUpstreamNativeValidation() {
+        long start = Instant.parse("2026-03-28T22:59:00Z").toEpochMilli();
+        String previous = HistoryResolvedTimeToken.boundary(start, BERLIN);
+        String nominal = HistoryResolvedTimeToken.interval(
+                start,
+                Instant.ofEpochMilli(start).plus(Duration.ofHours(24)).toEpochMilli(),
+                BERLIN);
+        String anchorHandoverShifted = HistoryResolvedTimeToken.interval(
+                start,
+                Instant.ofEpochMilli(start).plus(Duration.ofHours(24)).plusSeconds(62).toEpochMilli(),
                 BERLIN);
 
         assertTrue(HistoryResolvedTimeToken.adjacent(
-                dayPrevious, day, HistorySemanticTimeline.Granularity.DAY));
-        for (long hours : new long[] {23L, 25L, 48L}) {
-            assertFalse("DAY must remain one physical 24-hour native bucket: " + hours,
-                    HistoryResolvedTimeToken.adjacent(
-                            dayPrevious,
-                            HistoryResolvedTimeToken.interval(
-                                    dayStart,
-                                    Instant.ofEpochMilli(dayStart).plus(Duration.ofHours(hours)).toEpochMilli(),
-                                    BERLIN),
-                            HistorySemanticTimeline.Granularity.DAY));
-        }
+                previous, nominal, HistorySemanticTimeline.Granularity.DAY));
+        assertTrue(HistoryResolvedTimeToken.adjacent(
+                previous, anchorHandoverShifted, HistorySemanticTimeline.Granularity.DAY));
 
-        long monthStart = Instant.parse("2026-02-28T22:59:00Z").toEpochMilli();
-        String monthPrevious = HistoryResolvedTimeToken.boundary(monthStart, BERLIN);
-        for (long days : new long[] {28L, 29L, 30L, 31L}) {
-            String month = HistoryResolvedTimeToken.interval(
-                    monthStart,
-                    Instant.ofEpochMilli(monthStart).plus(Duration.ofDays(days)).toEpochMilli(),
-                    BERLIN);
-            assertTrue("native month length " + days,
-                    HistoryResolvedTimeToken.adjacent(
-                            monthPrevious, month, HistorySemanticTimeline.Granularity.MONTH));
-        }
-        for (long days : new long[] {27L, 32L, 59L, 62L}) {
-            String invalid = HistoryResolvedTimeToken.interval(
-                    monthStart,
-                    Instant.ofEpochMilli(monthStart).plus(Duration.ofDays(days)).toEpochMilli(),
-                    BERLIN);
-            assertFalse("MONTH must not absorb a non-native or missing-bucket duration " + days,
-                    HistoryResolvedTimeToken.adjacent(
-                            monthPrevious, invalid, HistorySemanticTimeline.Granularity.MONTH));
-        }
-
-        long yearStart = Instant.parse("2025-12-31T22:59:00Z").toEpochMilli();
-        String yearPrevious = HistoryResolvedTimeToken.boundary(yearStart, BERLIN);
-        for (long days : new long[] {365L, 366L}) {
-            String year = HistoryResolvedTimeToken.interval(
-                    yearStart,
-                    Instant.ofEpochMilli(yearStart).plus(Duration.ofDays(days)).toEpochMilli(),
-                    BERLIN);
-            assertTrue("native year length " + days,
-                    HistoryResolvedTimeToken.adjacent(
-                            yearPrevious, year, HistorySemanticTimeline.Granularity.YEAR));
-        }
-        for (long days : new long[] {364L, 367L, 730L}) {
-            String invalid = HistoryResolvedTimeToken.interval(
-                    yearStart,
-                    Instant.ofEpochMilli(yearStart).plus(Duration.ofDays(days)).toEpochMilli(),
-                    BERLIN);
-            assertFalse("YEAR must not absorb non-native duration " + days,
-                    HistoryResolvedTimeToken.adjacent(
-                            yearPrevious, invalid, HistorySemanticTimeline.Granularity.YEAR));
-        }
+        // Native duration/missing-record validation now belongs to ArchiveUtcProjection where the
+        // consecutive ON_TIME evidence still exists. The resolved token intentionally carries only
+        // occurrence-safe UTC continuity + zone identity; see ArchiveAnchorHandoverRegressionTest.
+        String disconnected = HistoryResolvedTimeToken.boundary(start - 1L, BERLIN);
+        assertFalse(HistoryResolvedTimeToken.adjacent(
+                disconnected, nominal, HistorySemanticTimeline.Granularity.DAY));
     }
 
     @Test public void localConsumptionKeepsCurrentResolvedIntervalInsteadOfPredecessorLabel() {
