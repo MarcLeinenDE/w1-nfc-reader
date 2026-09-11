@@ -106,6 +106,11 @@ final class ArchiveWindowCoverage {
     /**
      * Treat unresolved periods as unknown UTC regions bracketed by trustworthy resolved boundaries.
      *
+     * <p>A {@link ArchiveUtcProjection.PeriodStatus#NATIVE_GAP} is different: both real-time
+     * boundaries are known, but native ON_TIME proves that one or more archive records are missing
+     * between them. That is an ordinary known coverage gap, not an unresolved-time condition, so it
+     * must not trigger the red LOCAL time-resolution warning.</p>
+     *
      * <p>The first stored native archive record is special: its end boundary can be resolved while
      * its start is unavailable solely because the predecessor record is no longer stored. That
      * natural open prefix is not unbounded in physical time. A single native W1 record can span at
@@ -126,6 +131,7 @@ final class ArchiveWindowCoverage {
         for (int i = 0; i < projected.size(); i++) {
             ArchiveUtcProjection.Period period = projected.get(i);
             if (period == null || period.resolvedInterval()) continue;
+            if (period.status == ArchiveUtcProjection.PeriodStatus.NATIVE_GAP) continue;
 
             Long lower = period.startBoundary != null && period.startBoundary.resolved()
                     ? period.startBoundary.utcMs
