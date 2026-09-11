@@ -107,7 +107,7 @@ Fixed through `14a8ae4100ed801f19627c6489afa9ad3757c1aa`. The warning is now res
 
 On `14a8ae4100ed801f19627c6489afa9ad3757c1aa`, current September Hour/All legitimately warned because newer archive boundaries had ON_TIME later than the only stored verified Live anchor. The actual omission was that every History family already performs a mandatory final Default Restore/Live verification, but that successful final Live evidence was not persisted as a v2.1 time anchor.
 
-Fixed in `229d0a4f3abf595c36ad24a5f9a78cb50dd5009ef562d93dd02aeedcc163d0e5a3c8492eb59c6707ca` is NOT a commit; the actual fix commit is `229d0a4f3abf595c36ad24a5f9a78cb50dd5009e`.
+Fixed in `229d0a4f3abf595c36ad24a5f9a78cb50dd5009e`.
 
 Contract:
 - capture timing/readout from the already-existing final Default/Live verification;
