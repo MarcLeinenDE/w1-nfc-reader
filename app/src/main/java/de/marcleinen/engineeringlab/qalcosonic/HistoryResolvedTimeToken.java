@@ -17,8 +17,6 @@ final class HistoryResolvedTimeToken {
     private static final String PREFIX = "@W1RT|";
     private static final String TYPE_INTERVAL = "I";
     private static final String TYPE_BOUNDARY = "B";
-    private static final long HOUR_MS = 60L * 60L * 1000L;
-    private static final long DAY_MS = 24L * HOUR_MS;
 
     static final class Parsed {
         final boolean interval;
@@ -88,13 +86,15 @@ final class HistoryResolvedTimeToken {
     }
 
     /**
-     * Checks whether a resolved interval can represent exactly one native physical archive bucket.
+     * Checks resolved read-model continuity for one already validated native archive bucket.
      *
-     * <p>The canonical UTC projection is derived from ON_TIME elapsed seconds before an IANA zone
-     * participates at all. Therefore DST must never widen or shrink a native bucket in UTC. LOCAL is
-     * presentation only: it may make one valid interval cross civil dates, months, offsets or folds,
-     * but the elapsed physical duration stays unchanged. Exact native durations also prevent a
-     * missing archive bucket from being silently compressed into one statistics bucket.</p>
+     * <p>Native Hour/Day/Month/Year adjacency is validated upstream by
+     * {@link ArchiveUtcProjection} from consecutive ON_TIME evidence. That is the correct place to
+     * reject a missing native record. The two real-time boundaries may legitimately have been
+     * resolved against different verified Live anchors; because meter time evidence is quantized,
+     * such a handover can make the projected UTC duration differ slightly from the nominal native
+     * duration. Analytics therefore checks the occurrence-safe shared UTC boundary here and must not
+     * reclassify a native-valid bucket solely from projected duration.</p>
      */
     static boolean adjacent(
             String previous,
@@ -104,20 +104,12 @@ final class HistoryResolvedTimeToken {
         Parsed second = parse(current);
         if (first == null || second == null || !second.interval || granularity == null) return false;
         if (!first.zoneId.equals(second.zoneId) || first.boundaryUtcMs() != second.startUtcMs) return false;
-
-        long durationMs = second.endUtcMs - second.startUtcMs;
         switch (granularity) {
             case HOUR:
-                return durationMs == HOUR_MS;
             case DAY:
-                return durationMs == DAY_MS;
             case MONTH:
-                return durationMs == 28L * DAY_MS
-                        || durationMs == 29L * DAY_MS
-                        || durationMs == 30L * DAY_MS
-                        || durationMs == 31L * DAY_MS;
             case YEAR:
-                return durationMs == 365L * DAY_MS || durationMs == 366L * DAY_MS;
+                return true;
             default:
                 return false;
         }
