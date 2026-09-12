@@ -9,12 +9,24 @@ final class HistoryResolvedObservationAdapter {
     static HistoryStatisticsRepository.Observation selected(
             HistoryStatisticsRepository.Observation source,
             HistoryLocalArchiveReadModel.Row time) {
+        return selected(source, time, false);
+    }
+
+    /**
+     * Statistics may expose a physical interval that only overlaps a selected civil window.
+     * Such an interval remains a real resolved interval, but contextOnly keeps it out of KPI totals
+     * while still allowing chart presentation to show the measured edge value explicitly.
+     */
+    static HistoryStatisticsRepository.Observation selected(
+            HistoryStatisticsRepository.Observation source,
+            HistoryLocalArchiveReadModel.Row time,
+            boolean contextOnly) {
         if (source == null || time == null || time.zoneId == null) return null;
         return copy(
                 source,
                 HistoryResolvedTimeToken.interval(time.startUtcMs, time.endUtcMs, time.zoneId),
                 time.endUtcMs,
-                false,
+                contextOnly,
                 source.timestamp);
     }
 
