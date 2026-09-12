@@ -119,6 +119,22 @@ Rules:
 - labels describe the actual represented interval/period, including shifted resolved intervals where a compact civil label would be false;
 - line charts may continue to thin labels where point ownership remains visually unambiguous.
 
+## Deferred next-version chart-axis audit
+
+Do not alter the current v2.1 release candidate solely for this deferred audit. In the next app version, perform a repository-wide visual/implementation audit of **every Statistics chart**, not only consumption.
+
+The same x-axis ownership/orientation policy must be applied consistently to all relevant metrics, including at minimum consumption, battery, flow, water temperature, ambient temperature and alarm/event views where an x-axis is shown.
+
+Specific acceptance points for that audit:
+
+- verify that no metric has a leftover chart-specific x-axis implementation with different rotation/orientation behavior;
+- on dense categorical/bar views, apply the agreed rotated/vertical label treatment consistently to the complete label set rather than mixing horizontal and vertical labels or skipping individual labels;
+- preserve one visible bar = one centered period label;
+- reserve enough chart height so rotated labels are not clipped;
+- line-chart label thinning remains allowed only where point ownership stays visually unambiguous;
+- check the real UI for battery and flow in particular, because inconsistent x-axis text orientation was observed there during the v2.1 physical review;
+- prefer fixing this in shared chart-axis policy/rendering rather than one metric at a time, and add regression coverage so future metrics inherit the same behavior.
+
 ## History `All` — Live delta baseline semantics
 
 In `History → All`, the Live card is part of a mixed chronological timeline. Its consumption delta uses the chronologically nearest trustworthy **earlier archive observation** from the same physical meter as its baseline.
