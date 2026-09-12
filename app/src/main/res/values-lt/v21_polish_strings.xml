@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_info_history_title">Kaip veikia istorija</string>
+    <string name="v21_info_history_body">Rodinyje „Visi“ Live suvartojimas skaičiuojamas nuo chronologiškai artimiausio patikimo ankstesnio archyvo rodmens, nesvarbu, ar jis valandinis, dienos ar mėnesio. Jei ankstesnio archyvo rodmens nėra, naudojamas ankstesnis Live nuskaitymas. Atskiras Live filtras ir toliau lygina Live su Live, o archyvo kortelės išlaiko savo archyvo serijas.</string>
+    <string name="v21_info_statistics_title">Kaip veikia statistika</string>
+    <string name="v21_info_statistics_body">Užpildyti stulpeliai yra archyvo intervalai, visiškai patenkantys į pasirinktą kalendorinį laikotarpį, todėl jie įtraukiami į sumas ir kitus rodiklius. Punktyriniu kontūru pažymėti stulpeliai yra tikri išmatuoti intervalai, kurie tik iš dalies persidengia su kraštu; jų visa išmatuota vertė rodoma kaip kontekstas, bet nėra proporcingai dalijama ar įtraukiama į pasirinkto laikotarpio rodiklius. Žymė bazinėje linijoje reiškia tikrą nulinį suvartojimą; trūkstama vieta lieka tikra spraga.</string>
+    <string name="v21_info_time_model_title">Tikras laikas ir skaitiklio laikas</string>
+    <string name="v21_info_time_model_body">Įprasta laiko juosta naudoja tikrą laiką, atkurtą iš patvirtintų Live laiko atramų ir monotoniško skaitiklio ON_TIME, o tada rodomą priskirtoje IANA laiko juostoje. Skaitiklio / loggerio laikrodis išsaugomas kaip antrinis įrodymas, nes gali dreifuoti. Nesaugi laiko rekonstrukcija paliekama neišspręsta, o ne spėjama.</string>
+</resources>
