@@ -1,6 +1,6 @@
 # W1 NFC Reader — Contextual Help UX Contract
 
-Date: 2026-09-11
+Date: 2026-09-12
 Status: accepted UX rule for the v2.1 release-candidate polish pass and future app work
 
 ## Purpose
@@ -46,6 +46,36 @@ Where the data model can distinguish causes, the visible UI should distinguish t
 
 Do not collapse these semantically different cases into the same generic `available` wording.
 
+## History `All` — Live delta baseline semantics
+
+In `History → All`, the Live card is part of a mixed chronological timeline. Its consumption delta should therefore use the chronologically nearest trustworthy previous observation from that same physical meter as its baseline.
+
+Baseline selection:
+
+1. Prefer the latest valid archive observation before the Live read, regardless of whether it is Hour, Day or Month.
+2. If no valid archive observation exists before the Live read, fall back to the immediately previous valid Live observation.
+3. If neither exists, do not fabricate a delta.
+4. Never calculate across meter replacement, incompatible physical meter identity, known conflict or an unsafe/unresolved chronology.
+5. If more than one archive resolution ends at the same effective boundary, prefer the finest available archive resolution (`Hour` before `Day` before `Month`) for deterministic presentation; the cumulative meter reading should remain consistent.
+
+Examples:
+
+- latest historical observation is an Hour boundary at 19:00 → Live delta means `since 19:00`;
+- no Hour/Day data exists but the latest historical observation is a Month boundary → Live delta means `since month-end ...`;
+- there are no historical archive observations at all, but an earlier Live read exists → Live delta means `since previous Live read`;
+- first-ever Live read with no predecessor → no consumption delta is shown.
+
+This behavior applies only to the mixed `All` timeline. The dedicated `Live` filter may continue to compare Live reads with the previous Live read.
+
+The visible label must make the baseline explicit, for example:
+
+- `0.002 m³ since 19:00`
+- `0.315 m³ since day-end 10 Sep`
+- `12.4 m³ since month-end Aug`
+- fallback: `0.332 m³ since previous Live read · 10 Sep 13:19`
+
+A contextual info control should explain that `All` continues the chronological history from the most recent trustworthy previous observation and that the baseline may therefore be an archive value or, when no archive exists, the previous Live read.
+
 ## Scope across the app
 
 During the release-candidate UI/polish pass, review all user-facing screens for concepts that are technically correct but may not be immediately obvious. Candidate areas include, but are not limited to:
@@ -55,6 +85,7 @@ During the release-candidate UI/polish pass, review all user-facing screens for 
 - timezone provenance and automatic IANA-zone assignment;
 - DST-related repeated or shifted local times where additional explanation is useful;
 - History versus Live semantics;
+- mixed `All`-timeline Live-delta baseline selection;
 - History sync coverage versus protocol completeness;
 - `KNOWN_RECORD_REACHED`, partial/incremental sync outcomes or other sync-state wording when surfaced to ordinary users;
 - difference between an actual data gap and a time-resolution problem;
@@ -70,10 +101,11 @@ The review is not limited to Hour views. Day, Month, All, Overview, History, Sta
 - A contextual explanation does not turn a confusing or wrong primary label into an acceptable label; primary wording should still be improved where possible.
 - Never fabricate data to make coverage look complete.
 - Never present a known coverage gap as a LOCAL time-resolution failure, or vice versa.
+- Never calculate a Live delta across meter replacement or an unsafe chronology.
 - Canonical UTC/archive identity, raw meter evidence and existing protocol-safety rules remain authoritative.
 
 ## Release integration
 
-Do not modify the currently pinned functional C-test APK solely for this presentation pattern while Section C–F validation is still in progress.
+Do not modify the currently pinned functional C-test APK solely for this presentation/product-polish pattern while Section C–F validation is still in progress.
 
-After the functional gate passes, implement the contextual-help pass together with the already-recorded presentation items (localized timezone abbreviations, missing centered date/time separators and visible zero-consumption markers), then run UI/i18n/accessibility regression checks before preparing the exact v2.1 release candidate.
+After the functional gate passes, implement the contextual-help pass together with the already-recorded presentation items (localized timezone abbreviations, missing centered date/time separators, visible zero-consumption markers, and the `All`-timeline Live baseline rule), then run UI/i18n/accessibility regression checks before preparing the exact v2.1 release candidate.
