@@ -48,6 +48,7 @@ public final class ArchiveAnchorHandoverRegressionTest {
         ArchiveUtcProjection.Period oldest = projected.get(0);
         ArchiveUtcProjection.Period gap = projected.get(1);
         assertEquals(ArchiveUtcProjection.PeriodStatus.START_BOUNDARY_UNAVAILABLE, oldest.status);
+        assertNull(oldest.startBoundary);
         assertEquals(ArchiveUtcProjection.PeriodStatus.NATIVE_GAP, gap.status);
         assertFalse(gap.resolvedInterval());
         assertNull(gap.coverageInterval());
@@ -59,10 +60,42 @@ public final class ArchiveAnchorHandoverRegressionTest {
         assertFalse(coverage.relevantUnresolvedTime);
         assertEquals(UtcCoverage.Status.GAP, coverage.coverage.status);
 
-        // An all-periods view should still warn for the genuinely unresolved oldest retained bucket,
-        // but a known native gap with two resolved real boundaries is not time ambiguity.
-        assertTrue(HistoryLocalQueryRepository.contributesUnresolvedAllPeriodsWarning(oldest));
+        // An all-periods view naturally has no predecessor for the oldest retained boundary.
+        // Neither that open retention edge nor a known native gap is LOCAL time ambiguity.
+        assertFalse(HistoryLocalQueryRepository.contributesUnresolvedAllPeriodsWarning(oldest));
         assertFalse(HistoryLocalQueryRepository.contributesUnresolvedAllPeriodsWarning(gap));
+    }
+
+    @Test public void interiorUnresolvedStartStillWarnsInAllPeriodsView() {
+        ArchiveFamilyStore.StoredPeriod source = period(
+                20L, ArchiveFamilyPeriod.Family.HOUR, 200_000L, "2026-09-10 13:00");
+        ArchiveUtcProjection.Boundary unresolvedPrevious = new ArchiveUtcProjection.Boundary(
+                source,
+                ArchiveUtcProjection.BoundaryStatus.NO_SUITABLE_ANCHOR,
+                null,
+                -1L,
+                null,
+                null,
+                null,
+                null,
+                null);
+        ArchiveUtcProjection.Boundary resolvedEnd = new ArchiveUtcProjection.Boundary(
+                source,
+                ArchiveUtcProjection.BoundaryStatus.RESOLVED,
+                1_800_000_000_000L,
+                100L,
+                30L,
+                null,
+                null,
+                null,
+                "TEST");
+        ArchiveUtcProjection.Period interior = new ArchiveUtcProjection.Period(
+                source,
+                ArchiveUtcProjection.PeriodStatus.START_BOUNDARY_UNAVAILABLE,
+                unresolvedPrevious,
+                resolvedEnd);
+
+        assertTrue(HistoryLocalQueryRepository.contributesUnresolvedAllPeriodsWarning(interior));
     }
 
     private static void assertValidAcrossAnchorHandover(
