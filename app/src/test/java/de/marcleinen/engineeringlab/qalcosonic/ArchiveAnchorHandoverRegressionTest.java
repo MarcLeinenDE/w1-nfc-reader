@@ -9,27 +9,30 @@ import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-/** Regression coverage for real-time projection when consecutive archive boundaries use different anchors. */
+/** Regression coverage for the single-active-anchor real-time projection contract. */
 public final class ArchiveAnchorHandoverRegressionTest {
     private static final String METER = "SYNTHETIC";
     private static final ZoneId BERLIN = ZoneId.of("Europe/Berlin");
     private static final long HOUR = 3_600L;
     private static final long DAY = 86_400L;
 
-    @Test public void hourRemainsValidWhenAnchorHandoverAddsProjectionSkew() {
-        assertValidAcrossAnchorHandover(ArchiveFamilyPeriod.Family.HOUR, HOUR);
+    @Test public void hourKeepsExactNativeDurationWhenHistoricalAnchorsDisagree() {
+        assertNewestAnchorPreservesNativeGeometry(ArchiveFamilyPeriod.Family.HOUR, HOUR);
     }
 
-    @Test public void dayRemainsValidWhenAnchorHandoverAddsProjectionSkew() {
-        assertValidAcrossAnchorHandover(ArchiveFamilyPeriod.Family.DAY, DAY);
+    @Test public void dayKeepsExactNativeDurationWhenHistoricalAnchorsDisagree() {
+        assertNewestAnchorPreservesNativeGeometry(ArchiveFamilyPeriod.Family.DAY, DAY);
     }
 
-    @Test public void monthRemainsValidWhenAnchorHandoverAddsProjectionSkew() {
-        assertValidAcrossAnchorHandover(ArchiveFamilyPeriod.Family.MONTH, 30L * DAY);
+    @Test public void monthKeepsExactNativeDurationWhenHistoricalAnchorsDisagree() {
+        assertNewestAnchorPreservesNativeGeometry(ArchiveFamilyPeriod.Family.MONTH, 30L * DAY);
+    }
+
+    @Test public void yearKeepsExactNativeDurationWhenHistoricalAnchorsDisagree() {
+        assertNewestAnchorPreservesNativeGeometry(ArchiveFamilyPeriod.Family.YEAR, 365L * DAY);
     }
 
     @Test public void missingNativeHourRecordIsKnownCoverageGapNotCompressedBucket() {
@@ -60,8 +63,6 @@ public final class ArchiveAnchorHandoverRegressionTest {
         assertFalse(coverage.relevantUnresolvedTime);
         assertEquals(UtcCoverage.Status.GAP, coverage.coverage.status);
 
-        // An all-periods view naturally has no predecessor for the oldest retained boundary.
-        // Neither that open retention edge nor a known native gap is LOCAL time ambiguity.
         assertFalse(HistoryLocalQueryRepository.contributesUnresolvedAllPeriodsWarning(oldest));
         assertFalse(HistoryLocalQueryRepository.contributesUnresolvedAllPeriodsWarning(gap));
     }
@@ -98,7 +99,7 @@ public final class ArchiveAnchorHandoverRegressionTest {
         assertTrue(HistoryLocalQueryRepository.contributesUnresolvedAllPeriodsWarning(interior));
     }
 
-    private static void assertValidAcrossAnchorHandover(
+    private static void assertNewestAnchorPreservesNativeGeometry(
             ArchiveFamilyPeriod.Family family,
             long nativeDeltaSeconds) {
         long firstOnTime = 100_000L;
@@ -125,12 +126,10 @@ public final class ArchiveAnchorHandoverRegressionTest {
         ArchiveUtcProjection.Period interval = projected.get(1);
         assertEquals(ArchiveUtcProjection.PeriodStatus.RESOLVED, interval.status);
         assertTrue(interval.resolvedInterval());
-        assertEquals(Long.valueOf(oldAnchor.id), interval.startBoundary.anchorId);
+        assertEquals(Long.valueOf(newAnchor.id), interval.startBoundary.anchorId);
         assertEquals(Long.valueOf(newAnchor.id), interval.endBoundary.anchorId);
-        long nominalMs = nativeDeltaSeconds * 1000L;
-        long projectedMs = interval.endUtcMs - interval.startUtcMs;
-        assertNotEquals(nominalMs, projectedMs);
-        assertEquals(nominalMs + 62_323L, projectedMs);
+        assertEquals(nativeDeltaSeconds * 1000L,
+                interval.endUtcMs.longValue() - interval.startUtcMs.longValue());
 
         String predecessor = HistoryResolvedTimeToken.boundary(interval.startUtcMs, BERLIN);
         String currentToken = HistoryResolvedTimeToken.interval(
