@@ -10,14 +10,16 @@ import java.util.List;
 /**
  * Read-only selection of canonical UTC archive intervals for one user-entered LOCAL window.
  *
- * <p>History uses overlap semantics. Statistics uses only fully contained intervals. The coverage
- * result remains authoritative for gaps, partial edges and unresolved time; this selector never
- * interpolates, snaps or invents period boundaries.</p>
+ * <p>History uses overlap semantics. Statistics normally evaluates fully contained intervals for
+ * KPIs, but may also request overlapping physical edge intervals for explicit contextual chart
+ * presentation. The coverage result remains authoritative for gaps, partial edges and unresolved
+ * time; this selector never interpolates, snaps or invents period boundaries.</p>
  */
 final class ArchiveLocalWindowSelection {
     enum Semantics {
         HISTORY_OVERLAP,
-        STATISTICS_FULLY_CONTAINED
+        STATISTICS_FULLY_CONTAINED,
+        STATISTICS_WITH_PARTIAL_EDGES
     }
 
     static final class Result {
