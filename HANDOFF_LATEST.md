@@ -186,7 +186,18 @@ Do **not** churn the current v2.1 release candidate only for this deferred polis
 
 Required scope includes consumption, battery, flow, water temperature, ambient temperature and any alarm/event chart with an x-axis. Battery and flow are explicit spot-check targets because inconsistent/leftover vertical x-axis text was noticed during the current physical review.
 
-The next-version acceptance rule is global rather than metric-by-metric: dense bar/categorical charts use the same complete-set rotated/vertical label policy consistently, one visible bar keeps one centered period label, chart height accommodates the rotated labels, and there must be no accidental mixture of orientations or skipped labels that makes ownership unclear. Line charts may thin labels only when point ownership remains visually unambiguous. Prefer centralizing this in the shared chart renderer/policy and protect it with regression tests so new metrics automatically inherit the same behavior.
+The next-version acceptance rule is global rather than metric-by-metric and now includes an explicit **too-dense fallback**:
+
+- if the complete visible label set fits horizontally, render it horizontally;
+- otherwise rotate the complete set together and reserve enough chart height;
+- if even the rotated/vertical labels no longer have enough horizontal slot width and would visually merge into a continuous text block, hide the x-axis labels for that chart state entirely;
+- calculate this from real plot width, visible item count, measured text/font scale and minimum spacing, not only from a hard-coded number of periods;
+- do not arbitrarily skip isolated bar labels or mix horizontal and vertical labels in one chart state;
+- hiding labels is presentation-only: never drop, merge or aggregate chart data just to make the axis fit;
+- line charts may thin labels only while point ownership remains visually unambiguous; if the remaining labels still collide, hide them;
+- explicitly test very long selected ranges, because on-device review showed that dense labels can otherwise merge into one unreadable block.
+
+Prefer centralizing this in the shared chart renderer/policy and protect it with regression tests so consumption, battery, flow and future metrics inherit the same behavior automatically.
 
 This deferred item is also recorded in `CURRENT_STATE.json` and `UX_CONTEXTUAL_HELP_CONTRACT.md` so a future chat must carry it forward.
 
