@@ -1,5 +1,5 @@
 {
-  "schema_version": 14,
+  "schema_version": 15,
   "project": "W1 NFC Reader",
   "date": "2026-09-12",
   "public_repository": "MarcLeinenDE/w1-nfc-reader",
@@ -71,6 +71,26 @@
     "raw_data_effect": "none; changing zone changes only local-time interpretation",
     "locales": 6,
     "regression": "MeterDetailsTimeZoneUiTest"
+  },
+  "deferred_next_version": {
+    "statistics_chart_axis_audit": {
+      "status": "explicitly deferred until the next app version; do not churn the current v2.1 RC solely for this",
+      "scope": "audit every Statistics chart and metric, not only consumption",
+      "known_spot_checks": [
+        "battery",
+        "flow"
+      ],
+      "also_cover": [
+        "consumption",
+        "water temperature",
+        "ambient temperature",
+        "alarm/event views with an x-axis"
+      ],
+      "rule": "dense bar/categorical charts must use the same complete-set rotated/vertical x-axis label policy consistently; no metric-specific leftover orientation, no mixed horizontal/vertical labels, no skipped labels that make bar ownership ambiguous",
+      "layout": "one visible bar = one centered period label; reserve enough chart height so rotated labels are not clipped",
+      "line_charts": "label thinning remains allowed only where point ownership is still visually unambiguous",
+      "implementation_preference": "fix/centralize shared chart-axis policy and add regression coverage so future metrics inherit it"
+    }
   },
   "protected_invariants": [
     "normal NFC contact remains protected Live/default read only",
