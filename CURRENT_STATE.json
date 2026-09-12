@@ -1,5 +1,5 @@
 {
-  "schema_version": 15,
+  "schema_version": 16,
   "project": "W1 NFC Reader",
   "date": "2026-09-12",
   "public_repository": "MarcLeinenDE/w1-nfc-reader",
@@ -55,7 +55,7 @@
   },
   "combined_history_ui_polish": {
     "history_all_live_baseline": "mixed History All uses chronologically nearest trustworthy earlier archive cumulative total across Hour/Day/Month on same meter; previous-Live fallback only when no earlier archive predecessor exists; dedicated Live remains Live-to-Live",
-    "axis_labels": "one visible bar = one centered period label; dense bar charts rotate labels rather than skip them",
+    "axis_labels": "current v2.1 consumption bars use one centered period label with rotation; complete adaptive axis policy is deferred to the next app version",
     "date_time": "shared locale-aware date · time convention",
     "timezone_labels": "localized abbreviations such as MEZ/MESZ or CET/CEST; DST folds keep numeric disambiguation when needed",
     "contextual_help": "History/Statistics help only at actual page heading; no drawer/menu duplicates; generic Statistics help consolidated in dialog"
@@ -86,10 +86,14 @@
         "ambient temperature",
         "alarm/event views with an x-axis"
       ],
-      "rule": "dense bar/categorical charts must use the same complete-set rotated/vertical x-axis label policy consistently; no metric-specific leftover orientation, no mixed horizontal/vertical labels, no skipped labels that make bar ownership ambiguous",
-      "layout": "one visible bar = one centered period label; reserve enough chart height so rotated labels are not clipped",
-      "line_charts": "label thinning remains allowed only where point ownership is still visually unambiguous",
-      "implementation_preference": "fix/centralize shared chart-axis policy and add regression coverage so future metrics inherit it"
+      "fit_policy": "horizontal when the complete label set fits; otherwise rotate the complete set; if even rotated labels collide, hide the x-axis label set entirely for that chart",
+      "fit_detection": "calculate from actual plot width, visible item count, measured text/font scale and minimum spacing; do not rely only on a hard-coded point-count threshold",
+      "no_partial_skip": "do not arbitrarily skip isolated bar labels or mix horizontal/vertical labels; transition whole-set horizontal -> rotated -> hidden",
+      "data_preservation": "hiding labels is presentation-only; never drop, merge or aggregate data points/buckets to make labels fit",
+      "layout": "reserve enough height for rotated labels and reclaim the space when labels are hidden",
+      "line_charts": "label thinning remains allowed only while point ownership is visually unambiguous; if remaining labels still collide, hide them",
+      "long_range_regression": "explicitly test very long selected ranges so labels cannot merge visually into one continuous block",
+      "implementation_preference": "centralize shared chart-axis policy and add regression coverage so future metrics inherit it"
     }
   },
   "protected_invariants": [
