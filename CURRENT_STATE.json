@@ -1,5 +1,5 @@
 {
-  "schema_version": 13,
+  "schema_version": 14,
   "project": "W1 NFC Reader",
   "date": "2026-09-12",
   "public_repository": "MarcLeinenDE/w1-nfc-reader",
@@ -10,8 +10,8 @@
   },
   "development": {
     "branch": "dev/v2.1.0-real-time-timeline",
-    "head": "a6cd9463abdebe4fdeae710d1005397a87683e0b",
-    "head_ci_run": 34704383843,
+    "head": "67aafb713a0b09d23058b31640ba94bc0353bb21",
+    "head_ci_run": 34705241442,
     "head_ci_conclusion": "success",
     "translation_locale_count": 6,
     "pull_request": 22,
@@ -20,14 +20,14 @@
     "pull_request_base": "main"
   },
   "physical_validation_candidate": {
-    "source_commit": "a6cd9463abdebe4fdeae710d1005397a87683e0b",
-    "ci_run": 34704383843,
+    "source_commit": "67aafb713a0b09d23058b31640ba94bc0353bb21",
+    "ci_run": 34705241442,
     "artifact_name": "w1-nfc-reader-debug",
-    "artifact_id": 10301735560,
-    "artifact_zip_sha256": "546cef95cd11fd5ab2ef0fb22aab9ddb625c65fa88c7c30f98dfa7c033597b1d",
-    "apk_sha256": "f4a8c422b4b73c1939cfac1683c5efb83320f8088bda2db1eff293308c6d1b37",
+    "artifact_id": 10300648753,
+    "artifact_zip_sha256": "77e244d729e0f6cca41d59a43f0f2e3624b32af02c066d3219e821164bd64134",
+    "apk_sha256": "ee4ab5f352cef17891c3f1d29bce5d5e120956810df92f127955eb429e470678",
     "artifact_integrity": "independently verified: downloaded ZIP digest matches GitHub artifact digest and APK hash matches SHA256SUMS.txt",
-    "status": "awaiting spot-check of reduced contextual-help density, then E invalid-IANA smoke and F final protected Live read"
+    "status": "awaiting physical timezone-picker/UI spot-check and final protected Live regression F"
   },
   "accepted_product_decision": {
     "summary": "normal product UI has one canonical reconstructed real timeline; raw meter/logger wall-clock is preserved secondary/diagnostic evidence rather than a peer primary time mode",
@@ -41,9 +41,9 @@
     "section_b": "pass; final protected normal Live regression repeated in F",
     "section_c": "pass",
     "section_d_revised": "pass so far; canonical real timeline presentation accepted",
-    "combined_polish_e696": "user reported functionality basically works; only contextual-help density/redundancy needed cleanup",
-    "help_density_cleanup_a6cd": "pending physical spot-check",
-    "section_e": "pending invalid-IANA-zone rejection smoke test",
+    "combined_polish": "user reported functionality basically works; help-density issue corrected in a6cd946",
+    "timezone_picker": "implemented and CI-green on 67aafb7; pending physical UI spot-check",
+    "section_e_legacy": "superseded: normal UI no longer offers arbitrary free-text timezone persistence",
     "section_f": "pending final protected normal Live NFC regression read"
   },
   "statistics_edge_presentation": {
@@ -57,19 +57,20 @@
     "history_all_live_baseline": "mixed History All uses chronologically nearest trustworthy earlier archive cumulative total across Hour/Day/Month on same meter; previous-Live fallback only when no earlier archive predecessor exists; dedicated Live remains Live-to-Live",
     "axis_labels": "one visible bar = one centered period label; dense bar charts rotate labels rather than skip them",
     "date_time": "shared locale-aware date · time convention",
-    "timezone_labels": "localized abbreviations such as MEZ/MESZ or CET/CEST; DST folds keep numeric disambiguation when needed"
+    "timezone_labels": "localized abbreviations such as MEZ/MESZ or CET/CEST; DST folds keep numeric disambiguation when needed",
+    "contextual_help": "History/Statistics help only at actual page heading; no drawer/menu duplicates; generic Statistics help consolidated in dialog"
   },
-  "contextual_help_cleanup": {
-    "contract": "UX_CONTEXTUAL_HELP_CONTRACT.md",
-    "current_commit": "a6cd9463abdebe4fdeae710d1005397a87683e0b",
-    "history_info": "only on actual History page heading",
-    "statistics_info": "only on actual Statistics page heading",
-    "drawer_menu": "no info icon added to History/Statistics navigation labels merely by text match",
-    "meter_details_generic_injection": "removed from ProductUiHardening generic path",
-    "statistics_generic_note": "duplicate consumption/bar explanation hidden from chart body and consolidated into page info dialog",
-    "coverage_line": "visible count only; coverage-vs-sync explanation consolidated into Statistics info dialog",
-    "metric_specific_notes": "temperature/flow/battery/alarm caveats remain inline because they are not duplicated by generic page help",
-    "locales": 6
+  "timezone_picker": {
+    "implemented_commit": "67aafb713a0b09d23058b31640ba94bc0353bb21",
+    "source": "ZoneId.getAvailableZoneIds() on the running Android runtime plus UTC",
+    "presentation": "searchable MaterialAutoCompleteTextView exposed dropdown",
+    "current_zone": "preselected",
+    "save_rule": "candidate must exactly belong to the runtime-supported set before normalization/persistence",
+    "persistence": "MeterTimeModelStore.setZone with ZONE_SOURCE_USER_SELECTED",
+    "free_text_invalid": "cannot be persisted through normal product UI",
+    "raw_data_effect": "none; changing zone changes only local-time interpretation",
+    "locales": 6,
+    "regression": "MeterDetailsTimeZoneUiTest"
   },
   "protected_invariants": [
     "normal NFC contact remains protected Live/default read only",
@@ -81,13 +82,13 @@
     "raw meter/logger time and timing evidence are never overwritten",
     "no intentional persistent meter/radio/calibration/firmware writes",
     "QalcosonicReader.java and MbusParser.java remain protected",
-    "current help cleanup changes no NFC/parser/mailbox/archive traversal behavior"
+    "timezone picker changes no NFC/parser/mailbox/archive traversal behavior"
   ],
   "release_identity": {
     "current_stable_version": "2.0.0",
     "current_stable_version_code": 43,
     "v2_1_version_bump_allowed": false,
-    "gate": "physical help-density spot-check + E + F, then exact signed v2.1 RC physical acceptance"
+    "gate": "physical timezone-picker/final UI spot-check + F, then exact signed v2.1 RC physical acceptance"
   },
   "private_research": {
     "repository": "MarcLeinenDE/engineering-lab",
@@ -96,5 +97,5 @@
     "head": "65358d55ee52a6911ab4fa8d1a66bc0d0dda0fd0",
     "rule": "consult only if protocol/time-evidence behavior itself must be revisited; never publish private evidence"
   },
-  "next_action": "Install exact candidate a6cd9463abdebe4fdeae710d1005397a87683e0b. Verify no info icons in drawer/menu repetitions, exactly one page-level info affordance on History and Statistics, no duplicate generic Statistics help below the chart, and no regression in History/Statistics/date-time presentation. Then pass E and exactly one final protected normal Live/default NFC read. Keep PR #22 Draft; do not bump/merge/release v2.1 yet."
+  "next_action": "Install exact candidate 67aafb713a0b09d23058b31640ba94bc0353bb21. Without History sync/NFC, verify Meter Details timezone editor opens a searchable supported-zone dropdown, current zone is preselected, search/filter works, a supported zone can be selected/saved, and arbitrary unsupported text cannot replace the valid zone. Quick-check help density, History/Statistics/date-time presentation. Then perform exactly one final protected Live/default NFC read for F. Keep PR #22 Draft; do not bump/merge/release v2.1 yet."
 }
