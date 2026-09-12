@@ -1,7 +1,7 @@
 {
-  "schema_version": 8,
+  "schema_version": 9,
   "project": "W1 NFC Reader",
-  "date": "2026-09-11",
+  "date": "2026-09-12",
   "public_repository": "MarcLeinenDE/w1-nfc-reader",
   "handoff_branch": "handoff/v2.1.0-current",
   "main": {
@@ -10,50 +10,54 @@
   },
   "development": {
     "branch": "dev/v2.1.0-real-time-timeline",
-    "head": "c7b909bb288284d0a527aed599b4be46975ddf52",
-    "head_commit": "test: cover all-period warning semantics for known native gaps",
+    "head": "cef78ff97ef89004dfdfa47d171b8b4c26db1298",
+    "head_commit": "test: distinguish natural oldest boundary from interior unresolved time",
     "head_is_documentation_only": false,
-    "head_ci_run": 34634776793,
+    "head_ci_run": 34680335357,
     "head_ci_conclusion": "success",
     "translation_key_count": 227,
     "translation_locale_count": 6,
-    "unit_test_suite": "success including anchor-handover/native-gap regressions",
+    "unit_test_suite": "success including all-period natural-oldest versus interior-unresolved regression",
     "pull_request": 22,
     "pull_request_state": "open",
     "pull_request_draft": true,
     "pull_request_base": "main"
   },
   "physical_validation_candidate": {
-    "source_commit": "c7b909bb288284d0a527aed599b4be46975ddf52",
-    "ci_run": 34634776793,
+    "source_commit": "cef78ff97ef89004dfdfa47d171b8b4c26db1298",
+    "ci_run": 34680335357,
     "artifact_name": "w1-nfc-reader-debug",
-    "artifact_id": 10276704745,
-    "artifact_zip_sha256": "5b62bed9d75e17627ef0231090e3179de7fc1844ae50e3886144923b6a3db9b7",
-    "apk_sha256": "32ccfd4e2504aa6eb7edba3b2accea5a1f575fe1df33b569fea66b88cc71885d",
-    "artifact_integrity": "independently verified after CI: downloaded ZIP digest, SHA256SUMS.txt and actual APK hash all match",
+    "artifact_id": 10293467328,
+    "artifact_zip_sha256": "797500b00b4d7554d4b06f01ebfb55219d266dcf455177de13fad842fca43899",
+    "apk_sha256": "bb6bf2d17061452cf089692cfb1848578615dc52f5a76099686302389552ab55",
+    "artifact_integrity": "independently verified: downloaded ZIP digest, SHA256SUMS.txt and actual APK hash all match",
     "validation_document": "docs/V2_1_REAL_DEVICE_VALIDATION.md",
-    "status": "replacement candidate awaiting selective physical retest C-F",
+    "status": "replacement candidate awaiting selective C5 physical retest, then remaining C-D-E-F",
     "supersedes": [
       {
         "source_commit": "e4f458d9ff47a088926772a13d9bf19946f4bc48",
-        "reason": "Section C exposed downstream LOCAL period ownership/adjacency and statistics-label shift defect"
+        "reason": "LOCAL period ownership/adjacency and statistics-label shift defect"
       },
       {
         "source_commit": "474067fbdf51ad3b892053bd5694a7ffcea765d8",
-        "reason": "Section C exposed false-positive LOCAL unresolved-time warning for empty/out-of-range archive family"
+        "reason": "false-positive LOCAL warning for empty/out-of-range archive family"
       },
       {
         "source_commit": "14a8ae4100ed801f19627c6489afa9ad3757c1aa",
-        "reason": "warning-scope fix was correct, but current September retest exposed missing persistence of the already-required final History Default/Live verification as a fresh time anchor"
+        "reason": "final History Default/Live verification was not persisted as a fresh time anchor"
       },
       {
         "source_commit": "229d0a4f3abf595c36ad24a5f9a78cb50dd5009e",
-        "reason": "post-History anchors worked physically, but a valid native Hour/Day bucket crossing from an older verified anchor to a newer verified anchor was dropped by downstream exact projected-duration adjacency"
+        "reason": "valid native bucket crossing two verified anchors was dropped by downstream exact projected-duration adjacency"
+      },
+      {
+        "source_commit": "c7b909bb288284d0a527aed599b4be46975ddf52",
+        "reason": "C4 statistics passed physically, but all-period LOCAL warning was triggered by the natural oldest retained boundary without a predecessor"
       }
     ]
   },
   "physical_validation_progress": {
-    "date": "2026-09-11",
+    "date": "2026-09-12",
     "section_a": {
       "status": "partial-pass-on-former-candidate",
       "confirmed": [
@@ -71,66 +75,50 @@
       "confirmed": [
         "normal protected Live NFC read succeeds on real meter",
         "German locale formatting of Live meter time is correct",
-        "Meter Details shows Europe/Berlin",
-        "timezone provenance indicates automatic assignment from first verified Live/device context",
-        "Meter Details meter time is locale formatted",
+        "Meter Details shows Europe/Berlin and automatic zone provenance",
         "no unintended automatic History synchronization reported"
       ],
       "retest_required_for_downstream_fixes": false,
       "final_protected_regression_covered_by": "Section F normal Live read"
     },
     "section_c": {
-      "status": "four findings fixed/CI-green; latest candidate requires selective physical retest",
+      "status": "C1-C4 corrected; C4 physical reproduction cases pass; C5 fix CI-green awaiting physical confirmation",
       "finding_1_period_ownership_dst": {
         "failed_candidate": "e4f458d9ff47a088926772a13d9bf19946f4bc48",
         "fixed_from": "854b358bca24f43c360ecfde8897de0e0af5c5e3",
-        "cause": [
-          "physical archive adjacency treated like civil LOCAL calendar adjacency across DST",
-          "valid archive periods could be dropped",
-          "statistics/chart ownership could shift to predecessor token"
-        ]
+        "summary": "physical archive adjacency was incorrectly treated like civil LOCAL calendar adjacency and statistics ownership could shift"
       },
       "finding_2_warning_scope": {
         "failed_candidate": "474067fbdf51ad3b892053bd5694a7ffcea765d8",
         "fixed_in": "14a8ae4100ed801f19627c6489afa9ad3757c1aa",
-        "cause": "natural oldest-record missing predecessor could poison an earlier unrelated query as an unbounded unresolved prefix"
+        "summary": "empty/out-of-range Hour could poison bounded Day/All queries with an unrelated LOCAL warning"
       },
       "finding_3_post_history_time_anchor": {
-        "observed_on_candidate": "14a8ae4100ed801f19627c6489afa9ad3757c1aa",
         "fixed_in": "229d0a4f3abf595c36ad24a5f9a78cb50dd5009e",
-        "physical_retest": "PASS for anchor creation; post-History verified anchors were observed and newer Hour data became LOCAL-resolvable",
-        "contract": [
-          "reuse timing/readout of already-required final Default/Live verifier",
-          "persist only when finalRestoreVerified is true",
-          "no additional NFC/default read",
-          "Hour/Day/Month and each family in Sync All/Full Re-Sync use common family-attempt path",
-          "partial attempt may still create anchor when final verifier is valid",
-          "failed verifier creates no anchor",
-          "anchor persistence remains additive/fail-soft"
-        ]
+        "physical_retest": "pass for anchor creation",
+        "summary": "reuse existing final verified Default/Live read as a fresh anchor with zero additional NFC commands/reads"
       },
       "finding_4_anchor_handover_statistics": {
         "failed_candidate": "229d0a4f3abf595c36ad24a5f9a78cb50dd5009e",
-        "observed": [
-          "after successful Sync All and app restart, September statistics still showed 9/30 despite next completed Day row being present",
-          "10 September statistics showed 21/24",
-          "private backup confirmed archive persistence and new verified post-sync anchors were present"
-        ],
-        "cause": "consecutive native archive boundaries were independently resolved against different verified Live anchors; small anchor-origin calibration difference changed derived UTC duration slightly, and downstream HistoryResolvedTimeToken.adjacent incorrectly revalidated native adjacency from exact projected duration",
         "fixed_in": "c7b909bb288284d0a527aed599b4be46975ddf52",
+        "physical_retest": {
+          "status": "pass for exact reproduction cases",
+          "september_2026": "10/30 completed Day buckets",
+          "2026_09_10": "22/24 fully-contained Hour buckets"
+        },
+        "summary": "native adjacency now comes from ON_TIME; anchor-handover UTC skew no longer drops a native-valid bucket; real native gaps remain explicit NATIVE_GAP"
+      },
+      "finding_5_all_period_natural_oldest_warning": {
+        "observed_on_candidate": "c7b909bb288284d0a527aed599b4be46975ddf52",
+        "fixed_in": "cef78ff97ef89004dfdfa47d171b8b4c26db1298",
+        "cause": "all-period query treated the natural oldest retained START_BOUNDARY_UNAVAILABLE with no stored predecessor as unresolved-time warning",
         "fix_contract": [
-          "validate native adjacency in ArchiveUtcProjection from consecutive ON_TIME evidence",
-          "Hour requires 3600 s, Day 86400 s, Month one of 28/29/30/31 native days, Year 365/366 native days",
-          "missing native record becomes explicit NATIVE_GAP and is never compressed",
-          "resolved-token analytics requires shared occurrence-safe UTC boundary and same zone but does not reject a native-valid bucket solely for anchor-handover projection skew",
-          "NATIVE_GAP is a known coverage gap, not unresolved time, in bounded and all-period warning semantics"
+          "natural oldest START_BOUNDARY_UNAVAILABLE with startBoundary == null does not warn",
+          "interior START_BOUNDARY_UNAVAILABLE with an existing but unresolved previous boundary still warns",
+          "known NATIVE_GAP does not warn as time ambiguity",
+          "genuinely unresolved end/non-monotonic conditions continue fail-closed"
         ],
-        "expected_real_device_retest": [
-          "September 2026 statistics becomes 10/30",
-          "10 September 2026 statistics becomes 22/24",
-          "22/24 is expected because two shifted physical Hour buckets cross the LOCAL civil-day edges and statistics counts only fully-contained buckets",
-          "genuine zero-consumption buckets remain valid points even though current bar rendering gives them zero visual height"
-        ]
+        "automated_retest": "success"
       }
     },
     "section_d": "pending-selective-retest",
@@ -141,28 +129,23 @@
     "show_warning_when": [
       "selected LOCAL window itself is ambiguous/nonexistent and cannot be resolved safely",
       "relevant meter timezone is missing",
-      "archive timing genuinely remains unresolved in a region that can affect the selected window",
-      "selected window can actually touch the unresolved natural start of the oldest retained native bucket",
+      "archive timing genuinely remains unresolved in a region that can affect a bounded selected window",
+      "an unresolved boundary occurs inside the retained all-period archive series",
       "relevant archive row is newer in ON_TIME than every available verified anchor"
     ],
     "do_not_warn_when": [
       "archive family is empty",
-      "archive family retained coverage begins later than the selected earlier window",
+      "archive family retained coverage begins later than the selected earlier bounded window",
       "All contains valid resolved families plus an unrelated empty/out-of-range granularity",
       "Statistics has zero fully-contained buckets without a time-resolution failure",
       "there is an ordinary known coverage/data gap rather than unresolved time",
-      "a NATIVE_GAP has known resolved real boundaries but one or more native records are missing"
+      "a NATIVE_GAP has known real boundaries but one or more native records are missing",
+      "all-period view includes the natural oldest retained archive boundary whose predecessor is not stored"
     ],
-    "oldest_record_warning_relevance_bound_only": {
-      "HOUR": "1 hour",
-      "DAY": "24 hours",
-      "MONTH": "31 days",
-      "YEAR": "366 days"
-    },
-    "guardrail": "the bound is used only to decide whether a warning can be relevant; it never synthesizes, persists or displays a canonical UTC boundary"
+    "guardrail": "warning suppression never synthesizes a missing UTC boundary and never hides a genuine interior unresolved-time condition"
   },
   "history_final_time_anchor_contract": {
-    "source": "the already-required final protected Default Restore/Live verification of each History family attempt",
+    "source": "already-required final protected Default Restore/Live verification of each History family attempt",
     "requires": "transport.finalRestoreVerified() == true and LiveTimeAnchorPersistence candidate usable",
     "extra_nfc_commands": 0,
     "applies_to": [
@@ -172,50 +155,51 @@
       "each family inside Sync All",
       "each family inside Full Re-Sync",
       "partial attempts whose final Default/Live verification is valid"
-    ],
-    "does_not_apply_to": [
-      "failed or unverified final restore/live verification"
-    ],
-    "persistence_failure_behavior": "fail-soft/additive; does not redefine protocol completion"
+    ]
   },
   "local_time_model_hardening": {
     "canonical_rule": "canonical UTC interval identity is authoritative; IANA LOCAL is a reversible query/presentation projection and never rewrites archive ownership",
-    "native_adjacency_rule": "native archive adjacency is validated from native ON_TIME progression before derived UTC boundaries are joined; derived duration is not a substitute for native adjacency when two independently verified anchors are involved",
+    "native_adjacency_rule": "native archive adjacency is validated from ON_TIME before derived UTC boundaries are joined",
     "native_physical_durations": {
-      "HOUR": "exactly 3600 ON_TIME seconds between consecutive native boundaries",
-      "DAY": "exactly 86400 ON_TIME seconds between consecutive native boundaries",
-      "MONTH": "exactly 28, 29, 30 or 31 native elapsed days",
-      "YEAR": "exactly 365 or 366 native elapsed days"
+      "HOUR": "3600 ON_TIME seconds",
+      "DAY": "86400 ON_TIME seconds",
+      "MONTH": "28, 29, 30 or 31 native elapsed days",
+      "YEAR": "365 or 366 native elapsed days"
     },
-    "anchor_handover_rule": "small real-time origin differences between independently verified anchors do not invalidate a native-adjacent bucket; missing native records still become explicit NATIVE_GAP",
-    "civil_navigation_rule": "LOCAL civil windows may legitimately span 23/24/25 hours around DST and can cut through shifted physical archive intervals",
-    "anchor_direction_rule": "do not resolve an archive boundary newer in ON_TIME than the selected verified Live anchor",
+    "anchor_handover_rule": "small real-time-origin differences between independently verified anchors do not invalidate a native-adjacent bucket",
+    "civil_navigation_rule": "LOCAL civil windows may span 23/24/25 hours and may cut through shifted physical archive intervals",
+    "oldest_retention_rule": "absence of a predecessor before the oldest retained archive boundary is expected retention geometry, not by itself a time-resolution failure",
+    "anchor_direction_rule": "never resolve an archive boundary newer in ON_TIME than the selected verified anchor",
     "automated_coverage": [
-      "every Java ZoneId.getAvailableZoneIds() timezone",
+      "all Java ZoneId.getAvailableZoneIds() zones",
       "UTC identity round-trip for Hour/Day/all Month lengths/both Year lengths",
       "normal, spring-DST and autumn-DST LOCAL windows",
-      "ambiguous folds and nonexistent gaps fail closed unless explicit valid offset is provided",
-      "repeated fall-back Hour remains occurrence-safe and distinguishable",
-      "end-to-end repository -> UTC projection -> LOCAL selection -> resolved observation -> statistics for Hour/Day/Month",
-      "verified post-History anchor resolves later archive boundaries",
-      "synthetic Hour/Day/Month bucket crossing two verified anchors remains valid despite derived-duration skew",
-      "synthetic missing native Hour row becomes NATIVE_GAP, is not compressed, and does not become a false unresolved-time warning",
-      "all-period warning semantics keep genuine unresolved oldest evidence but exclude known NATIVE_GAP"
+      "ambiguous folds and nonexistent gaps fail closed unless explicitly disambiguated",
+      "repeated fall-back Hour remains occurrence-safe",
+      "repository -> UTC projection -> LOCAL selection -> statistics for Hour/Day/Month",
+      "post-History verified anchor resolution",
+      "Hour/Day/Month anchor handover",
+      "explicit NATIVE_GAP behavior",
+      "all-period natural oldest boundary is distinguished from interior unresolved boundary"
     ],
-    "private_backup_audit": "private real-meter backup confirmed archive synchronization/persistence, post-sync anchors and native Hour/Day progression were internally consistent; it was used only to diagnose the anchor-handover layering defect. No private IDs, consumption values or backup payload were published.",
-    "home_assistant_implication": "future integrations should preserve canonical UTC boundaries plus explicit coverage-gap state as identity and derive LOCAL labels/windows through IANA rules"
+    "home_assistant_implication": "future integrations should preserve canonical UTC boundaries plus explicit coverage-gap state and derive LOCAL labels/windows through IANA rules"
   },
-  "post_validation_ui_followups": [
-    "prefer trustworthy locale-aware timezone abbreviations such as German MEZ/MESZ or English CET/CEST for ordinary LOCAL display while retaining exact IANA zone/numeric offset internally",
-    "Meter Details 'Am Handy ausgelesen' lacks centered dot separator between date and time",
-    "Dashboard/Overview 'Ausgelesen' lacks centered dot separator between date and time",
-    "genuine zero-consumption statistic buckets count correctly but render as zero-height bars; evaluate a non-misleading zero marker/baseline tick so coverage and chart density are visually understandable"
-  ],
+  "post_validation_ui_followups": {
+    "contract": "UX_CONTEXTUAL_HELP_CONTRACT.md",
+    "items": [
+      "contextual info-button explanations across all user-facing screens for technically correct but non-self-evident concepts",
+      "coverage wording distinguishes fully-contained buckets, edge intervals and actual data gaps when possible",
+      "locale-aware timezone abbreviations such as MEZ/MESZ or CET/CEST while retaining exact IANA zone/offset internally",
+      "centered dot missing in Meter Details 'Am Handy ausgelesen'",
+      "centered dot missing in Overview 'Ausgelesen'",
+      "zero-consumption statistic buckets need a visible non-misleading marker instead of an invisible zero-height bar"
+    ]
+  },
   "release_identity": {
     "current_stable_version": "2.0.0",
     "current_stable_version_code": 43,
     "v2_1_version_bump_allowed": false,
-    "v2_1_version_bump_gate": "replacement candidate must pass selective physical retest C-F first"
+    "v2_1_version_bump_gate": "replacement candidate must pass selective C-F first"
   },
   "protected_invariants": [
     "normal NFC contact remains protected Live/default read only",
@@ -224,12 +208,11 @@
     "COMPLETE requires semantic terminal plus verified final Default Restore/Live",
     "incremental KNOWN_RECORD_REACHED requires secure overlap; timestamp-only overlap is forbidden",
     "accepted archive observations are persisted immediately",
-    "failed later sync does not erase authoritative COMPLETE baseline",
     "semantic terminal/overlap behavior remains authoritative; public logger capacities are not traversal limits",
     "never calculate cumulative consumption across meter replacement",
     "no intentional persistent meter/radio/calibration/firmware writes",
     "QalcosonicReader.java and MbusParser.java remain protected",
-    "C4 changes only downstream time projection/coverage/read-model/test layers and introduces no NFC command",
+    "C5 changes only downstream warning classification plus regression tests and introduces no NFC command",
     "raw meter/logger time remains preserved source evidence",
     "LOCAL projection never rewrites canonical archive evidence"
   ],
@@ -240,5 +223,5 @@
     "head": "65358d55ee52a6911ab4fa8d1a66bc0d0dda0fd0",
     "rule": "Consult only if protocol/time-evidence behavior itself must be revisited; never publish private evidence."
   },
-  "next_action": "Install exact candidate c7b909bb288284d0a527aed599b4be46975ddf52. No additional NFC sync is needed for the first C4 check because the existing database already contains the required Day/Hour rows and post-sync anchors. Recheck September 2026 Statistics (expected 10/30), 10 September 2026 Statistics (expected 22/24), current September Hour/All warning behavior, and the earlier February no-Hour-data warning case. Then complete C and continue D, E, F. Keep PR #22 Draft and do not bump/release v2.1.0 before these gates pass."
+  "next_action": "Install exact candidate cef78ff97ef89004dfdfa47d171b8b4c26db1298. No NFC contact or History sync is needed for the first C5 check. Recheck Statistics All Periods (warning expected to disappear if the natural oldest retained boundary was the only cause), September 2026 Statistics (must remain 10/30), 10 September Statistics (must remain 22/24), and the earlier February no-Hour-data warning case. Then finish C and continue D, E, F. Keep PR #22 Draft and do not bump/release v2.1.0 before these gates pass."
 }
