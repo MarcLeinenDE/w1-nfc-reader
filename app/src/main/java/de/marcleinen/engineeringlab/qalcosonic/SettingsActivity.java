@@ -60,9 +60,6 @@ public final class SettingsActivity extends MaterialBaseActivity {
         appearanceContent.addView(MaterialUi.divider(this));
         appearanceContent.addView(MaterialUi.settingRow(this, R.drawable.ic_m3_settings,
                 getString(R.string.m3_settings_language), languageSummary(), v -> chooseLanguage()));
-        appearanceContent.addView(MaterialUi.divider(this));
-        appearanceContent.addView(MaterialUi.settingRow(this, R.drawable.ic_m3_settings,
-                getString(R.string.v21_time_basis), timeBasisSummary(), v -> chooseTimeBasis()));
         appearance.addView(appearanceContent);
         MaterialUi.addTopMargin(content, appearance, 8);
 
@@ -157,6 +154,10 @@ public final class SettingsActivity extends MaterialBaseActivity {
                 .setPositiveButton(R.string.m3_restore, (dialog, which) -> {
                     try {
                         DataPortabilityV3.restoreBackup(this, preview.bytes);
+                        // Normal v2.1 product presentation has one canonical reconstructed real
+                        // timeline. A schema-3 development backup may still carry the retired METER
+                        // preference; normalize it before the recreated product surface appears.
+                        UiPreferences.setTimeBasis(this, AppTimeBasis.LOCAL);
                         message(R.string.m3_restore_success);
                         getWindow().getDecorView().postDelayed(this::recreate, 250L);
                     } catch (Exception error) {
@@ -213,23 +214,6 @@ public final class SettingsActivity extends MaterialBaseActivity {
                 }).show();
     }
 
-    private void chooseTimeBasis() {
-        AppTimeBasis[] values = {AppTimeBasis.LOCAL, AppTimeBasis.METER};
-        String[] labels = {
-                getString(R.string.v21_time_basis_local),
-                getString(R.string.v21_time_basis_meter)
-        };
-        AppTimeBasis current = UiPreferences.getTimeBasis(this);
-        int checked = current == AppTimeBasis.METER ? 1 : 0;
-        new MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.v21_time_basis)
-                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
-                    dialog.dismiss();
-                    UiPreferences.setTimeBasis(this, values[which]);
-                    getWindow().getDecorView().post(this::recreate);
-                }).show();
-    }
-
     private CharSequence themeSummary() {
         String theme = UiPreferences.getTheme(this);
         if (UiPreferences.THEME_LIGHT.equals(theme)) return getString(R.string.m3_theme_light);
@@ -242,12 +226,6 @@ public final class SettingsActivity extends MaterialBaseActivity {
         if (tag == null || UiPreferences.LANGUAGE_SYSTEM.equals(tag)) return getString(R.string.m3_language_system);
         Locale displayLocale = getResources().getConfiguration().getLocales().get(0);
         return Locale.forLanguageTag(tag).getDisplayName(displayLocale);
-    }
-
-    private CharSequence timeBasisSummary() {
-        return getString(UiPreferences.getTimeBasis(this) == AppTimeBasis.METER
-                ? R.string.v21_time_basis_meter
-                : R.string.v21_time_basis_local);
     }
 
     private void addSectionTitle(LinearLayout content, int titleRes) {
