@@ -12,17 +12,15 @@ This is the canonical coordination handoff for W1 NFC Reader v2.1. Repository st
 4. `docs/product-decisions/v2.1-canonical-real-time-product-timeline.md` on `dev/v2.1.0-real-time-timeline`
 5. `docs/V2_1_CANONICAL_REAL_TIME_VALIDATION_ADDENDUM.md`
 6. `docs/V2_1_TIME_MODEL_IMPLEMENTATION.md`
-7. `docs/V2_1_REAL_DEVICE_VALIDATION.md` — old Section D is superseded by the canonical-real-time addendum
+7. `docs/V2_1_REAL_DEVICE_VALIDATION.md`
 8. `docs/product-decisions/v2.1-real-time-timeline-and-coverage.md`
 9. `docs/V2_ARCHIVE_PERIOD_SEMANTICS.md`
 10. `docs/V2_HISTORY_NAVIGATION_FILTERS.md`
 11. `docs/V2_HISTORY_SYNC_ARCHITECTURE.md`
-12. `docs/V2_BREAKING_CHANGES.md`
-13. `docs/PROTOCOL_SAFETY.md`
-14. `docs/research/PUBLIC_QW1_EVIDENCE.md`
-15. `docs/RELEASING.md`
-16. `CHANGELOG.md`
-17. `AGENTS.md`
+12. `docs/PROTOCOL_SAFETY.md`
+13. `docs/RELEASING.md`
+14. `CHANGELOG.md`
+15. `AGENTS.md`
 
 The handoff branch is coordination-only. Development stays on the dev branch.
 
@@ -38,15 +36,15 @@ Active development branch:
 - `dev/v2.1.0-real-time-timeline`
 
 Current exact candidate:
-- commit `92c7c24e717a8e250c87385eb88faace08d0449c`
-- Android CI `34713492978`: **SUCCESS**
+- commit `b38006f9dab270a574d7e08cb9e3785a231a2ef8`
+- Android CI `34715215357`: **SUCCESS**
 - unit/Robolectric suite: **PASS**
 - product translations: **PASS — 227 keys across 6 locales**
 - debug build/signature/hash/artifact upload: **PASS**
 - artifact `w1-nfc-reader-debug`
-- artifact id `10304500771`
-- artifact ZIP SHA-256 `1c56163329ef28ed15d47d5f3240f49bc8845e7944565cc811b8dc9983b3c519`
-- APK SHA-256 `26c96aa8dd66561acbc671f6f34ef27f1737875890ec929a777ba17752493e74`
+- artifact id `10304503134`
+- artifact ZIP SHA-256 `cc48ffd4548fcff663583c1d722309b36584b4285de66ad24a3b4cfc1a367059`
+- APK SHA-256 `4488e1b1d500cf52ff03cc4ab294a9152e5623a111133533e3cd3ef4003b1686`
 - artifact independently downloaded/re-hashed; ZIP digest matches GitHub and APK matches `SHA256SUMS.txt`.
 
 Draft PR:
@@ -55,113 +53,97 @@ Draft PR:
 - head `dev/v2.1.0-real-time-timeline`
 - remains Draft until remaining physical gates and exact signed RC acceptance pass.
 
-## 3. Accepted product decision — one canonical real timeline with one active anchor
-
-Normal v2.1 UI has one canonical real timeline:
+## 3. Accepted time model — one canonical timeline, one active anchor
 
 - Live primary time = actual acquisition epoch.
-- Archive primary time = **single newest verified Live/default anchor per physical meter** + monotonic `ON_TIME` -> canonical UTC -> persisted per-meter IANA-zone presentation.
-- `ON_TIME` defines native timeline geometry; the active anchor only places that geometry on the real UTC axis.
-- Raw meter/logger wall-clock remains preserved secondary/diagnostic/export/backup evidence.
-- Former global `Local time / Meter time` selector is removed from normal Settings.
-- Legacy/restored `METER` preference is normalized back to the canonical product path.
-- Unsafe reconstruction fails closed; raw meter clock is never silently promoted to canonical real time.
+- Archive primary time = **single newest fully verified Live/default anchor per physical meter** + monotonic `ON_TIME` -> canonical UTC -> persisted IANA-zone presentation.
+- `ON_TIME` defines native timeline geometry; the active anchor only places the complete geometry on UTC.
+- Every accepted normal Live/default read may replace the active anchor when `ON_TIME` advances.
+- The already-required verified final Default/Live read after each History family likewise refreshes the active anchor.
+- All Hour/Day/Month/Year boundaries for one meter project backwards from that same active anchor.
+- Archive `ON_TIME` newer than active anchor fails closed as `ON_TIME_AFTER_ANCHOR`.
+- Backwards/reset `ON_TIME` cannot silently replace the active timeline.
+- Raw meter/logger wall clock remains preserved secondary diagnostic/export/backup evidence.
+- Unsafe reconstruction never silently promotes raw meter wall clock.
 
-Every accepted normal Live/default read can replace the active anchor when its `ON_TIME` advances. The already-required verified final Default/Live read after each History family likewise refreshes the active anchor. All Hour/Day/Month/Year archive boundaries for that meter are then projected backwards from this same anchor.
+Legacy time-model databases/backups containing multiple anchors remain readable. Projection exposes only the newest active anchor; a later accepted write/import normalization collapses the meter to one active anchor.
 
-An archive `ON_TIME` newer than the active anchor is an invariant failure and remains unresolved (`ON_TIME_AFTER_ANCHOR`) rather than falling back to another historical anchor. Backwards/reset `ON_TIME` likewise must not silently replace the active timeline.
+## 4. Release-blocking stretched-Hour finding — code-fixed, physical retest pending
 
-Legacy time-model databases/backups containing several anchors remain readable. Projection exposes only the newest active anchor; a later accepted anchor write or import normalization collapses that meter to one active anchor.
+A real-device History view showed one Hour interval longer than one hour (`19:00–20:04`). Private backup evidence confirmed the native archive itself was correct: consecutive Hour occurrences had exact 3,600-second `ON_TIME` spacing and no archive conflict.
 
-## 4. New release-blocking physical finding and correction
+Root cause was the former boundary-by-boundary anchor selection: start and end could use different historical Live anchors, so their phase difference stretched/compressed a physical archive interval.
 
-After the previously accepted canonical-time UI pass, a fresh real-device History read exposed one Hour card whose reconstructed interval was longer than one hour.
+The single-active-anchor implementation removes that handover. Regression tests require native Hour 3,600 s to remain exactly 3,600 real-time seconds, with analogous duration preservation for Day/Month/Year. Protected NFC/parser/archive traversal code was not changed.
 
-Private backup evidence confirmed the underlying native archive was correct: consecutive Hour occurrences had exact 3,600-second `ON_TIME` spacing and no archive conflict. The defect was entirely in the app projection layer: the former boundary-by-boundary anchor selection could resolve the start boundary from one historical Live anchor and the end boundary from a newer anchor. Small phase differences between those Live anchors then stretched/compressed a physical archive interval.
+Physical acceptance is still required on the exact current candidate: reopen the previously affected History range; every valid consecutive Hour interval must be exactly one hour. Absolute clock labels may shift coherently because the newest anchor places the complete native timeline.
 
-This behavior is superseded by the single-active-anchor contract above. Regression coverage now requires exact native duration preservation for Hour, Day, Month and Year even when historical anchors disagree.
+## 5. Home Assistant source identity — primitive implemented
 
-Protected NFC/parser/archive traversal code was not changed for this correction.
+`SourceRecordId` is now implemented and CI-green. It gives every archive occurrence a deterministic external identity independent of the phone and independent of reconstructed UTC.
 
-## 5. Physical validation completed so far
+External form:
 
-### A
+`w1:v1:<sha256>`
 
-Debug app installed and usable. A completely fresh-state default check was not explicitly recorded and may be done on the final exact signed RC without deleting current test data.
-
-### B — PASS
-
-Protected normal Live NFC read passed on the real Qalcosonic W1. No automatic History sync. Final protected regression is repeated in F.
-
-### C — previous cases PASS; new single-anchor regression pending physical confirmation
-
-Previously confirmed corrections include LOCAL period ownership/DST projection, empty-family false warning, fresh post-History verified time anchor, statistics bucket ownership and natural-oldest retention handling.
-
-Known physical reproductions:
-- September 2026 Statistics = **10/30** fully-contained Day buckets;
-- 10 September 2026 Statistics = **22/24** fully-contained Hour buckets;
-- February no-Hour-data case warning-free;
-- `Alle Zeiträume` natural-oldest false warning removed.
-
-The newly discovered stretched-Hour defect is code-fixed and CI-green on `92c7c24...`, but must be physically rechecked before F/RC.
-
-### Revised D — canonical real-time product surface
-
-Physical product presentation with the canonical real timeline was accepted. Raw meter/logger time remains secondary evidence. The projection engine underneath it has since moved to the stricter single-active-anchor model described above.
-
-## 6. Statistics / History / UI polish — implemented
-
-- fully-contained Statistics buckets = filled bars and included in selected-window KPIs;
-- partial edge overlaps = dashed outline bars using the complete measured archive delta as context only, never prorated and excluded from KPIs;
-- genuine zero consumption = visible baseline marker; native gaps remain gaps;
-- History -> All Live delta uses the chronologically nearest trustworthy earlier archive cumulative reading on the same meter across Hour/Day/Month; fallback to previous Live only if no earlier archive exists;
-- dedicated Live filter remains Live-to-Live; archive cards remain same-family;
-- one visible consumption bar = one centered x-axis label; dense consumption bars rotate the complete label set instead of skipping labels;
-- user-facing combined date/time follows locale-aware `date · time`;
-- ordinary local display prefers localized zone abbreviations, with DST-fold numeric disambiguation where necessary;
-- History/Statistics page help is scoped to the actual page heading only, not drawer/menu repetitions;
-- generic Statistics help is consolidated in the page info dialog; metric-specific caveats stay inline.
-
-## 7. Timezone editor — searchable supported-zone picker
-
-The former free-text IANA timezone editor is retired from the normal product UI.
-
-- Meter Details loads runtime-supported timezone IDs from `ZoneId.getAvailableZoneIds()` and includes `UTC`;
-- sorted searchable Material exposed dropdown;
-- current persisted zone preselected;
-- Save accepts only an exact runtime-supported ID;
-- arbitrary unsupported/free-text IDs cannot be persisted through normal UI;
-- changing presentation zone never rewrites raw meter/logger evidence or archive data.
-
-Regression `MeterDetailsTimeZoneUiTest` protects this contract.
-
-## 8. Future Home Assistant / integration identity contract
-
-Do **not** use reconstructed canonical UTC as the duplicate identity. A newer active anchor may legitimately shift the absolute UTC placement of an older physical archive occurrence while the occurrence itself is unchanged.
-
-Future integration should export a deterministic, versioned meter-native `source_record_id`, reproducible on a new phone without any app backup. Existing building blocks already support this:
-
+Canonical SHA-256 input is a length-prefixed sequence of preserved meter-native identity evidence:
 - physical meter identity;
-- archive family (Hour/Day/Month/Year);
-- `ArchiveOccurrenceKey`, normally `OT:<on_time_seconds>` when valid `ON_TIME` exists;
-- raw logger timestamp / `ArchiveRecordIdentity` as stronger collision evidence;
-- explicit generation/reset discriminator if the same physical identity ever reuses `ON_TIME` after a reset.
+- archive family;
+- raw logger timestamp;
+- native occurrence key, normally `OT:<on_time_seconds>` when valid `ON_TIME` exists.
 
-Suggested semantic identity shape: `w1:v1:<meter-identity>:<family>:<occurrence-key>` with stronger evidence available for collision protection.
+The ID deliberately excludes derived UTC/local time, SQLite row IDs, retrieval time, phone/install identity and measurement content. A fresh phone rereading the same physical archive occurrence therefore regenerates the same ID. Different meter/family or a reused `ON_TIME` with another logger occurrence generates another ID.
 
-Home Assistant must enforce idempotence server-side through a unique key / UPSERT / ignore-known-ID contract. An app-local “already sent” set may optimize traffic but must never be the authority. Therefore a fresh phone can reread and resend the retained meter archive; the same physical occurrences regenerate the same IDs and Home Assistant does not create duplicates.
+`SourceRecordIdTest` protects those invariants.
 
-`ON_TIME` alone is not globally unique: different meters and different archive families can legitimately share the same value, and a real reset/generation scenario could eventually reuse it.
+Future transport rule is explicit: **Android does not keep an authoritative already-sent ledger.** It may send every locally available eligible record on every transfer. Home Assistant is the idempotence authority and must enforce unique-key/UPSERT/no-op behavior on `source_record_id`. A known ID with improved derived metadata such as a better UTC reconstruction updates the existing record rather than creating a duplicate.
+
+If a real future reset could reproduce both the same `ON_TIME` and same raw logger occurrence under an unchanged physical identity, introduce an explicit meter-generation discriminator; never derive it from phone-local state.
+
+## 6. Statistics x-axis — shared adaptive policy now implemented in v2.1 candidate
+
+The previously deferred chart-label hardening is now implemented centrally in `V2MetricChartView` and protected by `V2MetricChartAxisPolicyTest`.
+
+Current shared behavior:
+- bar metrics (consumption and flow): complete label set horizontal when it fits -> complete set rotated when that fits -> complete set hidden when even rotated text would collide;
+- line metrics (temperature and battery): measured-fit thinning; if the remaining labels still collide, hide the x-axis labels;
+- fit uses actual plot width, visible item count, rendered text/font metrics and minimum spacing;
+- hiding/thinning labels changes presentation only; no data point/bar is dropped, merged or aggregated;
+- rotated labels reserve extra chart height; hidden labels reclaim unnecessary label space.
+
+The alarm metric currently renders a textual event timeline, not an x-axis `V2MetricChartView` chart.
+
+This supersedes the earlier “next version” deferral. Future new chart metrics must inherit the same central policy rather than implement their own x-axis behavior.
+
+## 7. Existing v2.1 UI/product polish
+
+- fully-contained Statistics buckets = filled and included in selected-window KPIs;
+- partial edge overlaps = dashed full measured context only, never prorated and excluded from KPIs;
+- genuine zero = visible baseline marker; native gaps remain gaps;
+- History -> All Live delta uses chronologically nearest trustworthy earlier archive cumulative observation; previous-Live fallback only if no earlier archive exists;
+- `date · time` presentation is locale-aware and centralized;
+- ordinary zone labels prefer localized abbreviations with DST-fold disambiguation;
+- History/Statistics contextual help appears only at actual page headings; generic Statistics explanation is not duplicated in page body;
+- timezone editor is a searchable runtime-supported IANA picker; arbitrary unsupported free text cannot persist.
+
+## 8. Physical validation state
+
+- A: partial pass; fresh-state default check can be done on exact signed RC.
+- B: protected normal Live NFC path passed earlier.
+- Previous C reproductions: pass, including September `10/30`, known Hour `22/24`, no-Hour February warning-free and natural-oldest handling.
+- Canonical product presentation: accepted so far.
+- Single-active-anchor stretched-Hour regression: **code-fixed/CI-green, physical retest pending**.
+- Adaptive chart-axis policy: **code-fixed/CI-green, physical spot-check pending**.
+- Timezone picker/help-density spot-check: complete if already observed; otherwise quick-check on current candidate.
+- F: final protected normal Live/default NFC regression still pending after the UI/time retests.
 
 ## 9. Safety boundary
 
 Remain protected:
-
 - normal NFC contact = fast Live/default read only;
 - History starts only after explicit user action;
-- Hour/Day/Month families remain independent;
-- accepted archive observations persist immediately;
-- COMPLETE requires semantic terminal plus verified final Default Restore/Live;
+- Hour/Day/Month sync families remain independent;
+- COMPLETE requires semantic terminal + verified final Default Restore/Live;
 - incremental `KNOWN_RECORD_REACHED` requires secure overlap; timestamp-only overlap forbidden;
 - manufacturer capacities are not traversal limits;
 - raw Type-F/logger time, `ON_TIME` and occurrence identity are never overwritten by derived presentation;
@@ -170,49 +152,22 @@ Remain protected:
 
 ## 10. Release gate
 
-Do **not** yet:
+Do **not** yet bump to v2.1.0, mark PR #22 ready, merge, tag or release.
 
-- bump stable version to 2.1.0;
-- mark PR #22 ready;
-- merge PR #22;
-- create/move a v2.1.0 tag or release.
+First on exact candidate `b38006f...`:
+1. confirm the previously stretched Hour is now exactly one hour;
+2. check Statistics normal and very long ranges: consumption/flow horizontal -> rotated -> hidden as density increases; temperature/battery thin -> hidden rather than collide; data remains complete;
+3. complete any remaining timezone/help UI spot-check;
+4. perform exactly one final protected normal Live/default NFC read for F.
 
-First physically confirm the single-active-anchor regression on the exact CI-green candidate, then perform F. After that prepare version metadata/changelog/release notes and the exact signed v2.1.0 RC, and physically accept that exact RC before publication.
+Then prepare version metadata/changelog/release notes and the exact signed v2.1.0 RC, and physically accept that exact RC before publication.
 
 ## 11. Private research authority
 
 Only if protocol/time-evidence behavior itself must be revisited:
-
 - private repo `MarcLeinenDE/engineering-lab`
 - path `android/qalcosonic-nfc-reader/`
 - branch `research/w1-nfc-archive-analysis`
 - frozen head `65358d55ee52a6911ab4fa8d1a66bc0d0dda0fd0`
 
 Never publish private meter IDs, consumption data, captures, backup payloads or NFC traffic.
-
-## Deferred for the next app version — complete chart-axis audit
-
-Do **not** churn the current v2.1 release candidate only for this deferred polish item. At the start of the next app version, audit every Statistics chart so the x-axis label behavior is not only correct for consumption.
-
-Required scope includes consumption, battery, flow, water temperature, ambient temperature and any alarm/event chart with an x-axis. Battery and flow are explicit spot-check targets.
-
-Global acceptance rule:
-
-- if the complete visible label set fits horizontally, render it horizontally;
-- otherwise rotate the complete set together and reserve enough chart height;
-- if even rotated/vertical labels would merge into an unreadable continuous text block, hide the x-axis labels for that chart state entirely;
-- calculate from real plot width, visible item count, measured text/font scale and minimum spacing, not only a hard-coded number of periods;
-- do not arbitrarily skip isolated bar labels or mix horizontal/vertical labels in one chart state;
-- hiding labels is presentation-only: never drop, merge or aggregate chart data to make the axis fit;
-- line charts may thin labels only while point ownership remains visually unambiguous; if remaining labels still collide, hide them;
-- explicitly test very long selected ranges.
-
-Prefer centralizing this in the shared chart renderer/policy and protect it with regression tests.
-
-## Next action
-
-Install exact CI-green candidate `92c7c24e717a8e250c87385eb88faace08d0449c`. No new History sync/NFC is required for the first check. Reopen the History range that previously showed an Hour interval longer than one hour.
-
-Expected: every valid consecutive Hour archive interval is exactly one hour long, with no stretch/compression at former historical-anchor handovers. The absolute clock labels may shift slightly as one coherent timeline because the newest active anchor now places the whole native `ON_TIME` geometry.
-
-If this physical regression passes, complete any remaining timezone-picker UI spot-check if needed and then perform exactly one final protected Live/default NFC read for F. Keep PR #22 Draft; do not bump/merge/release v2.1 yet.
