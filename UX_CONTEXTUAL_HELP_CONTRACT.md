@@ -108,31 +108,37 @@ The normal page should therefore show the concise coverage count without repeati
 
 ## Statistics x-axis ownership
 
-Every visible consumption bar must map unambiguously to one visible period label.
+Every visible consumption bar must map unambiguously to a period while labels are actually rendered.
 
-Rules:
+Adaptive label policy:
 
-- one visible bar = one x-axis label;
-- label is centered on the same slot as its bar;
-- do not silently skip labels on dense bar charts if that makes ownership ambiguous;
-- when labels no longer fit horizontally, rotate the complete set together and reserve sufficient chart height;
-- labels describe the actual represented interval/period, including shifted resolved intervals where a compact civil label would be false;
-- line charts may continue to thin labels where point ownership remains visually unambiguous.
+1. Use horizontal labels when the complete visible label set fits cleanly.
+2. If horizontal labels no longer fit, rotate the **complete** label set together and reserve enough chart height.
+3. If even the rotated labels would collide because the per-slot horizontal footprint is too small, hide the x-axis period labels for that chart instead of rendering an unreadable text block.
+4. Never keep a partially readable mixture by skipping arbitrary individual bar labels. The transition is whole-set: horizontal -> rotated -> hidden.
+5. The fit decision must be calculated from actual available plot width, visible point/bar count, text metrics/font scale and minimum spacing rather than from a hard-coded number of periods alone.
+6. Hiding labels is presentation-only: no bucket, point, value or period identity may be dropped or aggregated merely to make the axis fit.
+7. Labels describe the actual represented interval/period, including shifted resolved intervals where a compact civil label would be false.
+8. Line charts may thin labels where point ownership remains visually unambiguous, but must also fall back to hiding the label set if remaining labels still collide.
 
 ## Deferred next-version chart-axis audit
 
 Do not alter the current v2.1 release candidate solely for this deferred audit. In the next app version, perform a repository-wide visual/implementation audit of **every Statistics chart**, not only consumption.
 
-The same x-axis ownership/orientation policy must be applied consistently to all relevant metrics, including at minimum consumption, battery, flow, water temperature, ambient temperature and alarm/event views where an x-axis is shown.
+The same adaptive x-axis policy must be applied consistently to all relevant metrics, including at minimum consumption, battery, flow, water temperature, ambient temperature and alarm/event views where an x-axis is shown.
 
 Specific acceptance points for that audit:
 
 - verify that no metric has a leftover chart-specific x-axis implementation with different rotation/orientation behavior;
-- on dense categorical/bar views, apply the agreed rotated/vertical label treatment consistently to the complete label set rather than mixing horizontal and vertical labels or skipping individual labels;
-- preserve one visible bar = one centered period label;
-- reserve enough chart height so rotated labels are not clipped;
-- line-chart label thinning remains allowed only where point ownership stays visually unambiguous;
+- determine label fit from real chart width, visible item count, measured text/font scale and spacing;
+- use the same whole-set fallback everywhere: horizontal when it fits, rotated/vertical when that fits, and no x-axis labels when even the rotated set would overlap into an unreadable block;
+- never render colliding text just to preserve a nominal one-label-per-bar rule;
+- do not mix horizontal and vertical labels within the same chart state and do not arbitrarily omit isolated bar labels;
+- preserve every underlying data point/bucket when axis labels are hidden;
+- reserve enough chart height when rotated labels are used, but reclaim unnecessary label space when labels are hidden;
+- line-chart label thinning remains allowed only where point ownership stays visually unambiguous; if thinning still collides, hide the remaining x-axis labels;
 - check the real UI for battery and flow in particular, because inconsistent x-axis text orientation was observed there during the v2.1 physical review;
+- explicitly test very long selected ranges, because the failure mode observed on-device is that dense labels merge visually into one continuous block;
 - prefer fixing this in shared chart-axis policy/rendering rather than one metric at a time, and add regression coverage so future metrics inherit the same behavior.
 
 ## History `All` — Live delta baseline semantics
@@ -177,5 +183,7 @@ Implemented and CI-green:
 - duplicate generic Statistics explanation removed from chart body; concise coverage line retained;
 - searchable device-supported IANA timezone picker replacing arbitrary free-text persistence;
 - six-locale UI/help copy and regression suite.
+
+The adaptive horizontal -> rotated -> hidden x-axis policy is **deferred to the next app version** and is not part of the current v2.1 candidate.
 
 Physical spot-check of the timezone picker and final UI state is still required before the final protected Live regression and release preparation.
