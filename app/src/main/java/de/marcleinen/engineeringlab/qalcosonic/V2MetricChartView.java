@@ -2,6 +2,7 @@ package de.marcleinen.engineeringlab.qalcosonic;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
@@ -119,6 +120,7 @@ final class V2MetricChartView extends View {
             max *= 1.10;
         }
 
+        paint.setPathEffect(null);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(dp(1));
         paint.setColor(grid);
@@ -149,10 +151,27 @@ final class V2MetricChartView extends View {
             float valueY = valueY(entry.value, top, bottom, min, max);
             RectF rect = new RectF(cx - barWidth / 2f, Math.min(valueY, zeroY),
                     cx + barWidth / 2f, Math.max(valueY, zeroY));
+
             paint.setColor(entry.partial ? secondary : primary);
-            paint.setStyle(entry.partial ? Paint.Style.STROKE : Paint.Style.FILL);
-            paint.setStrokeWidth(entry.partial ? dp(2) : 0f);
-            canvas.drawRoundRect(rect, dp(3), dp(3), paint);
+            paint.setPathEffect(entry.partial
+                    ? new DashPathEffect(new float[]{dp(5), dp(3)}, 0f)
+                    : null);
+
+            // A partial edge is a real measured archive interval, but it is not fully contained in
+            // the selected civil window. Draw its full measured value as a dashed outline so the
+            // physical sequence stays visible without implying that the value belongs completely to
+            // the selected window. Genuine zero-consumption buckets get a small baseline marker so
+            // zero is distinguishable from missing data.
+            if (Math.abs(entry.value) < 1e-12) {
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(dp(2));
+                canvas.drawLine(cx - barWidth / 2f, zeroY, cx + barWidth / 2f, zeroY, paint);
+            } else {
+                paint.setStyle(entry.partial ? Paint.Style.STROKE : Paint.Style.FILL);
+                paint.setStrokeWidth(entry.partial ? dp(2) : dp(1));
+                canvas.drawRoundRect(rect, dp(3), dp(3), paint);
+            }
+            paint.setPathEffect(null);
             if (showLabel(i, labelStep)) canvas.drawText(entry.label, cx, bottom + dp(20), textPaint);
         }
     }
@@ -180,6 +199,7 @@ final class V2MetricChartView extends View {
             previousSegment = entry.segment;
             if (showLabel(i, labelStep)) canvas.drawText(entry.label, x, bottom + dp(20), textPaint);
         }
+        paint.setPathEffect(null);
         paint.setColor(primary);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(dp(2));
