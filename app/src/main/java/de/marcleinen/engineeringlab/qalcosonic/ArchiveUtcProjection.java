@@ -8,11 +8,15 @@ import java.util.List;
  * Read-only projection from native archive evidence to canonical UTC boundaries/intervals.
  *
  * <p>The projection deliberately does not mutate archive rows and does not change History query
- * semantics yet. A stored raw logger timestamp is a completed-period END boundary. A complete UTC
- * interval is formed only from two consecutive resolved native boundaries of the same physical
- * meter and archive family. Native adjacency is validated from ON_TIME before the two independently
- * resolved UTC boundaries are joined. This keeps missing native buckets from being silently
- * compressed while allowing two valid boundaries to come from different verified Live anchors.</p>
+ * semantics. A stored raw logger timestamp is a completed-period END boundary. All archive
+ * boundaries of one physical meter are projected from one active verified Live anchor: the newest
+ * complete Live/default anchor for that meter. Native ON_TIME therefore defines the geometry of the
+ * timeline while the active anchor defines only its absolute real-time position.</p>
+ *
+ * <p>This single-anchor rule is intentional. Consecutive native Hour/Day/Month/Year boundaries must
+ * never be stretched or compressed merely because two historical Live anchors have slightly
+ * different phase relationships to ON_TIME. An archive occurrence newer than the active anchor is
+ * rejected by {@link MeterTimeResolver} instead of falling back to an older anchor.</p>
  */
 final class ArchiveUtcProjection {
     private static final long HOUR_SECONDS = 60L * 60L;
@@ -168,7 +172,7 @@ final class ArchiveUtcProjection {
         if (source.typeFIv != 0) {
             return unresolved(source, BoundaryStatus.TYPE_F_INVALID, MeterTimeResolver.Status.TYPE_F_INVALID);
         }
-        MeterTimeModelStore.AnchorRecord selected = selectAnchor(source, anchors);
+        MeterTimeModelStore.AnchorRecord selected = selectActiveAnchor(source.meterId, anchors);
         if (selected == null) {
             return unresolved(source, BoundaryStatus.NO_SUITABLE_ANCHOR, null);
         }
@@ -205,41 +209,43 @@ final class ArchiveUtcProjection {
                 resolution.method);
     }
 
-    private static MeterTimeModelStore.AnchorRecord selectAnchor(
-            ArchiveFamilyStore.StoredPeriod source,
+    /**
+     * Returns the one active projection anchor for a physical meter. Historical anchor evidence may
+     * still exist in older databases/backups, but it must never participate in boundary-by-boundary
+     * selection. Recency is defined primarily by monotonic ON_TIME, then acquisition epoch and id.
+     */
+    private static MeterTimeModelStore.AnchorRecord selectActiveAnchor(
+            String meterId,
             List<MeterTimeModelStore.AnchorRecord> anchors) {
-        if (source == null || source.onTimeSeconds == null || anchors == null) return null;
+        if (meterId == null || anchors == null) return null;
         MeterTimeModelStore.AnchorRecord best = null;
-        long bestDelta = Long.MAX_VALUE;
         for (MeterTimeModelStore.AnchorRecord candidate : anchors) {
-            if (candidate == null || !source.meterId.equals(candidate.meterId)) continue;
+            if (candidate == null || !meterId.equals(candidate.meterId)) continue;
             if (!MeterTimeModelStore.ANCHOR_PROVENANCE_VERIFIED_LIVE_DEFAULT.equals(candidate.provenance)
                     || !MeterTimeModelStore.ANCHOR_VALIDATION_COMPLETE.equals(candidate.validation)) {
                 continue;
             }
             if (candidate.rawTypeFHex == null || candidate.rawTypeFHex.trim().isEmpty()
-                    || !candidate.toAnchor().usable()
-                    || candidate.onTimeSeconds < source.onTimeSeconds) {
+                    || !candidate.toAnchor().usable()) {
                 continue;
             }
-            long delta = candidate.onTimeSeconds - source.onTimeSeconds;
-            if (best == null || delta < bestDelta
-                    || (delta == bestDelta && candidate.uncertaintyMs < best.uncertaintyMs)
-                    || (delta == bestDelta && candidate.uncertaintyMs == best.uncertaintyMs
-                    && candidate.anchorEpochMs < best.anchorEpochMs)) {
+            if (best == null
+                    || candidate.onTimeSeconds > best.onTimeSeconds
+                    || (candidate.onTimeSeconds == best.onTimeSeconds
+                    && candidate.anchorEpochMs > best.anchorEpochMs)
+                    || (candidate.onTimeSeconds == best.onTimeSeconds
+                    && candidate.anchorEpochMs == best.anchorEpochMs
+                    && candidate.id > best.id)) {
                 best = candidate;
-                bestDelta = delta;
             }
         }
         return best;
     }
 
     /**
-     * Validates native archive adjacency from monotonic ON_TIME evidence, not from the projected UTC
-     * duration. Independently verified Live anchors are minute-level meter evidence tied to a real
-     * acquisition instant, so a handover between two anchors can legitimately make the projected
-     * real-time duration differ slightly from the exact native elapsed duration. Missing native
-     * records must still remain a known coverage gap rather than being compressed into one bucket.
+     * Validates native archive adjacency from monotonic ON_TIME evidence. Because every boundary in
+     * a meter projection uses the same active anchor, valid native elapsed duration is preserved
+     * exactly on the canonical UTC axis. Missing native records remain known coverage gaps.
      */
     private static boolean nativeAdjacent(
             ArchiveFamilyStore.StoredPeriod previous,
