@@ -4,6 +4,7 @@ import android.content.res.ColorStateList;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.google.android.material.button.MaterialButton;
@@ -71,6 +72,7 @@ final class ProductUiHardening {
                 String normalized = normalizeDateTimeSeparators(original.toString());
                 if (!normalized.contentEquals(original)) textView.setText(normalized);
             }
+            removeRedundantInlineHelp(activity, textView);
             attachContextualHelpIfNeeded(activity, textView);
         }
         if (!(view instanceof ViewGroup)) return;
@@ -92,7 +94,15 @@ final class ProductUiHardening {
         return matcher.replaceAll("$1 · $2");
     }
 
+    /**
+     * Contextual help belongs on the actual History/Statistics page heading only. Matching a word
+     * globally made drawer/menu labels and unrelated occurrences look interactive, which is noisy
+     * and semantically wrong. The generated page root is a plain LinearLayout and its headline is
+     * the first child; drawer/navigation rows use their own Material container classes.
+     */
     private static void attachContextualHelpIfNeeded(MaterialBaseActivity activity, TextView textView) {
+        if (!(activity instanceof HistoryStatisticsActivity)) return;
+        if (!isPrimaryHistoryStatisticsHeadline(textView)) return;
         if (textView.getCompoundDrawablesRelative()[2] != null) return;
         String text = textView.getText() == null ? "" : textView.getText().toString();
         if (text.equals(activity.getString(R.string.m3_history_title))) {
@@ -101,9 +111,34 @@ final class ProductUiHardening {
         } else if (text.equals(activity.getString(R.string.m3_stats_title))) {
             attachInfo(activity, textView,
                     R.string.v21_info_statistics_title, R.string.v21_info_statistics_body);
-        } else if (text.equals(activity.getString(R.string.v21_meter_time_model))) {
-            attachInfo(activity, textView,
-                    R.string.v21_info_time_model_title, R.string.v21_info_time_model_body);
+        }
+    }
+
+    private static boolean isPrimaryHistoryStatisticsHeadline(TextView textView) {
+        if (!(textView.getParent() instanceof LinearLayout)) return false;
+        LinearLayout parent = (LinearLayout) textView.getParent();
+        return parent.getClass() == LinearLayout.class
+                && parent.getChildCount() > 0
+                && parent.getChildAt(0) == textView;
+    }
+
+    /**
+     * General Statistics explanations now live behind the single page-level info control. Keep
+     * metric-specific caveats inline, but remove the duplicated generic consumption paragraph and
+     * the repeated sync-completeness suffix from the coverage line.
+     */
+    private static void removeRedundantInlineHelp(MaterialBaseActivity activity, TextView textView) {
+        if (!(activity instanceof HistoryStatisticsActivity)) return;
+        CharSequence value = textView.getText();
+        if (value == null || value.length() == 0) return;
+        String text = value.toString();
+        if (text.equals(activity.getString(R.string.v2_consumption_note))) {
+            textView.setVisibility(View.GONE);
+            return;
+        }
+        String suffix = " · " + activity.getString(R.string.v2_coverage_not_sync_state);
+        if (text.endsWith(suffix)) {
+            textView.setText(text.substring(0, text.length() - suffix.length()));
         }
     }
 
