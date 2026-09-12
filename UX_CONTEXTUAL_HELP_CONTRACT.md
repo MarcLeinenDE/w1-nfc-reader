@@ -22,6 +22,25 @@ This is a global product rule, not a Statistics-only exception.
 - Do not show an info icon for self-evident labels merely to create visual noise.
 - Do not hide warnings, failures or required user actions behind an info icon. The icon explains a state; it never replaces a required warning/action.
 
+## Canonical real timeline / raw meter-clock evidence
+
+The normal v2.1 product UI has one canonical real timeline. Archive real time is reconstructed from verified Live/default anchors plus monotonic meter `ON_TIME`, then projected through the persisted per-meter IANA zone. Live real time is the actual acquisition epoch.
+
+The raw meter/logger wall clock is preserved source evidence, but it is no longer an equal normal-product time mode. The former global `Local time / Meter time` selector is retired from normal Settings.
+
+Where raw meter/logger time is shown as secondary evidence, the contextual explanation should make clear that:
+
+- the meter's internal wall clock may drift relative to real time;
+- the app does not simply apply today's wall-clock difference retrospectively;
+- archive real time is reconstructed from elapsed `ON_TIME` plus a verified real-time anchor;
+- `ON_TIME` alone is not a civil timestamp and cannot be used without a suitable anchor;
+- when real-time reconstruction is unsafe/unavailable, the app fails closed rather than silently promoting raw meter time to canonical time;
+- raw meter/logger time remains available for diagnosis, export and backup.
+
+Suggested plain-language explanation in localized form:
+
+> The displayed real time is reconstructed from the meter's elapsed operating time and verified readout times. The meter's own clock may drift and is therefore shown only as additional raw evidence.
+
 ## Global date/time presentation consistency
 
 The v2.1 polish pass must perform a repository-wide audit of every user-facing date/time presentation path, not only the currently observed Overview and Meter Details examples.
@@ -37,7 +56,7 @@ Rules:
 - audit labels, secondary evidence, warning timestamps, latest-sync timestamps, acquisition timestamps, dialog summaries and accessibility/content-description strings as well as the obvious main cards;
 - add regression coverage for representative shared formatters and high-value UI contracts instead of relying only on screenshot inspection.
 
-Known examples that motivated the global audit include Overview `Lokale Zeit` / former `Ausgelesen`, Meter Details `Am Handy ausgelesen`, and `Letzte Archivsynchronisierung`, but the work item is explicitly broader than these examples.
+Known examples that motivated the global audit include Overview `Lokale Zeit` / former `Ausgelesen`, Meter Details `Am Handy ausgelesen`, History secondary `Lokale Zeit`, and `Letzte Archivsynchronisierung`, but the work item is explicitly broader than these examples.
 
 ## Statistics / coverage example
 
@@ -84,21 +103,14 @@ Examples:
 
 This behavior applies only to the mixed `All` timeline. The dedicated `Live` filter may continue to compare Live reads with the previous Live read.
 
-The visible label must make the baseline explicit, for example:
-
-- `0.002 m³ since 19:00`
-- `0.315 m³ since day-end 10 Sep`
-- `12.4 m³ since month-end Aug`
-- fallback: `0.332 m³ since previous Live read · 10 Sep 13:19`
-
-A contextual info control should explain that `All` continues the chronological history from the most recent trustworthy previous observation and that the baseline may therefore be an archive value or, when no archive exists, the previous Live read.
+The visible label must make the baseline explicit.
 
 ## Scope across the app
 
 During the release-candidate UI/polish pass, review all user-facing screens for concepts that are technically correct but may not be immediately obvious. Candidate areas include, but are not limited to:
 
+- canonical real-time reconstruction versus raw meter-clock evidence;
 - Statistics coverage / fully-contained buckets / edge intervals;
-- LOCAL versus METER time basis;
 - timezone provenance and automatic IANA-zone assignment;
 - DST-related repeated or shifted local times where additional explanation is useful;
 - History versus Live semantics;
@@ -117,12 +129,11 @@ The review is not limited to Hour views. Day, Month, All, Overview, History, Sta
 - Explanations must describe the implemented behavior, not paper over incorrect behavior.
 - A contextual explanation does not turn a confusing or wrong primary label into an acceptable label; primary wording should still be improved where possible.
 - Never fabricate data to make coverage look complete.
-- Never present a known coverage gap as a LOCAL time-resolution failure, or vice versa.
+- Never present a known coverage gap as a time-resolution failure, or vice versa.
 - Never calculate a Live delta across meter replacement or an unsafe chronology.
+- Never silently promote raw meter/logger wall-clock to canonical real time.
 - Canonical UTC/archive identity, raw meter evidence and existing protocol-safety rules remain authoritative.
 
 ## Release integration
 
-Do not modify the currently pinned functional C-test APK solely for this presentation/product-polish pattern while Section C–F validation is still in progress.
-
-After the functional gate passes, implement the contextual-help pass together with the repository-wide date/time formatting audit and the already-recorded presentation items (localized timezone abbreviations, visible zero-consumption markers, and the `All`-timeline Live baseline rule), then run UI/i18n/accessibility regression checks before preparing the exact v2.1 release candidate.
+After the functional gate passes, implement the contextual-help pass together with the recorded presentation items: locale-aware timezone abbreviations, global centered date/time separators, visible zero-consumption markers, precise coverage wording, and the `All`-timeline Live baseline rule. Then run UI/i18n/accessibility regression checks before preparing the exact v2.1 release candidate.
