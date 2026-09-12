@@ -62,16 +62,28 @@ Rules:
 - raw stored timestamps are never rewritten by this presentation rule;
 - secondary evidence, acquisition timestamps and accessibility descriptions are included where applicable.
 
-## Timezone label presentation
+## Timezone presentation and selection
 
 For ordinary local display, prefer a recognizable localized zone abbreviation such as `MEZ/MESZ` or `CET/CEST` instead of routinely showing `+01:00/+02:00`.
 
-Guardrails:
+The per-meter IANA-zone editor follows a constrained-selection product rule:
+
+- do not expose arbitrary free-text persistence in the normal UI;
+- populate the searchable picker from the timezone IDs supported by the running Android runtime (`ZoneId.getAvailableZoneIds()`), with `UTC` available;
+- preselect the meter's currently persisted zone;
+- allow typing to filter/search the supported set;
+- Save succeeds only for an exact member of that supported set and still passes through the canonical `MeterTimeModelStore` validation/persistence path;
+- changing the assigned zone changes only the local-time interpretation and never rewrites raw meter/logger timestamps, `ON_TIME`, canonical occurrence identity or archive payloads.
+
+Additional guardrails:
 
 - the assigned IANA zone remains the actual timezone identity;
 - numeric UTC offset remains diagnostic truth;
 - in a repeated/ambiguous DST fold hour, include enough offset information to distinguish occurrences;
-- never use a friendly abbreviation to erase real occurrence ambiguity.
+- never use a friendly abbreviation to erase real occurrence ambiguity;
+- do not invent localized country/city aliases that could obscure the stored IANA ID; the picker may display the canonical IDs directly.
+
+The former release smoke test that depended on deliberately typing an invalid free-text IANA ID is superseded by the stronger normal-product guarantee that unsupported arbitrary IDs cannot be persisted through the picker.
 
 ## Statistics / coverage semantics
 
@@ -136,7 +148,7 @@ The dedicated `Live` filter remains Live-to-Live. Archive cards retain same-fami
 
 ## v2.1 implementation status
 
-Current cleanup candidate: `a6cd9463abdebe4fdeae710d1005397a87683e0b`.
+Current candidate: `67aafb713a0b09d23058b31640ba94bc0353bb21`.
 
 Implemented and CI-green:
 
@@ -146,8 +158,8 @@ Implemented and CI-green:
 - localized timezone abbreviations with DST-fold disambiguation;
 - dashed partial-edge bars and visible zero-consumption markers;
 - History/Statistics contextual help scoped to the actual page heading only;
-- duplicate generic Statistics explanation removed from the chart body; concise coverage line retained;
-- metric-specific inline caveats retained where they add information not present in the page dialog;
-- six-locale help copy and regression suite.
+- duplicate generic Statistics explanation removed from chart body; concise coverage line retained;
+- searchable device-supported IANA timezone picker replacing arbitrary free-text persistence;
+- six-locale UI/help copy and regression suite.
 
-Physical spot-check of the reduced help density is still required before release preparation.
+Physical spot-check of the timezone picker and final UI state is still required before the final protected Live regression and release preparation.
