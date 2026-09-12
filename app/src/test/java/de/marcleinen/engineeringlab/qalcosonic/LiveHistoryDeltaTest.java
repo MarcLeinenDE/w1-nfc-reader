@@ -9,7 +9,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 public final class LiveHistoryDeltaTest {
-    @Test public void liveUsesPreviousLiveEvenWhenNewerArchiveExists() {
+    @Test public void mixedAllViewLiveUsesNearestEarlierArchiveAcrossGranularities() {
         List<HistoryStatisticsRepository.Observation> values = List.of(
                 observation("day", "A", HistorySemanticTimeline.Granularity.DAY,
                         "2026-09-07 00:00", 205.200, false),
@@ -23,12 +23,12 @@ public final class LiveHistoryDeltaTest {
         HistoryStatisticsAnalytics.Delta delta =
                 HistoryStatisticsAnalytics.deltas(values).get("live2");
 
-        assertEquals(0.341, delta.consumptionM3, 0.000001);
-        assertEquals("live1", delta.previous.identity);
-        assertEquals(HistorySemanticTimeline.Granularity.LIVE, delta.previous.granularity);
+        assertEquals(0.0, delta.consumptionM3, 0.000001);
+        assertEquals("hour", delta.previous.identity);
+        assertEquals(HistorySemanticTimeline.Granularity.HOUR, delta.previous.granularity);
     }
 
-    @Test public void firstLiveHasNoDeltaEvenWhenArchiveHistoryExists() {
+    @Test public void firstLiveUsesEarlierArchiveWhenMixedHistoryProvidesOne() {
         List<HistoryStatisticsRepository.Observation> values = List.of(
                 observation("month", "A", HistorySemanticTimeline.Granularity.MONTH,
                         "2026-07-01 00:00", 190.000, false),
@@ -42,8 +42,8 @@ public final class LiveHistoryDeltaTest {
         HistoryStatisticsAnalytics.Delta delta =
                 HistoryStatisticsAnalytics.deltas(values).get("live");
 
-        assertNull(delta.consumptionM3);
-        assertNull(delta.previous);
+        assertEquals(0.1, delta.consumptionM3, 0.000001);
+        assertEquals("hour", delta.previous.identity);
     }
 
     @Test public void liveSeriesDoesNotCrossReplacementMeter() {
