@@ -7,9 +7,23 @@ import android.view.ViewTreeObserver;
 import android.widget.TextView;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Small presentation-only release-hardening fixes shared across the v2 product surface. */
 final class ProductUiHardening {
+    private static final Pattern NUMERIC_DATE_TIME = Pattern.compile(
+            "(\\b\\d{1,4}[./-]\\d{1,2}[./-]\\d{1,4})(?:,)?\\s+"
+                    + "(\\d{1,2}:\\d{2}(?:\\s*[APap][Mm])?)");
+    private static final Pattern MONTH_FIRST_DATE_TIME = Pattern.compile(
+            "(\\b[\\p{L}.]{3,15}\\s+\\d{1,2},?\\s+\\d{4})(?:,)?\\s+"
+                    + "(\\d{1,2}:\\d{2}(?:\\s*[APap][Mm])?)");
+    private static final Pattern DAY_FIRST_DATE_TIME = Pattern.compile(
+            "(\\b\\d{1,2}\\s+[\\p{L}.]{3,15}\\s+\\d{4})(?:,)?\\s+"
+                    + "(\\d{1,2}:\\d{2}(?:\\s*[APap][Mm])?)");
+
     private ProductUiHardening() { }
 
     static void attach(MaterialBaseActivity activity) {
@@ -17,6 +31,7 @@ final class ProductUiHardening {
         View root = activity.findViewById(android.R.id.content);
         if (root == null) return;
 
+        attachGlobalPolish(activity, root);
         if (activity instanceof HistoryStatisticsActivity) {
             attachHistoryControls((HistoryStatisticsActivity) activity, root);
         }
@@ -35,6 +50,79 @@ final class ProductUiHardening {
                         activity.getString(R.string.v2_about_research_lineage));
             });
         }
+    }
+
+    private static void attachGlobalPolish(MaterialBaseActivity activity, View root) {
+        Runnable patch = () -> patchGlobalPolish(activity, root);
+        root.post(patch);
+        root.getViewTreeObserver().addOnGlobalLayoutListener(
+                new ViewTreeObserver.OnGlobalLayoutListener() {
+                    @Override public void onGlobalLayout() {
+                        patch.run();
+                    }
+                });
+    }
+
+    private static void patchGlobalPolish(MaterialBaseActivity activity, View view) {
+        if (view instanceof TextView) {
+            TextView textView = (TextView) view;
+            CharSequence original = textView.getText();
+            if (original != null && original.length() > 0) {
+                String normalized = normalizeDateTimeSeparators(original.toString());
+                if (!normalized.contentEquals(original)) textView.setText(normalized);
+            }
+            attachContextualHelpIfNeeded(activity, textView);
+        }
+        if (!(view instanceof ViewGroup)) return;
+        ViewGroup group = (ViewGroup) view;
+        for (int i = 0; i < group.getChildCount(); i++) {
+            patchGlobalPolish(activity, group.getChildAt(i));
+        }
+    }
+
+    static String normalizeDateTimeSeparators(String value) {
+        if (value == null || value.isEmpty()) return value == null ? "" : value;
+        String normalized = replaceDateTime(NUMERIC_DATE_TIME, value);
+        normalized = replaceDateTime(MONTH_FIRST_DATE_TIME, normalized);
+        return replaceDateTime(DAY_FIRST_DATE_TIME, normalized);
+    }
+
+    private static String replaceDateTime(Pattern pattern, String value) {
+        Matcher matcher = pattern.matcher(value);
+        return matcher.replaceAll("$1 · $2");
+    }
+
+    private static void attachContextualHelpIfNeeded(MaterialBaseActivity activity, TextView textView) {
+        if (textView.getCompoundDrawablesRelative()[2] != null) return;
+        String text = textView.getText() == null ? "" : textView.getText().toString();
+        if (text.equals(activity.getString(R.string.m3_history_title))) {
+            attachInfo(activity, textView,
+                    R.string.v21_info_history_title, R.string.v21_info_history_body);
+        } else if (text.equals(activity.getString(R.string.m3_stats_title))) {
+            attachInfo(activity, textView,
+                    R.string.v21_info_statistics_title, R.string.v21_info_statistics_body);
+        } else if (text.equals(activity.getString(R.string.v21_meter_time_model))) {
+            attachInfo(activity, textView,
+                    R.string.v21_info_time_model_title, R.string.v21_info_time_model_body);
+        }
+    }
+
+    private static void attachInfo(MaterialBaseActivity activity, TextView textView,
+                                   int titleRes, int bodyRes) {
+        textView.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, R.drawable.ic_m3_info, 0);
+        textView.setCompoundDrawablePadding(MaterialUi.dp(activity, 8));
+        textView.setCompoundDrawableTintList(ColorStateList.valueOf(MaterialUi.color(activity,
+                com.google.android.material.R.attr.colorOnSurfaceVariant,
+                activity.getColor(R.color.app_on_surface_variant))));
+        textView.setMinHeight(Math.max(textView.getMinHeight(), MaterialUi.dp(activity, 48)));
+        textView.setClickable(true);
+        textView.setFocusable(true);
+        textView.setContentDescription(textView.getText() + ". " + activity.getString(titleRes));
+        textView.setOnClickListener(v -> new MaterialAlertDialogBuilder(activity)
+                .setTitle(titleRes)
+                .setMessage(bodyRes)
+                .setPositiveButton(android.R.string.ok, null)
+                .show());
     }
 
     private static void attachHistoryControls(HistoryStatisticsActivity activity, View root) {
