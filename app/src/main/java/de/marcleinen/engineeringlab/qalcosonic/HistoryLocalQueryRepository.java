@@ -129,7 +129,7 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
         Result result = queryArchive(
                 granularity,
                 window,
-                ArchiveLocalWindowSelection.Semantics.STATISTICS_FULLY_CONTAINED);
+                ArchiveLocalWindowSelection.Semantics.STATISTICS_WITH_PARTIAL_EDGES);
         lastResolutionIssue = resolutionIssue(result);
         return result.observations();
     }
@@ -205,6 +205,8 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
 
         List<Row> rows = new ArrayList<>();
         List<MeterState> states = new ArrayList<>();
+        boolean partialEdgesAreContext =
+                semantics == ArchiveLocalWindowSelection.Semantics.STATISTICS_WITH_PARTIAL_EDGES;
         for (String meterId : measurementMeterIds(measurementByIdentity)) {
             ArchiveLocalWindowSelection.Result selection = utc.selectLocal(
                     meterId,
@@ -219,7 +221,8 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
                     selection.window == null ? null : selection.window.status,
                     selection.coverage == null ? null : selection.coverage.status,
                     selection.relevantUnresolvedTime));
-            appendRows(rows, HistoryLocalArchiveReadModel.rows(selection), measurementByIdentity);
+            appendRows(rows, HistoryLocalArchiveReadModel.rows(selection), measurementByIdentity,
+                    partialEdgesAreContext);
         }
         sortRows(rows);
         Result result = new Result(rows, states, true);
@@ -248,7 +251,8 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
                             : LocalTimeWindowResolver.Status.RESOLVED,
                     null,
                     unresolved));
-            appendRows(rows, HistoryLocalArchiveReadModel.rows(projected, zone), measurementByIdentity);
+            appendRows(rows, HistoryLocalArchiveReadModel.rows(projected, zone), measurementByIdentity,
+                    false);
         }
         sortRows(rows);
         return new Result(rows, states, false);
@@ -273,12 +277,14 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
     private static void appendRows(
             List<Row> out,
             List<HistoryLocalArchiveReadModel.Row> times,
-            Map<String, HistoryStatisticsRepository.Observation> measurementByIdentity) {
+            Map<String, HistoryStatisticsRepository.Observation> measurementByIdentity,
+            boolean partialEdgesAreContext) {
         for (HistoryLocalArchiveReadModel.Row time : times) {
             HistoryStatisticsRepository.Observation rawCurrent = measurementByIdentity.get(time.identity);
             if (rawCurrent == null) continue;
             HistoryStatisticsRepository.Observation current =
-                    HistoryResolvedObservationAdapter.selected(rawCurrent, time);
+                    HistoryResolvedObservationAdapter.selected(
+                            rawCurrent, time, partialEdgesAreContext && time.partialOverlap);
             HistoryStatisticsRepository.Observation rawPrevious =
                     measurementByIdentity.get(time.startIdentity);
             HistoryStatisticsRepository.Observation previous =
