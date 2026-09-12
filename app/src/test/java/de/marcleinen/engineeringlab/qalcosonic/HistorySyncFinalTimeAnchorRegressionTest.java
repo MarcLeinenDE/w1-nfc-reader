@@ -65,10 +65,17 @@ public final class HistorySyncFinalTimeAnchorRegressionTest {
                     "2026-09-10 15:00",
                     109_420L);
 
+            // Before the final post-family Live/default verify, this archive is newer than the one
+            // active anchor. The single-anchor model must fail closed rather than search for a
+            // different historical anchor.
             ArchiveUtcProjection.Boundary before = ArchiveUtcProjection.resolveBoundary(
                     archive, Collections.singletonList(oldAnchor));
-            assertEquals(ArchiveUtcProjection.BoundaryStatus.NO_SUITABLE_ANCHOR, before.status);
+            assertEquals(ArchiveUtcProjection.BoundaryStatus.RESOLUTION_FAILED, before.status);
+            assertEquals(MeterTimeResolver.Status.ON_TIME_AFTER_ANCHOR, before.resolverStatus);
+            assertEquals(Long.valueOf(1L), before.anchorId);
 
+            // The already-required final verify then becomes the new active anchor and resolves the
+            // same archive occurrence normally.
             ArchiveUtcProjection.Boundary after = ArchiveUtcProjection.resolveBoundary(
                     archive, Arrays.asList(oldAnchor, postSyncAnchor));
             assertTrue(after.resolved());
