@@ -63,7 +63,7 @@ public final class LiveTimeAnchorPersistenceTest {
                 "OTHER-METER", 1_000L, 1_200L, readout));
     }
 
-    @Test public void firstAcceptedAnchorPinsMeterZoneAndLaterDeviceZoneDoesNotOverwriteIt() {
+    @Test public void laterVerifiedLiveReplacesActiveAnchorButKeepsFirstMeterZone() {
         VerifiedLiveTimeAnchor first = new VerifiedLiveTimeAnchor(
                 "M1", 10_000L, 10_200L,
                 "2026-01-02 03:04", "04 03 42 31", false, false, 1_000L);
@@ -81,8 +81,9 @@ public final class LiveTimeAnchorPersistenceTest {
             assertEquals("Europe/Berlin", profile.zoneId);
             assertEquals(MeterTimeModelStore.ZONE_SOURCE_DEVICE_AT_FIRST_VERIFIED_LIVE,
                     profile.source);
-            assertEquals(2, store.anchors("M1").size());
+            assertEquals(1, store.anchors("M1").size());
             assertEquals(20_100L, store.latestAnchor("M1").anchorEpochMs);
+            assertEquals(1_060L, store.latestAnchor("M1").onTimeSeconds);
         } finally {
             store.close();
         }
