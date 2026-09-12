@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_local_zone_missing_notice">Nie można wyznaczyć czasu lokalnego dla wszystkich danych archiwalnych, ponieważ jeden z liczników nie ma przypisanej strefy czasowej. Ustaw strefę w szczegółach licznika albo przełącz na czas licznika.</string>
+    <string name="v21_local_window_unresolved_notice">Nie można bezpiecznie wyznaczyć tych granic czasu lokalnego, ponieważ jedna z nich jest niejednoznaczna, nie istnieje lub jest nieprawidłowa, na przykład podczas zmiany czasu. Wybierz inną granicę albo przełącz na czas licznika.</string>
+    <string name="v21_local_archive_time_unresolved_notice">Dla części okresów archiwalnych w tym zakresie brakuje wystarczających danych czasowych do bezpiecznej prezentacji w czasie lokalnym. Są tutaj pomijane; surowe dane pozostają dostępne w widoku czasu licznika.</string>
+</resources>

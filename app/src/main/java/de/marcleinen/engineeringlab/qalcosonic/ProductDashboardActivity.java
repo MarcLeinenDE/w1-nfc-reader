@@ -56,6 +56,7 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
     private TextView overviewReading;
     private TextView overviewMeter;
     private TextView overviewLastLive;
+    private TextView overviewSecondaryLiveTime;
     private TextView overviewMonth;
     private TextView overviewYear;
     private TextView overviewBattery;
@@ -141,31 +142,39 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
 
     private void performLiveContact(NfcV nfcv, Tag tag) throws Exception {
         runOnUiThread(() -> setState(R.string.m3_state_reading_title, R.string.m3_state_reading_body));
+        long readBeforeEpochMs = System.currentTimeMillis();
         QalcosonicReader.Readout readout = new QalcosonicReader(nfcv, tag.getId()).read();
+        long readAfterEpochMs = System.currentTimeMillis();
         MbusParser.MeterData meter = MbusParser.parse(readout.meterResponse);
         long now = System.currentTimeMillis();
+        VerifiedLiveTimeAnchor timeAnchor = LiveTimeAnchorPersistence.candidate(
+                meter.meterId, readBeforeEpochMs, readAfterEpochMs, readout);
         String active = lifecycleStore.activeMeterId();
         if (active == null) {
             lifecycleStore.adoptInitialMeter(meter.meterId);
-            persistLive(meter, now);
+            persistLive(meter, now, timeAnchor);
             displayMeterId = meter.meterId;
             runOnUiThread(this::liveAcceptedUi);
             return;
         }
         if (!active.equals(meter.meterId)) {
-            pendingMeter = new PendingMeter(meter, now, active);
+            pendingMeter = new PendingMeter(meter, now, active, timeAnchor);
             runOnUiThread(() -> showNewMeterDialog(pendingMeter));
             return;
         }
-        persistLive(meter, now);
+        persistLive(meter, now, timeAnchor);
         displayMeterId = meter.meterId;
         runOnUiThread(this::liveAcceptedUi);
     }
 
-    private void persistLive(MbusParser.MeterData meter, long atMs) {
+    private void persistLive(
+            MbusParser.MeterData meter,
+            long atMs,
+            VerifiedLiveTimeAnchor timeAnchor) {
         liveMetadataStore.record(meter, atMs);
         liveDetailStore.record(meter, atMs);
         try { liveStore.insertSuccessful(meter, atMs); } catch (RuntimeException ignored) { }
+        LiveTimeAnchorPersistence.persist(this, timeAnchor);
     }
 
     private void liveAcceptedUi() {
@@ -200,7 +209,7 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
     private void acceptReplacement(PendingMeter candidate) {
         if (candidate == null || candidate != pendingMeter) return;
         try {
-            persistLive(candidate.meter, candidate.readAtMs);
+            persistLive(candidate.meter, candidate.readAtMs, candidate.timeAnchor);
             lifecycleStore.confirmReplacement(candidate.previousMeterId, candidate.meter.meterId,
                     candidate.readAtMs, candidate.readAtMs,
                     candidate.meter.waterUsageM3 == null ? 0.0 : candidate.meter.waterUsageM3);
@@ -243,9 +252,9 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
 
     private void startFreshWith(PendingMeter candidate) {
         if (candidate == null || candidate != pendingMeter) return;
-        DataPortability.clearMeterData(this);
+        DataPortabilityV3.clearMeterData(this);
         lifecycleStore.startFresh(candidate.meter.meterId);
-        persistLive(candidate.meter, candidate.readAtMs);
+        persistLive(candidate.meter, candidate.readAtMs, candidate.timeAnchor);
         displayMeterId = candidate.meter.meterId;
         pendingMeter = null;
         liveAcceptedUi();
@@ -306,6 +315,10 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         overviewLastLive.setTextColor(heroLabel.getCurrentTextColor());
         overviewLastLive.setPadding(0, MaterialUi.dp(this, 4), 0, 0);
         heroContent.addView(overviewLastLive);
+        overviewSecondaryLiveTime = MaterialUi.body(this, "");
+        overviewSecondaryLiveTime.setTextColor(heroLabel.getCurrentTextColor());
+        overviewSecondaryLiveTime.setPadding(0, MaterialUi.dp(this, 2), 0, 0);
+        heroContent.addView(overviewSecondaryLiveTime);
         hero.addView(heroContent);
         MaterialUi.addTopMargin(content, hero, 12);
 
@@ -355,12 +368,13 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
 
         MeterHistoryStore.Reading latestLive = latestLive(displayMeterId);
         LiveReadMetadataStore.Summary liveMetadata = liveMetadataStore.get(displayMeterId);
+        LiveDetailMetadataStore.Summary liveDetails = liveDetailStore.get(displayMeterId);
         WaterUsageAnalytics.Point latestLivePoint = currentLivePoint(
                 latestLive, liveMetadata, displayMeterId);
         WaterUsageAnalytics.Statistics statistics = WaterUsageAnalytics.statistics(
                 monthlyOnly(monthly), latestLivePoint, System.currentTimeMillis());
         ConsumptionView consumption = consumptionView(statistics, allPoints, transitions);
-        refreshOverview(liveMetadata, latestLive, archiveSummary(chain), consumption);
+        refreshOverview(liveMetadata, liveDetails, latestLive, archiveSummary(chain), consumption);
     }
 
     private List<WaterUsageAnalytics.Point> buildAnalyticsPoints(
@@ -443,32 +457,35 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
 
     private void refreshOverview(
             LiveReadMetadataStore.Summary meta,
+            LiveDetailMetadataStore.Summary details,
             MeterHistoryStore.Reading latest,
             ArchiveSummary archiveSummary,
             ConsumptionView consumption) {
         boolean useMeta = meta.available() && (latest == null || meta.readAtMs >= latest.readAtMs);
         if (useMeta) {
+            String meterTime = meterTimeForRead(details, latest, meta.readAtMs);
             overviewReading.setText(formatM3(meta.totalM3));
             overviewMeter.setText(getString(R.string.m3_meter_id, displayMeterId));
-            overviewLastLive.setText(getString(R.string.m3_last_read, formatDateTime(meta.readAtMs)));
+            setOverviewLiveTimes(meta.readAtMs, meterTime);
             overviewBattery.setText(meta.batteryPercent == null
                     ? getString(R.string.m3_not_available)
                     : getString(R.string.m3_unit_percent, meta.batteryPercent));
-            setAlarm(meta.alarmCodes, meta.readAtMs, true);
+            setAlarm(meta.alarmCodes, meta.readAtMs, meterTime, true);
         } else if (latest != null) {
             overviewReading.setText(formatM3(latest.totalM3));
             overviewMeter.setText(getString(R.string.m3_meter_id, latest.meterId));
-            overviewLastLive.setText(getString(R.string.m3_last_read, formatDateTime(latest.readAtMs)));
+            setOverviewLiveTimes(latest.readAtMs, latest.meterTime);
             overviewBattery.setText(latest.batteryPercent == null
                     ? getString(R.string.m3_not_available)
                     : getString(R.string.m3_unit_percent, latest.batteryPercent));
-            setAlarm(latest.alarmCodes, latest.readAtMs, true);
+            setAlarm(latest.alarmCodes, latest.readAtMs, latest.meterTime, true);
         } else {
             overviewReading.setText(R.string.m3_not_available);
             overviewMeter.setText(R.string.m3_no_meter);
             overviewLastLive.setText("");
+            overviewSecondaryLiveTime.setText("");
             overviewBattery.setText(R.string.m3_not_available);
-            setAlarm(null, 0L, false);
+            setAlarm(null, 0L, null, false);
         }
 
         overviewMonth.setText(formatConsumption(consumption.monthM3, consumption.monthPartial));
@@ -480,6 +497,33 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
                 ? getString(R.string.m3_no_archive)
                 : getString(R.string.m3_archive_summary,
                         archiveSummary.count, archiveSummary.confirmed, archiveSummary.conflicts));
+    }
+
+    private String meterTimeForRead(
+            LiveDetailMetadataStore.Summary details,
+            MeterHistoryStore.Reading latest,
+            long readAtMs) {
+        if (details != null && details.available() && details.readAtMs == readAtMs
+                && details.meterTime != null && !details.meterTime.trim().isEmpty()) {
+            return details.meterTime;
+        }
+        if (latest != null && latest.readAtMs == readAtMs) return latest.meterTime;
+        return null;
+    }
+
+    private void setOverviewLiveTimes(long realAtMs, String rawMeterTime) {
+        String realTime = formatDateTime(realAtMs);
+        String meterTime = formatMeterTime(rawMeterTime);
+        if (UiPreferences.getTimeBasis(this) == AppTimeBasis.METER) {
+            overviewLastLive.setText(getString(R.string.m3_meter_time,
+                    meterTime == null ? getString(R.string.m3_not_available) : meterTime));
+            overviewSecondaryLiveTime.setText(
+                    getString(R.string.v21_time_basis_local) + ": " + realTime);
+        } else {
+            overviewLastLive.setText(getString(R.string.m3_last_read, realTime));
+            overviewSecondaryLiveTime.setText(meterTime == null
+                    ? "" : getString(R.string.m3_meter_time, meterTime));
+        }
     }
 
     private ArchiveSummary archiveSummary(List<String> meters) {
@@ -505,7 +549,7 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         return summary;
     }
 
-    private void setAlarm(String codes, long atMs, boolean available) {
+    private void setAlarm(String codes, long atMs, String meterTime, boolean available) {
         if (!available) {
             alarmTitle.setText(R.string.m3_alarm_unknown_title);
             alarmBody.setText(R.string.m3_alarm_unknown_body);
@@ -514,19 +558,34 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
                     getColor(R.color.app_outline)));
             return;
         }
+        String displayedTime = formatLivePrimaryTime(atMs, meterTime);
         if (codes != null && !codes.trim().isEmpty()) {
             alarmTitle.setText(R.string.m3_alarm_active_title);
             alarmBody.setText(getString(R.string.m3_alarm_active_body,
                     MeterStatusPresentation.localizedAlarmCodes(this, codes),
-                    formatDateTime(atMs)));
+                    displayedTime));
             alarmCard.setStrokeColor(MaterialUi.color(this,
                     com.google.android.material.R.attr.colorError,
                     getColor(R.color.app_error)));
         } else {
             alarmTitle.setText(R.string.m3_alarm_clear_title);
-            alarmBody.setText(getString(R.string.m3_alarm_clear_body, formatDateTime(atMs)));
+            alarmBody.setText(getString(R.string.m3_alarm_clear_body, displayedTime));
             alarmCard.setStrokeColor(getColor(R.color.app_success));
         }
+    }
+
+    private String formatLivePrimaryTime(long realAtMs, String rawMeterTime) {
+        if (UiPreferences.getTimeBasis(this) == AppTimeBasis.METER) {
+            String meterTime = formatMeterTime(rawMeterTime);
+            return meterTime == null ? getString(R.string.m3_not_available) : meterTime;
+        }
+        return formatDateTime(realAtMs);
+    }
+
+    private String formatMeterTime(String rawMeterTime) {
+        if (rawMeterTime == null || rawMeterTime.trim().isEmpty()) return null;
+        return HistoryTimePresentation.formatExactFloatingDateTime(
+                getResources().getConfiguration().getLocales().get(0), rawMeterTime);
     }
 
     private MeterHistoryStore.Reading latestLive(String meterId) {
@@ -683,11 +742,17 @@ public final class ProductDashboardActivity extends MaterialBaseActivity impleme
         final MbusParser.MeterData meter;
         final long readAtMs;
         final String previousMeterId;
+        final VerifiedLiveTimeAnchor timeAnchor;
 
-        PendingMeter(MbusParser.MeterData meter, long readAtMs, String previousMeterId) {
+        PendingMeter(
+                MbusParser.MeterData meter,
+                long readAtMs,
+                String previousMeterId,
+                VerifiedLiveTimeAnchor timeAnchor) {
             this.meter = meter;
             this.readAtMs = readAtMs;
             this.previousMeterId = previousMeterId;
+            this.timeAnchor = timeAnchor;
         }
     }
 

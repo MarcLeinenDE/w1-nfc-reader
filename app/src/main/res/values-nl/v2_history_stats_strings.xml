@@ -32,7 +32,7 @@
     <string name="v2_kpi_current_state">Alarm in laatste archiefperiode</string>
     <string name="v2_kpi_first_event">Eerste alarmperiode</string>
     <string name="v2_kpi_last_event">Laatste alarmperiode</string>
-    <string name="v2_consumption_note">Verbruik per weergegeven voltooide uur-, dag- of maandperiode. Verschillen blijven binnen dezelfde fysieke meter en dezelfde archiefresolutie.</string>
+    <string name="v2_consumption_note">Volle balken zijn volledig opgenomen archiefperioden en tellen mee in de kengetallen van de geselecteerde periode. Balken met een gestreepte omtrek tonen volledig gemeten archiefperioden die de geselecteerde kalenderperiode slechts gedeeltelijk overlappen; hun volledige meetwaarde wordt alleen als context getoond, niet evenredig verdeeld en niet in die kengetallen opgenomen.</string>
     <string name="v2_temperature_note">Watertemperatuurwaarnemingen die voor voltooide archiefperioden zijn opgeslagen. Het zijn geen periodegemiddelden; niet-beschikbare sentinelwaarden worden weggelaten en ontbrekende perioden worden niet geïnterpoleerd.</string>
     <string name="v2_flow_note">Opgeslagen maximaal debiet voor elke voltooide archiefperiode. Als de meter een extremumtijdstip levert, wordt voor de piek dat exacte tijdstip gebruikt.</string>
     <string name="v2_battery_note">Door de meter gemelde batterijwaarnemingen voor voltooide archiefperioden. Er wordt geen periodegemiddelde of resterende levensduur afgeleid.</string>
@@ -45,8 +45,8 @@
     <string name="v2_alarm_cleared">Geen alarm geregistreerd in archiefperiode</string>
     <string name="v2_alarm_changed">Geregistreerd in archiefperiode: %1$s</string>
     <string name="v2_alarm_observed">Geregistreerd in archiefperiode: %1$s</string>
-    <string name="v2_coverage">%1$d van %2$d datapunten beschikbaar</string>
-    <string name="v2_coverage_count_only">%1$d datapunten beschikbaar</string>
+    <string name="v2_coverage">%1$d van %2$d volledig opgenomen</string>
+    <string name="v2_coverage_count_only">%1$d volledig opgenomen datapunten</string>
     <string name="v2_coverage_not_sync_state">Dekking beschrijft opgeslagen waarnemingen en bepaalt niet of de protocolsynchronisatie volledig is.</string>
     <string name="v2_previous_period">Vorige periode</string>
     <string name="v2_choose_period">Periode kiezen</string>

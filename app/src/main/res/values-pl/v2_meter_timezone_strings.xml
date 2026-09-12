@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_meter_time_model">Model czasu</string>
+    <string name="v21_meter_timezone">Strefa czasowa</string>
+    <string name="v21_meter_timezone_not_set">Nieprzypisana</string>
+    <string name="v21_meter_timezone_value">%1$s · %2$s</string>
+    <string name="v21_meter_timezone_source_device">Przypisana automatycznie przy pierwszym zweryfikowanym odczycie Live</string>
+    <string name="v21_meter_timezone_source_user">Wybrana ręcznie</string>
+    <string name="v21_meter_timezone_note">Używana do czasu lokalnego w historii i statystykach. Zmiana nie modyfikuje surowych danych licznika.</string>
+    <string name="v21_meter_timezone_edit">Zmień strefę czasową licznika</string>
+    <string name="v21_meter_timezone_dialog_message">Wybierz lub wyszukaj strefę czasową IANA obsługiwaną przez to urządzenie. Zmienia się tylko interpretacja czasu lokalnego; surowe znaczniki czasu licznika/loggera pozostają bez zmian.</string>
+    <string name="v21_meter_timezone_hint">Szukaj strefy czasowej</string>
+    <string name="v21_meter_timezone_save">Zapisz</string>
+    <string name="v21_meter_timezone_invalid">Wybierz strefę czasową z obsługiwanej listy.</string>
+</resources>

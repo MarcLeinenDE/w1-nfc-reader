@@ -40,7 +40,7 @@ public final class HistoryStatisticsRepositoryTest {
         HistoryPeriodNavigator navigator = new HistoryPeriodNavigator(HistoryPeriodNavigator.Scale.DAY);
         navigator.setDate(2026, 8, 6);
 
-        try (HistoryStatisticsRepository repository = new HistoryStatisticsRepository(context)) {
+        try (HistoryStatisticsRepository repository = new HistoryStatisticsRepository(context, true)) {
             List<HistoryStatisticsRepository.Observation> rows = repository.queryHistory(
                     HistorySemanticTimeline.Granularity.HOUR, navigator.window(), true);
 
@@ -68,7 +68,7 @@ public final class HistoryStatisticsRepositoryTest {
         HistoryPeriodNavigator month = new HistoryPeriodNavigator(HistoryPeriodNavigator.Scale.MONTH);
         month.setDate(2026, 8, 15);
 
-        try (HistoryStatisticsRepository repository = new HistoryStatisticsRepository(context)) {
+        try (HistoryStatisticsRepository repository = new HistoryStatisticsRepository(context, true)) {
             List<HistoryStatisticsRepository.Observation> rows = repository.queryHistory(
                     HistorySemanticTimeline.Granularity.MONTH, month.window(), true);
 
@@ -94,7 +94,7 @@ public final class HistoryStatisticsRepositoryTest {
         HistoryPeriodNavigator navigator = new HistoryPeriodNavigator(HistoryPeriodNavigator.Scale.MONTH);
         navigator.setDate(2026, 8, 15);
 
-        try (HistoryStatisticsRepository repository = new HistoryStatisticsRepository(context)) {
+        try (HistoryStatisticsRepository repository = new HistoryStatisticsRepository(context, true)) {
             List<HistoryStatisticsRepository.Observation> rows = repository.queryStatistics(navigator.window());
 
             assertEquals(4, rows.size());
@@ -124,7 +124,7 @@ public final class HistoryStatisticsRepositoryTest {
         HistoryPeriodNavigator navigator = new HistoryPeriodNavigator(HistoryPeriodNavigator.Scale.YEAR);
         navigator.setAllPeriods(true);
 
-        try (HistoryStatisticsRepository repository = new HistoryStatisticsRepository(context)) {
+        try (HistoryStatisticsRepository repository = new HistoryStatisticsRepository(context, true)) {
             List<HistoryStatisticsRepository.Observation> rows = repository.queryHistory(
                     HistorySemanticTimeline.Granularity.MONTH, navigator.window(), true);
             assertEquals(2, rows.size());

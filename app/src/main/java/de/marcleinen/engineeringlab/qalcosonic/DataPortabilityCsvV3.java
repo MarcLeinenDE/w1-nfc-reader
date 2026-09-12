@@ -168,7 +168,7 @@ final class DataPortabilityCsvV3 {
                     long sort = HistoryTimePresentation.floatingSortMs(period.loggerTimestamp);
                     if (total == null || sort <= 0L) continue;
                     HistorySemanticTimeline.Granularity granularity = granularity(period.family);
-                    String identity = period.family.name() + "|" + meter + "|" + period.loggerTimestamp;
+                    String identity = ArchiveRecordIdentity.of(period);
                     WaterUsageAnalytics.Point point = new WaterUsageAnalytics.Point(
                             identity, meter, period.loggerTimestamp, sort, granularity, total);
                     points.add(point);

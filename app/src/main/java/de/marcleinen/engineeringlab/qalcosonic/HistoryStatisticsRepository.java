@@ -4,12 +4,15 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /** Read-only local data access for the v2 History/Statistics surface. */
@@ -139,7 +142,7 @@ final class HistoryStatisticsRepository implements AutoCloseable {
             "max_temperature", "max_temperature_at", "min_temperature", "min_temperature_at",
             "temperature", "external_temperature", "battery_percent", "error_flags",
             "on_time", "operating_time", "observation_count", "identical_content_confirmations",
-            "revision_count", "conflict_flags", "source", "validation"
+            "revision_count", "conflict_flags", "source", "validation", "occurrence_key"
     };
 
     private static final String[] LIVE_COLUMNS = {
@@ -148,15 +151,29 @@ final class HistoryStatisticsRepository implements AutoCloseable {
             "battery_percent", "alarm_codes"
     };
 
+    private final Context appContext;
+    private final boolean rawOnly;
     private final MeterHistoryStore liveStore;
     private final ArchiveFamilyStore archiveStore;
     private final MeterLifecycleStore lifecycleStore;
+    private final HistoryLocalQueryRepository localRepository;
+    private final ArchiveUtcRepository secondaryUtcRepository;
+    private final Map<String, String> meterModeResolvedArchiveTimes = new HashMap<>();
 
     HistoryStatisticsRepository(Context context) {
+        this(context, false);
+    }
+
+    /** Internal raw-only constructor used by the LOCAL projection to avoid routing recursion. */
+    HistoryStatisticsRepository(Context context, boolean rawOnly) {
         Context app = context.getApplicationContext();
+        this.appContext = app;
+        this.rawOnly = rawOnly;
         liveStore = new MeterHistoryStore(app);
         archiveStore = new ArchiveFamilyStore(app);
         lifecycleStore = new MeterLifecycleStore(app);
+        localRepository = rawOnly ? null : new HistoryLocalQueryRepository(app);
+        secondaryUtcRepository = rawOnly ? null : new ArchiveUtcRepository(app);
     }
 
     List<String> meterIds() {
@@ -178,6 +195,10 @@ final class HistoryStatisticsRepository implements AutoCloseable {
     List<Observation> queryHistory(HistorySemanticTimeline.Granularity filter,
                                    HistoryPeriodNavigator.Window window,
                                    boolean includePredecessors) {
+        meterModeResolvedArchiveTimes.clear();
+        if (useResolvedLocalTime()) {
+            return localRepository.queryHistory(filter, window);
+        }
         List<Observation> result = new ArrayList<>();
         for (String meter : meterIds()) {
             boolean includesLive = filter == null || filter == HistorySemanticTimeline.Granularity.LIVE;
@@ -187,6 +208,7 @@ final class HistoryStatisticsRepository implements AutoCloseable {
             }
         }
         result.sort(observationOrder());
+        cacheMeterModeResolvedArchiveTimes(result);
         return result;
     }
 
@@ -198,6 +220,9 @@ final class HistoryStatisticsRepository implements AutoCloseable {
     List<Observation> queryStatistics(HistoryPeriodNavigator.Window window,
                                       HistorySemanticTimeline.Granularity granularity) {
         if (window == null || granularity == null) return new ArrayList<>();
+        if (useResolvedLocalTime()) {
+            return localRepository.queryStatistics(window, granularity);
+        }
         if (!window.customRange) return queryHistory(granularity, window, true);
         ArchiveFamilyPeriod.Family family = family(granularity);
         if (family == null) return new ArrayList<>();
@@ -211,11 +236,40 @@ final class HistoryStatisticsRepository implements AutoCloseable {
 
     Availability availability(HistoryPeriodNavigator.Window window) {
         if (window == null) return new Availability(0, 0, 0, 0);
+        if (useResolvedLocalTime()) return localRepository.availability(window);
         int live = visibleCount(queryHistory(HistorySemanticTimeline.Granularity.LIVE, window, false));
         int hour = visibleCount(queryStatistics(window, HistorySemanticTimeline.Granularity.HOUR));
         int day = visibleCount(queryStatistics(window, HistorySemanticTimeline.Granularity.DAY));
         int month = visibleCount(queryStatistics(window, HistorySemanticTimeline.Granularity.MONTH));
         return new Availability(live, hour, day, month);
+    }
+
+    /**
+     * Expected full statistics buckets on the selected global time basis. LOCAL hourly windows use
+     * real elapsed time in the persisted meter zone, so DST days are 23/25 hours. If that cannot be
+     * resolved safely, return 0 so the UI reports count-only coverage instead of inventing 24.
+     */
+    int expectedBuckets(HistoryPeriodNavigator.Window window,
+                        HistorySemanticTimeline.Granularity granularity) {
+        if (window == null || granularity == null || window.allPeriods) return 0;
+        int legacy = window.customRange
+                ? HistoryCustomRangeSemantics.expectedFullBuckets(window, granularity)
+                : window.expectedBuckets;
+        if (!useResolvedLocalTime() || granularity != HistorySemanticTimeline.Granularity.HOUR) {
+            return legacy;
+        }
+        Integer local = localRepository.expectedFullHours(window);
+        return local == null ? 0 : local;
+    }
+
+    HistoryLocalQueryRepository.ResolutionIssue lastLocalResolutionIssue() {
+        if (!useResolvedLocalTime()) return HistoryLocalQueryRepository.ResolutionIssue.NONE;
+        return localRepository.lastResolutionIssue();
+    }
+
+    String resolvedLocalArchiveTimestamp(Observation observation) {
+        if (!useMeterTimeBasis() || observation == null || observation.live) return null;
+        return meterModeResolvedArchiveTimes.get(observation.identity);
     }
 
     List<MeterLifecycleStore.Transition> transitions(HistoryPeriodNavigator.Window window) {
@@ -237,8 +291,41 @@ final class HistoryStatisticsRepository implements AutoCloseable {
     }
 
     @Override public void close() {
+        if (localRepository != null) localRepository.close();
+        if (secondaryUtcRepository != null) secondaryUtcRepository.close();
         liveStore.close();
         archiveStore.close();
+    }
+
+    private boolean useResolvedLocalTime() {
+        return !rawOnly
+                && localRepository != null
+                && UiPreferences.getTimeBasis(appContext) == AppTimeBasis.LOCAL;
+    }
+
+    private boolean useMeterTimeBasis() {
+        return !rawOnly && UiPreferences.getTimeBasis(appContext) == AppTimeBasis.METER;
+    }
+
+    private void cacheMeterModeResolvedArchiveTimes(List<Observation> observations) {
+        if (!useMeterTimeBasis() || secondaryUtcRepository == null || observations == null) return;
+        Set<String> projectedSeries = new LinkedHashSet<>();
+        for (Observation observation : observations) {
+            if (observation == null || observation.live || observation.meterId == null) continue;
+            ArchiveFamilyPeriod.Family archiveFamily = family(observation.granularity);
+            if (archiveFamily == null) continue;
+            String key = observation.meterId + "\u0000" + archiveFamily.name();
+            if (!projectedSeries.add(key)) continue;
+            ZoneId zone = secondaryUtcRepository.meterZone(observation.meterId);
+            if (zone == null) continue;
+            for (ArchiveUtcProjection.Period period :
+                    secondaryUtcRepository.project(observation.meterId, archiveFamily)) {
+                if (period == null || !period.resolvedInterval()) continue;
+                meterModeResolvedArchiveTimes.put(period.identity,
+                        HistoryResolvedTimeToken.interval(
+                                period.startUtcMs, period.endUtcMs, zone));
+            }
+        }
     }
 
     private void queryArchive(List<Observation> out, String meter, ArchiveFamilyPeriod.Family family,
@@ -257,7 +344,7 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         String firstDisplayedStart = null;
         try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
                 selection.toString(), args.toArray(new String[0]), null, null,
-                "logger_timestamp ASC")) {
+                "logger_timestamp ASC, occurrence_key ASC")) {
             while (cursor.moveToNext()) {
                 Observation observation = readArchive(cursor, false);
                 out.add(observation);
@@ -275,7 +362,7 @@ final class HistoryStatisticsRepository implements AutoCloseable {
             try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
                     "meter_id = ? AND archive_family = ? AND logger_timestamp > ?",
                     new String[]{meter, family.name(), window.archiveEnd}, null, null,
-                    "logger_timestamp ASC", "1")) {
+                    "logger_timestamp ASC, occurrence_key ASC", "1")) {
                 if (cursor.moveToFirst()) {
                     Observation candidate = readArchive(cursor, false);
                     if (HistoryCustomRangeSemantics.overlaps(candidate, window)) {
@@ -308,7 +395,7 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
                 "meter_id = ? AND archive_family = ? AND logger_timestamp > ? AND logger_timestamp <= ?",
                 new String[]{meter, family.name(), window.archiveStart, window.archiveEnd},
-                null, null, "logger_timestamp ASC")) {
+                null, null, "logger_timestamp ASC, occurrence_key ASC")) {
             while (cursor.moveToNext()) {
                 Observation observation = readArchive(cursor, false);
                 if (!HistoryCustomRangeSemantics.fullyContained(observation, window)) continue;
@@ -328,7 +415,8 @@ final class HistoryStatisticsRepository implements AutoCloseable {
                                      ArchiveFamilyPeriod.Family family, String boundary) {
         try (Cursor cursor = db.query(ArchiveFamilyStore.TABLE_PERIODS, ARCHIVE_COLUMNS,
                 "meter_id = ? AND archive_family = ? AND logger_timestamp = ?",
-                new String[]{meter, family.name(), boundary}, null, null, null, "1")) {
+                new String[]{meter, family.name(), boundary}, null, null,
+                "occurrence_key ASC", "1")) {
             if (cursor.moveToFirst()) {
                 Observation context = readArchive(cursor, true);
                 boolean duplicate = false;
@@ -346,25 +434,47 @@ final class HistoryStatisticsRepository implements AutoCloseable {
     private void queryLive(List<Observation> out, String meter, HistoryPeriodNavigator.Window window,
                            boolean includePredecessor) {
         SQLiteDatabase db = liveStore.getReadableDatabase();
+        boolean meterBasis = useMeterTimeBasis();
         StringBuilder selection = new StringBuilder("meter_id = ?");
         List<String> args = new ArrayList<>();
         args.add(meter);
         if (window != null && !window.allPeriods) {
-            selection.append(" AND read_at_ms >= ? AND read_at_ms < ?");
-            args.add(Long.toString(window.deviceStartMs));
-            args.add(Long.toString(window.deviceEndMs));
+            if (meterBasis) {
+                if (window.archiveStart == null || window.archiveEnd == null) return;
+                selection.append(" AND meter_time IS NOT NULL AND TRIM(meter_time) != ''")
+                        .append(" AND meter_time >= ? AND meter_time < ?");
+                args.add(window.archiveStart);
+                args.add(window.archiveEnd);
+            } else {
+                selection.append(" AND read_at_ms >= ? AND read_at_ms < ?");
+                args.add(Long.toString(window.deviceStartMs));
+                args.add(Long.toString(window.deviceEndMs));
+            }
         }
+        String orderBy = meterBasis ? "meter_time ASC, read_at_ms ASC" : "read_at_ms ASC";
         try (Cursor cursor = db.query(MeterHistoryStore.TABLE_READINGS, LIVE_COLUMNS,
-                selection.toString(), args.toArray(new String[0]), null, null, "read_at_ms ASC")) {
-            while (cursor.moveToNext()) out.add(readLive(cursor, false));
+                selection.toString(), args.toArray(new String[0]), null, null, orderBy)) {
+            while (cursor.moveToNext()) out.add(readLive(cursor, false, meterBasis));
         }
 
-        if (!includePredecessor || window == null || window.allPeriods || window.deviceStartMs <= 0L) return;
+        if (!includePredecessor || window == null || window.allPeriods) return;
+        if (meterBasis) {
+            if (window.archiveStart == null) return;
+            try (Cursor cursor = db.query(MeterHistoryStore.TABLE_READINGS, LIVE_COLUMNS,
+                    "meter_id = ? AND meter_time IS NOT NULL AND TRIM(meter_time) != ''"
+                            + " AND meter_time < ?",
+                    new String[]{meter, window.archiveStart}, null, null,
+                    "meter_time DESC, read_at_ms DESC", "1")) {
+                if (cursor.moveToFirst()) out.add(readLive(cursor, true, true));
+            }
+            return;
+        }
+        if (window.deviceStartMs <= 0L) return;
         try (Cursor cursor = db.query(MeterHistoryStore.TABLE_READINGS, LIVE_COLUMNS,
                 "meter_id = ? AND read_at_ms < ?",
                 new String[]{meter, Long.toString(window.deviceStartMs)}, null, null,
                 "read_at_ms DESC", "1")) {
-            if (cursor.moveToFirst()) out.add(readLive(cursor, true));
+            if (cursor.moveToFirst()) out.add(readLive(cursor, true, false));
         }
     }
 
@@ -372,9 +482,10 @@ final class HistoryStatisticsRepository implements AutoCloseable {
         String meter = c.getString(0);
         ArchiveFamilyPeriod.Family family = ArchiveFamilyPeriod.Family.valueOf(c.getString(1));
         String timestamp = c.getString(2);
+        String occurrenceKey = c.getString(28);
         HistorySemanticTimeline.Granularity granularity = granularity(family);
         return new Observation(
-                family.name() + "|" + meter + "|" + timestamp,
+                ArchiveRecordIdentity.of(family, meter, timestamp, occurrenceKey),
                 meter, granularity, timestamp, HistoryTimePresentation.floatingSortMs(timestamp),
                 0L, false, contextOnly, "",
                 measurement(c.getString(3)), measurement(c.getString(4)), measurement(c.getString(5)),
@@ -386,15 +497,22 @@ final class HistoryStatisticsRepository implements AutoCloseable {
                 c.getInt(22), c.getInt(23), c.getInt(24), c.getInt(25), c.getString(26), c.getString(27));
     }
 
-    private static Observation readLive(Cursor c, boolean contextOnly) {
+    private static Observation readLive(Cursor c, boolean contextOnly, boolean meterBasis) {
         long id = c.getLong(0);
         String meter = c.getString(1);
         long readAt = c.getLong(2);
-        String timestamp = HistoryTimePresentation.localMinute(readAt);
+        String rawMeterTime = c.getString(3);
+        boolean usableMeterTime = meterBasis && rawMeterTime != null && !rawMeterTime.trim().isEmpty();
+        String timestamp = usableMeterTime
+                ? rawMeterTime.trim()
+                : HistoryTimePresentation.localMinute(readAt);
+        long sortMs = usableMeterTime
+                ? HistoryTimePresentation.floatingSortMs(timestamp)
+                : readAt;
         return new Observation(
                 "LIVE|" + id, meter, HistorySemanticTimeline.Granularity.LIVE, timestamp,
-                HistoryTimePresentation.floatingSortMs(timestamp), readAt, true, contextOnly,
-                c.getString(3), nullableDouble(c, 4), nullableDouble(c, 5), nullableDouble(c, 6),
+                sortMs, readAt, true, contextOnly,
+                rawMeterTime, nullableDouble(c, 4), nullableDouble(c, 5), nullableDouble(c, 6),
                 null, nullableDouble(c, 7), null, "", null, "", nullableDouble(c, 8),
                 nullableDouble(c, 9), null, "", null, "", nullableInteger(c, 10),
                 c.getString(11), null, "", "", 1, 0, 0, 0, "LIVE", "");

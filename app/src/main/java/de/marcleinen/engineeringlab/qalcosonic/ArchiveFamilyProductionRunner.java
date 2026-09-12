@@ -134,7 +134,8 @@ final class ArchiveFamilyProductionRunner {
                 observation.structuralFingerprint,
                 SOURCE_NFC_ARCHIVE,
                 VALIDATION_COMPLETE,
-                ArchiveNormalizedValues.fromSnapshot(snapshot));
+                ArchiveNormalizedValues.fromSnapshot(snapshot),
+                time);
 
         long onTime = time.onTimeSeconds == null ? -1L : time.onTimeSeconds;
         boolean typeFInvalid = time.invalidTime

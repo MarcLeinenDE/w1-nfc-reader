@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_info_history_title">Jak działa historia</string>
+    <string name="v21_info_history_body">W widoku „Wszystkie” zużycie Live jest liczone od chronologicznie najbliższego wiarygodnego wcześniejszego odczytu archiwalnego, niezależnie od tego, czy pochodzi on z archiwum godzinowego, dziennego czy miesięcznego. Jeśli nie ma wcześniejszego odczytu archiwalnego, używany jest poprzedni odczyt Live. Osobny filtr Live nadal porównuje Live z Live, a karty archiwum zachowują własne serie.</string>
+    <string name="v21_info_statistics_title">Jak działają statystyki</string>
+    <string name="v21_info_statistics_body">Wypełnione słupki to interwały archiwalne w całości zawarte w wybranym okresie kalendarzowym i są uwzględniane w sumach oraz innych wskaźnikach. Słupki z obrysem przerywanym to rzeczywiście zmierzone interwały, które tylko częściowo nachodzą na krawędź; ich pełna wartość jest pokazana jako kontekst, ale nie jest dzielona proporcjonalnie ani wliczana do wskaźników wybranego okresu. Znacznik na linii bazowej oznacza rzeczywiste zerowe zużycie; brak pozycji pozostaje rzeczywistą luką. Liczba pokrycia opisuje obserwacje użyte w wybranym widoku i sama w sobie nie oznacza, że synchronizacja protokołu jest kompletna.</string>
+    <string name="v21_info_time_model_title">Czas rzeczywisty i czas licznika</string>
+    <string name="v21_info_time_model_body">Normalna oś czasu używa czasu rzeczywistego odtworzonego z potwierdzonych kotwic czasu Live oraz monotonicznego ON_TIME licznika, a następnie wyświetlanego w przypisanej strefie IANA. Zegar licznika/loggera pozostaje zachowany jako dowód pomocniczy, ponieważ może dryfować. Niepewna rekonstrukcja czasu pozostaje nierozstrzygnięta zamiast być zgadywana.</string>
+</resources>

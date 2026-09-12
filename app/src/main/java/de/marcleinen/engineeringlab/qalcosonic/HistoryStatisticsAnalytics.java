@@ -162,6 +162,8 @@ final class HistoryStatisticsAnalytics {
     static Map<String, Delta> deltas(List<HistoryStatisticsRepository.Observation> observations) {
         List<WaterUsageAnalytics.Point> points = new ArrayList<>();
         Map<String, HistoryStatisticsRepository.Observation> byIdentity = new HashMap<>();
+        boolean hasVisibleLive = false;
+        boolean hasArchive = false;
         if (observations != null) {
             for (HistoryStatisticsRepository.Observation observation : observations) {
                 if (observation == null || observation.totalM3 == null) continue;
@@ -169,19 +171,61 @@ final class HistoryStatisticsAnalytics {
                         observation.timestamp, observation.sortMs, observation.granularity,
                         observation.totalM3));
                 byIdentity.put(observation.identity, observation);
+                if (observation.live && !observation.contextOnly) hasVisibleLive = true;
+                if (!observation.live) hasArchive = true;
             }
         }
 
-        // Every History card uses the previous observation from the same physical meter and the
-        // same semantic series. This keeps Live-to-Live, Hour-to-Hour, Day-to-Day and Month-to-Month
-        // deltas stable regardless of which other granularities happen to be visible or persisted.
+        // Base rule: archive cards stay within their own semantic archive series and a dedicated
+        // Live filter stays Live-to-Live. This preserves validated Hour/Day/Month statistics and
+        // the simple Live-only history behavior.
         Map<String, Delta> out = new HashMap<>();
         for (WaterUsageAnalytics.HistoryDelta delta : WaterUsageAnalytics.historyNewestFirst(points)) {
             HistoryStatisticsRepository.Observation previous = delta.previousPoint == null
                     ? null : byIdentity.get(delta.previousPoint.identity);
             out.put(delta.point.identity, new Delta(delta.consumptionSincePreviousM3, previous));
         }
+
+        // History -> All is one chronological product timeline. In that mixed view, a Live card is
+        // most useful when its consumption is measured from the closest trustworthy archive total
+        // before that Live read, regardless of whether that archive row is Hour, Day or Month. Only
+        // if there is no trustworthy archive predecessor at all do we retain the base Live-to-Live
+        // fallback. Statistics never contains visible Live rows, so it cannot enter this branch.
+        if (hasVisibleLive && hasArchive && observations != null) {
+            for (HistoryStatisticsRepository.Observation live : observations) {
+                if (live == null || !live.live || live.contextOnly || !finite(live.totalM3)) continue;
+                HistoryStatisticsRepository.Observation archive = nearestArchivePredecessor(live, observations);
+                if (archive == null) continue;
+                double consumption = live.totalM3 - archive.totalM3;
+                if (!Double.isFinite(consumption) || consumption < -1e-9) {
+                    // A backwards total is not silently re-baselined to an older source. The nearest
+                    // trustworthy historical predecessor exists, but this delta itself is unsafe.
+                    out.put(live.identity, new Delta(null, archive));
+                    continue;
+                }
+                if (consumption < 0.0) consumption = 0.0; // absorb harmless floating-point noise
+                out.put(live.identity, new Delta(consumption, archive));
+            }
+        }
         return out;
+    }
+
+    private static HistoryStatisticsRepository.Observation nearestArchivePredecessor(
+            HistoryStatisticsRepository.Observation live,
+            List<HistoryStatisticsRepository.Observation> observations) {
+        HistoryStatisticsRepository.Observation best = null;
+        for (HistoryStatisticsRepository.Observation candidate : observations) {
+            if (candidate == null || candidate.live || !finite(candidate.totalM3)) continue;
+            if (candidate.conflictFlags != 0) continue;
+            if (live.meterId == null || !live.meterId.equals(candidate.meterId)) continue;
+            if (candidate.sortMs >= live.sortMs) continue;
+            if (best == null || candidate.sortMs > best.sortMs
+                    || (candidate.sortMs == best.sortMs
+                    && candidate.identity.compareTo(best.identity) > 0)) {
+                best = candidate;
+            }
+        }
+        return best;
     }
 
     static ConsumptionSummary consumption(List<HistoryStatisticsRepository.Observation> observations) {
@@ -189,7 +233,10 @@ final class HistoryStatisticsAnalytics {
         Map<String, BucketAccumulator> buckets = new TreeMap<>();
         if (observations != null) {
             for (HistoryStatisticsRepository.Observation observation : observations) {
-                if (observation == null || observation.contextOnly) continue;
+                if (observation == null) continue;
+                boolean partialEdge = partialIntervalContext(observation);
+                if (observation.contextOnly && !partialEdge) continue;
+
                 Delta delta = deltas.get(observation.identity);
                 if (delta == null || delta.consumptionM3 == null || delta.previous == null) continue;
 
@@ -197,35 +244,42 @@ final class HistoryStatisticsAnalytics {
                 // feature and must never be promoted into natural Hour/Day/Month chart buckets.
                 if (observation.live) continue;
 
-                // Archive rows are end boundaries. The exact window-start boundary may be context
-                // only, but it is still the valid start of the first displayed period.
+                // Archive rows are end boundaries. For raw METER time the predecessor is still the
+                // completed-period start label. For a resolved LOCAL observation, however, the
+                // current token already represents the complete canonical UTC interval. Reusing the
+                // predecessor token here shifts every LOCAL chart bucket one physical period back.
                 HistoryStatisticsRepository.Observation start = delta.previous;
                 if (!HistoryTimePresentation.adjacent(start.timestamp, observation.timestamp,
                         observation.granularity)) continue;
 
+                String bucketTimestamp = metricPeriodTimestamp(observation, start.timestamp);
                 String meter = start.meterId == null ? "" : start.meterId;
-                String key = start.timestamp + '\u0000' + meter;
+                String key = bucketTimestamp + '\u0000' + meter;
                 BucketAccumulator bucket = buckets.computeIfAbsent(key,
-                        ignored -> new BucketAccumulator(start.timestamp, start.granularity, meter));
+                        ignored -> new BucketAccumulator(bucketTimestamp, observation.granularity, meter));
                 bucket.value += delta.consumptionM3;
                 bucket.count++;
+                bucket.partial = bucket.partial || partialEdge;
             }
         }
 
         List<MetricPoint> points = new ArrayList<>();
         double total = 0.0;
+        int fullBuckets = 0;
         Double max = null, min = null;
         String maxAt = null, minAt = null;
         for (BucketAccumulator bucket : buckets.values()) {
-            points.add(new MetricPoint(bucket.timestamp, bucket.value, false, bucket.segment,
+            points.add(new MetricPoint(bucket.timestamp, bucket.value, bucket.partial, bucket.segment,
                     bucket.granularity));
+            if (bucket.partial) continue;
+            fullBuckets++;
             total += bucket.value;
             if (max == null || bucket.value > max) { max = bucket.value; maxAt = bucket.timestamp; }
             if (min == null || bucket.value < min) { min = bucket.value; minAt = bucket.timestamp; }
         }
-        Double totalValue = points.isEmpty() ? null : total;
-        Double average = points.isEmpty() ? null : total / points.size();
-        return new ConsumptionSummary(points, totalValue, average, max, maxAt, min, minAt, points.size());
+        Double totalValue = fullBuckets == 0 ? null : total;
+        Double average = fullBuckets == 0 ? null : total / fullBuckets;
+        return new ConsumptionSummary(points, totalValue, average, max, maxAt, min, minAt, fullBuckets);
     }
 
     static TemperatureSummary temperature(List<HistoryStatisticsRepository.Observation> observations) {
@@ -236,7 +290,7 @@ final class HistoryStatisticsAnalytics {
         for (HistoryStatisticsRepository.Observation observation : selected) {
             Double value = validTemperature(observation.waterTemperatureC);
             if (value == null) continue;
-            String period = periodStart(observation);
+            String period = metricPeriodTimestamp(observation, null);
             points.add(new MetricPoint(period, value, false, observation.meterId,
                     observation.granularity));
             latest = value;
@@ -258,7 +312,7 @@ final class HistoryStatisticsAnalytics {
         for (HistoryStatisticsRepository.Observation observation : selected) {
             Double value = finiteNonNegative(observation.maxFlowM3h);
             if (value == null) continue;
-            String period = periodStart(observation);
+            String period = metricPeriodTimestamp(observation, null);
             points.add(new MetricPoint(period, value, false, observation.meterId,
                     observation.granularity));
             latest = value;
@@ -282,7 +336,7 @@ final class HistoryStatisticsAnalytics {
         for (HistoryStatisticsRepository.Observation observation : selected) {
             Integer value = validBattery(observation.batteryPercent);
             if (value == null) continue;
-            String period = periodStart(observation);
+            String period = metricPeriodTimestamp(observation, null);
             points.add(new MetricPoint(period, value.doubleValue(), false,
                     observation.meterId, observation.granularity));
             if (start == null) {
@@ -317,7 +371,7 @@ final class HistoryStatisticsAnalytics {
             finalActive = active;
             if (!active) continue;
             alarmObservations++;
-            events.add(new AlarmEvent(periodStart(observation), observation.meterId, raw,
+            events.add(new AlarmEvent(metricPeriodTimestamp(observation, null), observation.meterId, raw,
                     null, AlarmEventType.OBSERVED));
         }
         return new AlarmSummary(events, finalActive, finalRaw, alarmObservations);
@@ -344,7 +398,30 @@ final class HistoryStatisticsAnalytics {
         return out;
     }
 
-    private static String periodStart(HistoryStatisticsRepository.Observation observation) {
+    /**
+     * A statistics edge interval is deliberately carried as contextOnly while retaining a resolved
+     * interval token. Pure predecessor context uses a boundary token and must never become a chart
+     * point. This distinction lets charts show measured overlaps without polluting KPIs.
+     */
+    private static boolean partialIntervalContext(HistoryStatisticsRepository.Observation observation) {
+        if (observation == null || !observation.contextOnly) return false;
+        HistoryResolvedTimeToken.Parsed resolved = HistoryResolvedTimeToken.parse(observation.timestamp);
+        return resolved != null && resolved.interval;
+    }
+
+    /**
+     * Raw METER observations still need their predecessor boundary converted to the period start.
+     * A resolved LOCAL observation already is an explicit interval, so that interval itself must
+     * survive into charts/KPIs; reducing it to its start boundary loses ownership and can relabel a
+     * Day/Month as the preceding civil period.
+     */
+    private static String metricPeriodTimestamp(
+            HistoryStatisticsRepository.Observation observation,
+            String rawStartFallback) {
+        if (observation == null) return rawStartFallback == null ? "" : rawStartFallback;
+        HistoryResolvedTimeToken.Parsed resolved = HistoryResolvedTimeToken.parse(observation.timestamp);
+        if (resolved != null && resolved.interval) return observation.timestamp;
+        if (rawStartFallback != null) return rawStartFallback;
         String value = HistoryTimePresentation.periodStartTimestamp(
                 observation.timestamp, observation.granularity);
         return value == null ? observation.timestamp : value;
@@ -372,6 +449,7 @@ final class HistoryStatisticsAnalytics {
         final String segment;
         double value;
         int count;
+        boolean partial;
 
         BucketAccumulator(String timestamp, HistorySemanticTimeline.Granularity granularity,
                           String segment) {

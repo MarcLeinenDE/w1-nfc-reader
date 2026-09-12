@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_time_basis">Time display</string>
+    <string name="v21_time_basis_local">Local time</string>
+    <string name="v21_time_basis_meter">Meter time</string>
+</resources>

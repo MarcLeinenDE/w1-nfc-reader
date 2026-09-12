@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_meter_time_model">Tijdmodel</string>
+    <string name="v21_meter_timezone">Tijdzone</string>
+    <string name="v21_meter_timezone_not_set">Niet toegewezen</string>
+    <string name="v21_meter_timezone_value">%1$s · %2$s</string>
+    <string name="v21_meter_timezone_source_device">Automatisch toegewezen bij de eerste geverifieerde Live-uitlezing</string>
+    <string name="v21_meter_timezone_source_user">Handmatig geselecteerd</string>
+    <string name="v21_meter_timezone_note">Wordt gebruikt voor lokale tijd in geschiedenis en statistieken. Een wijziging verandert geen ruwe metergegevens.</string>
+    <string name="v21_meter_timezone_edit">Tijdzone van de meter wijzigen</string>
+    <string name="v21_meter_timezone_dialog_message">Selecteer of zoek een IANA-tijdzone die door dit apparaat wordt ondersteund. Alleen de interpretatie van lokale tijd verandert; ruwe meter-/loggertijden blijven ongewijzigd.</string>
+    <string name="v21_meter_timezone_hint">Tijdzone zoeken</string>
+    <string name="v21_meter_timezone_save">Opslaan</string>
+    <string name="v21_meter_timezone_invalid">Selecteer een tijdzone uit de ondersteunde lijst.</string>
+</resources>

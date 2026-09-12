@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_time_basis">Affichage de l’heure</string>
+    <string name="v21_time_basis_local">Heure locale</string>
+    <string name="v21_time_basis_meter">Heure du compteur</string>
+</resources>

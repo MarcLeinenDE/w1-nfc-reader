@@ -476,7 +476,7 @@ final class ArchiveFamilyTransportAdapter {
                 retrievedAtUtc,
                 observation.structuralFingerprint,
                 snapshot);
-        ArchiveFamilyPeriod period = ArchiveFamilyPeriod.fromMonthly(monthly);
+        ArchiveFamilyPeriod period = ArchiveFamilyPeriod.fromMonthly(monthly, time);
         long onTime = time.onTimeSeconds == null ? -1L : time.onTimeSeconds;
         boolean typeFInvalid = time.invalidTime
                 || time.reservedMinuteBit6Set

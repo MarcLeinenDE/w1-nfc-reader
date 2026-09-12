@@ -2,9 +2,13 @@ package de.marcleinen.engineeringlab.qalcosonic;
 
 import org.junit.Test;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Locale;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public final class HistoryTimePresentationTest {
     @Test public void monthDeltaPredecessorUsesPreviousCompletedPeriodLabel() {
@@ -15,6 +19,37 @@ public final class HistoryTimePresentationTest {
                 HistoryTimePresentation.formatPrimary(Locale.US, current));
         assertEquals("August 2025",
                 HistoryTimePresentation.formatPredecessor(Locale.US, current, previous));
+    }
+
+    @Test public void resolvedFallFoldShowsOffsetsInsteadOfTwoIndistinguishableTimes() {
+        ZoneId zone = ZoneId.of("Europe/Berlin");
+        long start = Instant.parse("2026-10-25T00:00:00Z").toEpochMilli();
+        long end = Instant.parse("2026-10-25T01:00:00Z").toEpochMilli();
+        String token = HistoryResolvedTimeToken.interval(start, end, zone);
+
+        String label = HistoryTimePresentation.formatArchivePeriod(
+                Locale.US, HistorySemanticTimeline.Granularity.HOUR, token);
+
+        assertTrue(label.contains("+02:00"));
+        assertTrue(label.contains("+01:00"));
+        assertTrue(label.contains("2:00"));
+        assertEquals(start, HistoryTimePresentation.floatingSortMs(
+                HistoryTimePresentation.periodStartTimestamp(
+                        token, HistorySemanticTimeline.Granularity.HOUR)));
+    }
+
+    @Test public void ordinaryResolvedHourDoesNotAddNoisyOffset() {
+        ZoneId zone = ZoneId.of("Europe/Berlin");
+        long start = Instant.parse("2026-09-09T08:00:00Z").toEpochMilli();
+        long end = Instant.parse("2026-09-09T09:00:00Z").toEpochMilli();
+        String token = HistoryResolvedTimeToken.interval(start, end, zone);
+
+        String label = HistoryTimePresentation.formatArchivePeriod(
+                Locale.US, HistorySemanticTimeline.Granularity.HOUR, token);
+
+        assertFalse(label.contains("+02:00"));
+        assertTrue(label.contains("10:00"));
+        assertTrue(label.contains("11:00"));
     }
 
     private static HistoryStatisticsRepository.Observation month(

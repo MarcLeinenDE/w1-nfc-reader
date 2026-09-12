@@ -32,6 +32,9 @@ final class MonthlyArchiveNfcWire implements MonthlyArchiveTransportAdapter.Wire
     private final byte[] androidUid;
     private Addressing addressing;
     private boolean healthy = true;
+    private QalcosonicReader.Readout lastDefaultReadout;
+    private long lastDefaultReadBeforeEpochMs;
+    private long lastDefaultReadAfterEpochMs;
 
     MonthlyArchiveNfcWire(NfcV nfc, byte[] androidUid) {
         if (nfc == null) throw new IllegalArgumentException("nfc == null");
@@ -101,18 +104,39 @@ final class MonthlyArchiveNfcWire implements MonthlyArchiveTransportAdapter.Wire
 
     @Override
     public DefaultReadObservation readDefault() throws IOException {
+        lastDefaultReadout = null;
+        lastDefaultReadBeforeEpochMs = 0L;
+        lastDefaultReadAfterEpochMs = 0L;
+        long readBeforeEpochMs = System.currentTimeMillis();
         try {
             // ArchiveFamilyTransportAdapter has already issued APPLICATION_RESET_DEFAULT and
             // stabilized before calling this verifier. Preserve that physically validated shell
             // and do not send the new normal-Live normalization reset a second time here.
             QalcosonicReader.Readout readout = new QalcosonicReader(nfc, androidUid)
                     .readAssumingDefaultApplication();
+            long readAfterEpochMs = System.currentTimeMillis();
+            lastDefaultReadout = readout;
+            lastDefaultReadBeforeEpochMs = readBeforeEpochMs;
+            lastDefaultReadAfterEpochMs = readAfterEpochMs;
             healthy = true;
             return DefaultReadObservation.fromReadout(readout);
         } catch (IOException error) {
             healthy = false;
             throw error;
         }
+    }
+
+    /**
+     * Returns a time-anchor candidate for the most recent default Live read performed by this wire.
+     * The caller must additionally require the safety shell's final verification to have passed;
+     * this method deliberately does not weaken fingerprint/progression validation.
+     */
+    VerifiedLiveTimeAnchor lastDefaultTimeAnchor(String expectedMeterId) {
+        return LiveTimeAnchorPersistence.candidate(
+                expectedMeterId,
+                lastDefaultReadBeforeEpochMs,
+                lastDefaultReadAfterEpochMs,
+                lastDefaultReadout);
     }
 
     private void selectAddressing() throws IOException {

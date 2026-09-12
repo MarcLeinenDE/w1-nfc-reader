@@ -1,6 +1,5 @@
 package de.marcleinen.engineeringlab.qalcosonic;
 
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -14,14 +13,15 @@ import java.util.Objects;
  * Immutable snapshot matcher used only for incremental archive overlap detection.
  *
  * <p>The snapshot is intentionally taken before the incremental run starts. Records inserted by
- * the current attempt can therefore never become their own overlap evidence. A timestamp alone is
- * never sufficient: canonical content, structure, provenance, time basis and typed ON_TIME must
- * all agree, and any stored conflict disqualifies the record as an overlap anchor.</p>
+ * the current attempt can therefore never become their own overlap evidence. A raw timestamp alone
+ * is never sufficient: the native occurrence, canonical content, structure, provenance, time basis
+ * and typed ON_TIME must all agree, and any stored conflict disqualifies the record as an overlap
+ * anchor.</p>
  */
 final class ArchiveKnownRecordMatcher implements ArchiveTraversalStateMachine.KnownRecordMatcher {
     private final String meterId;
     private final ArchiveFamilyPeriod.Family family;
-    private final Map<String, ArchiveFamilyStore.StoredPeriod> knownByTimestamp;
+    private final Map<String, ArchiveFamilyStore.StoredPeriod> knownByOccurrence;
 
     ArchiveKnownRecordMatcher(
             ArchiveFamilyStore store,
@@ -33,17 +33,17 @@ final class ArchiveKnownRecordMatcher implements ArchiveTraversalStateMachine.Kn
         }
         this.meterId = meterId.trim();
         this.family = Objects.requireNonNull(family, "family");
-        this.knownByTimestamp = new HashMap<>();
+        this.knownByOccurrence = new HashMap<>();
         List<ArchiveFamilyStore.StoredPeriod> known = store.getPeriods(this.meterId, family);
         for (ArchiveFamilyStore.StoredPeriod period : known) {
-            if (period != null && period.loggerTimestamp != null) {
-                knownByTimestamp.put(period.loggerTimestamp, period);
+            if (period != null && period.loggerTimestamp != null && period.occurrenceKey != null) {
+                knownByOccurrence.put(nativeKey(period.loggerTimestamp, period.occurrenceKey), period);
             }
         }
     }
 
     int snapshotSize() {
-        return knownByTimestamp.size();
+        return knownByOccurrence.size();
     }
 
     @Override public boolean securelyKnown(ArchiveTraversalStateMachine.PeriodEvidence evidence) {
@@ -52,7 +52,9 @@ final class ArchiveKnownRecordMatcher implements ArchiveTraversalStateMachine.Kn
         if (candidate.family != family) return false;
         if (evidence.onTimeSeconds < 0L) return false;
 
-        ArchiveFamilyStore.StoredPeriod known = knownByTimestamp.get(candidate.loggerTimestamp);
+        String occurrence = ArchiveOccurrenceKey.fromEvidence(evidence.onTimeSeconds, null);
+        ArchiveFamilyStore.StoredPeriod known = knownByOccurrence.get(
+                nativeKey(candidate.loggerTimestamp, occurrence));
         if (known == null) return false;
         if (!meterId.equals(known.meterId) || known.family != family) return false;
 
@@ -80,7 +82,13 @@ final class ArchiveKnownRecordMatcher implements ArchiveTraversalStateMachine.Kn
 
         Long normalizedOnTimeSeconds = durationSeconds(candidate.values.onTime);
         return normalizedOnTimeSeconds != null
-                && normalizedOnTimeSeconds.longValue() == evidence.onTimeSeconds;
+                && normalizedOnTimeSeconds.longValue() == evidence.onTimeSeconds
+                && known.onTimeSeconds != null
+                && known.onTimeSeconds.longValue() == evidence.onTimeSeconds;
+    }
+
+    private static String nativeKey(String loggerTimestamp, String occurrenceKey) {
+        return String.valueOf(loggerTimestamp) + '\u0000' + String.valueOf(occurrenceKey);
     }
 
     private static boolean sameCanonicalContent(
@@ -153,24 +161,7 @@ final class ArchiveKnownRecordMatcher implements ArchiveTraversalStateMachine.Kn
     }
 
     static Long durationSeconds(String value) {
-        if (value == null) return null;
-        String[] parts = value.trim().split("\\s+");
-        if (parts.length != 2) return null;
-        long multiplier;
-        switch (parts[1]) {
-            case "s": multiplier = 1L; break;
-            case "min": multiplier = 60L; break;
-            case "h": multiplier = 3600L; break;
-            case "d": multiplier = 86_400L; break;
-            default: return null;
-        }
-        try {
-            BigDecimal raw = new BigDecimal(parts[0].replace(',', '.'));
-            long seconds = raw.multiply(BigDecimal.valueOf(multiplier)).longValueExact();
-            return seconds < 0L ? null : seconds;
-        } catch (RuntimeException error) {
-            return null;
-        }
+        return ArchiveOccurrenceKey.parseDurationSeconds(value);
     }
 
     private static boolean same(Object first, Object second) {
