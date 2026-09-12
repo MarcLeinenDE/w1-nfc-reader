@@ -25,14 +25,21 @@ public final class MeterDetailsTimeZoneUiTest {
         assertTrue(source.contains("R.string.v21_meter_timezone_note"));
     }
 
-    @Test public void manualChangeUsesValidatedTimeModelOnly() throws Exception {
+    @Test public void manualChangeUsesSearchableSupportedZonePickerOnly() throws Exception {
         String source = read(ACTIVITY);
+        assertTrue(source.contains("MaterialAutoCompleteTextView"));
+        assertTrue(source.contains("ZoneId.getAvailableZoneIds()"));
+        assertTrue(source.contains("TextInputLayout.END_ICON_DROPDOWN_MENU"));
+        assertTrue(source.contains("input.setThreshold(0)"));
+        assertTrue(source.contains("input.showDropDown()"));
+        assertTrue(source.contains("if (!zones.contains(candidate))"));
         assertTrue(source.contains("MeterTimeModelStore.normalizeZoneId(candidate)"));
         assertTrue(source.contains("store.setZone(meterId, normalized,"));
         assertTrue(source.contains("MeterTimeModelStore.ZONE_SOURCE_USER_SELECTED"));
-        assertTrue(source.contains("input.setError(getString(R.string.v21_meter_timezone_invalid))"));
+        assertTrue(source.contains("field.setError(getString(R.string.v21_meter_timezone_invalid))"));
         assertTrue(source.contains("dialog.dismiss();"));
         assertTrue(source.contains("recreate();"));
+        assertFalse(source.contains("new EditText(this)"));
         assertFalse(source.contains("archive.upsert("));
         assertFalse(source.contains("history.insert"));
     }
