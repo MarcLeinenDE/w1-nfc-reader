@@ -22,6 +22,23 @@ This is a global product rule, not a Statistics-only exception.
 - Do not show an info icon for self-evident labels merely to create visual noise.
 - Do not hide warnings, failures or required user actions behind an info icon. The icon explains a state; it never replaces a required warning/action.
 
+## Global date/time presentation consistency
+
+The v2.1 polish pass must perform a repository-wide audit of every user-facing date/time presentation path, not only the currently observed Overview and Meter Details examples.
+
+Rules:
+
+- whenever one displayed instant contains both a date and a time, separate them consistently with the centered dot pattern `date · time`;
+- interval labels use the same convention, for example `11.09.2026 · 18:00–19:00`;
+- do not manually concatenate date/time independently in individual screens when a shared presentation helper can express the same semantics;
+- prefer central locale-aware presentation helpers so Overview, History, Statistics, Meter Details, sync/result UI, warnings/status cards and other screens cannot drift into different punctuation/formatting rules;
+- preserve raw stored timestamps unchanged; this is a presentation-only contract;
+- locale-specific date and time ordering remains authoritative. The centered dot separates the date component from the time component; it does not force German ordering onto other locales;
+- audit labels, secondary evidence, warning timestamps, latest-sync timestamps, acquisition timestamps, dialog summaries and accessibility/content-description strings as well as the obvious main cards;
+- add regression coverage for representative shared formatters and high-value UI contracts instead of relying only on screenshot inspection.
+
+Known examples that motivated the global audit include Overview `Lokale Zeit` / former `Ausgelesen`, Meter Details `Am Handy ausgelesen`, and `Letzte Archivsynchronisierung`, but the work item is explicitly broader than these examples.
+
 ## Statistics / coverage example
 
 Current ambiguous wording such as `22 von 24 Datenpunkten verfügbar` can make a user believe that two records are missing even when all stored evidence is present and two physical Hour intervals merely intersect the LOCAL civil-day edges.
@@ -108,4 +125,4 @@ The review is not limited to Hour views. Day, Month, All, Overview, History, Sta
 
 Do not modify the currently pinned functional C-test APK solely for this presentation/product-polish pattern while Section C–F validation is still in progress.
 
-After the functional gate passes, implement the contextual-help pass together with the already-recorded presentation items (localized timezone abbreviations, missing centered date/time separators, visible zero-consumption markers, and the `All`-timeline Live baseline rule), then run UI/i18n/accessibility regression checks before preparing the exact v2.1 release candidate.
+After the functional gate passes, implement the contextual-help pass together with the repository-wide date/time formatting audit and the already-recorded presentation items (localized timezone abbreviations, visible zero-consumption markers, and the `All`-timeline Live baseline rule), then run UI/i18n/accessibility regression checks before preparing the exact v2.1 release candidate.
