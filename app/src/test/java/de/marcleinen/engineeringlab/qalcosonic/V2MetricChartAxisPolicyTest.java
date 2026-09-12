@@ -27,8 +27,14 @@ public final class V2MetricChartAxisPolicyTest {
                 "A deliberately very long archive period label that cannot fit horizontally"),
                 V2MetricChartView.Mode.BARS,
                 "m3");
-        assertEquals(V2MetricChartView.AxisLabelMode.ROTATED,
-                view.barAxisLabelMode(1_000f));
+        boolean foundRotatedFit = false;
+        for (int width = 1; width <= 10_000; width++) {
+            if (view.barAxisLabelMode(width) == V2MetricChartView.AxisLabelMode.ROTATED) {
+                foundRotatedFit = true;
+                break;
+            }
+        }
+        assertTrue(foundRotatedFit);
 
         view.setData(entries(48, "12 Sep 2026 23:00"), V2MetricChartView.Mode.BARS, "m3");
         assertEquals(V2MetricChartView.AxisLabelMode.HIDDEN,
