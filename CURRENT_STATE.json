@@ -1,5 +1,5 @@
 {
-  "schema_version": 11,
+  "schema_version": 12,
   "project": "W1 NFC Reader",
   "date": "2026-09-12",
   "public_repository": "MarcLeinenDE/w1-nfc-reader",
@@ -10,10 +10,9 @@
   },
   "development": {
     "branch": "dev/v2.1.0-real-time-timeline",
-    "head": "4f388f8fb9f3d759dbb8cc00be0e2c673d6f958f",
-    "head_ci_run": 34696006781,
+    "head": "e6967885315283ed7943bb77b589b78d855fc6c1",
+    "head_ci_run": 34702429499,
     "head_ci_conclusion": "success",
-    "translation_key_count": 227,
     "translation_locale_count": 6,
     "pull_request": 22,
     "pull_request_state": "open",
@@ -21,14 +20,14 @@
     "pull_request_base": "main"
   },
   "physical_validation_candidate": {
-    "source_commit": "4f388f8fb9f3d759dbb8cc00be0e2c673d6f958f",
-    "ci_run": 34696006781,
+    "source_commit": "e6967885315283ed7943bb77b589b78d855fc6c1",
+    "ci_run": 34702429499,
     "artifact_name": "w1-nfc-reader-debug",
-    "artifact_id": 10299310144,
-    "artifact_zip_sha256": "6a2399514ac6d8bd4604e84d60316d85e528ad844780588fa1b04b70e36faf26",
-    "apk_sha256": "bef486df8318a6d0baee79513b28cd4580d2c8c172e548226e4469151516861f",
+    "artifact_id": 10300264718,
+    "artifact_zip_sha256": "4dee21419a179d994ee103f0170ede066edb3f095da0441e2eb08f6590d3bdfa",
+    "apk_sha256": "bd7727fbe1cf940633939294c3516746dff2cedda56e28364503e2bace999336",
     "artifact_integrity": "independently verified: downloaded ZIP digest matches GitHub artifact digest and APK hash matches SHA256SUMS.txt",
-    "status": "awaiting physical visual confirmation of statistics edge-overlap bars, then E and F"
+    "status": "awaiting combined physical History/Statistics/UI polish check, then E invalid-IANA smoke and F final protected Live read"
   },
   "accepted_product_decision": {
     "document": "docs/product-decisions/v2.1-canonical-real-time-product-timeline.md",
@@ -65,21 +64,37 @@
         "canonical real timeline is normal product presentation",
         "raw meter/logger wall-clock remains secondary evidence"
       ],
-      "note": "current overlap-bar candidate inherits same time model and changes only downstream Statistics presentation/read-model"
+      "note": "current candidate inherits the same protected time model"
     },
-    "statistics_overlap_visual": "pending physical visual check on 4f388f8",
+    "combined_polish_visual": "pending on e696788",
     "section_e": "pending invalid-IANA-zone rejection smoke test",
     "section_f": "pending final protected normal Live NFC regression read"
   },
   "statistics_edge_presentation": {
-    "implemented_commit": "4f388f8fb9f3d759dbb8cc00be0e2c673d6f958f",
+    "implemented_from": "4f388f8fb9f3d759dbb8cc00be0e2c673d6f958f",
     "fully_contained": "filled bars; included in selected-window total/average/minimum/maximum and availableBuckets",
     "partial_overlap": "dashed outline bars showing the complete measured physical archive delta as context only; never prorated and excluded from selected-window KPIs",
     "native_gap": "remains a gap; no fabricated bar",
     "zero_consumption": "visible baseline marker instead of an invisible zero-height bar",
     "scope": "generic consumption presentation for Hour/Day/Month archive statistics",
-    "wording": "coverage explicitly says fully contained; consumption explanation updated in all six locales",
-    "regression": "StatisticsPartialEdgePresentationTest proves 24 visible physical intervals with 22 full KPI buckets and excludes deliberately large partial-edge values from KPIs"
+    "wording": "coverage explicitly says fully contained",
+    "regression": "StatisticsPartialEdgePresentationTest protects edge/context versus KPI semantics"
+  },
+  "combined_history_ui_polish": {
+    "implemented_commit": "e6967885315283ed7943bb77b589b78d855fc6c1",
+    "history_all_live_baseline": "visible Live cards in mixed History All use the chronologically nearest trustworthy earlier archive cumulative total across Hour/Day/Month on the same meter; conflicted archive rows skipped; previous-Live fallback only when no earlier archive predecessor exists; dedicated Live filter remains Live-to-Live; archive cards remain same-family",
+    "axis_labels": "every visible bar has one centered period label; dense bar charts rotate all x-axis labels 90 degrees rather than skipping labels",
+    "date_time": "normal product surface applies shared locale-aware date · time convention",
+    "timezone_labels": "ordinary resolved local time prefers localized abbreviations such as MEZ/MESZ or CET/CEST; ambiguous DST folds additionally retain numeric UTC offset",
+    "contextual_help": "localized Material info dialogs on History, Statistics and Meter Details time model explain non-obvious semantics without hiding warnings/actions",
+    "accessibility": "info affordances are focusable/clickable with minimum touch height and content descriptions",
+    "locales": 6,
+    "regressions": [
+      "HistoryAllLiveBaselineTest",
+      "updated LiveHistoryDeltaTest",
+      "ProductUiHardeningTest",
+      "updated HistoryLocalArchiveCalendarRegressionTest"
+    ]
   },
   "time_model_hardening": {
     "canonical_rule": "UTC interval identity derived from verified timing evidence is authoritative; LOCAL is an IANA projection; raw meter/logger wall-clock remains source evidence only",
@@ -88,17 +103,6 @@
     "retention_rule": "natural oldest open prefix is retention geometry, not time ambiguity",
     "gap_rule": "missing native records remain explicit NATIVE_GAP and are never compressed",
     "dst_rule": "LOCAL civil windows may be 23/24/25 hours; folds/gaps fail closed unless explicitly safe"
-  },
-  "remaining_ui_followups": {
-    "contract": "UX_CONTEXTUAL_HELP_CONTRACT.md",
-    "items": [
-      "repository-wide date/time presentation audit with centered date · time separator",
-      "contextual info-button explanations wherever correct behavior is not self-evident",
-      "explain canonical reconstructed real time versus raw meter-clock evidence",
-      "locale-aware timezone abbreviations such as MEZ/MESZ or CET/CEST while retaining IANA/offset truth internally",
-      "History -> All Live delta uses nearest trustworthy previous archive observation; fallback to previous Live only if no archive predecessor exists",
-      "further distinguish real gaps from overlap/context visually wherever appropriate"
-    ]
   },
   "protected_invariants": [
     "normal NFC contact remains protected Live/default read only",
@@ -110,13 +114,25 @@
     "raw meter/logger time and timing evidence are never overwritten",
     "no intentional persistent meter/radio/calibration/firmware writes",
     "QalcosonicReader.java and MbusParser.java remain protected",
-    "current Statistics change adds no NFC command and changes no mailbox/archive traversal semantics"
+    "current combined polish changes no mailbox/archive traversal semantics and adds no NFC command"
   ],
+  "current_candidate_change_boundary": {
+    "base": "4f388f8fb9f3d759dbb8cc00be0e2c673d6f958f",
+    "head": "e6967885315283ed7943bb77b589b78d855fc6c1",
+    "changed_production_files": [
+      "HistoryStatisticsAnalytics.java",
+      "HistoryTimePresentation.java",
+      "ProductUiHardening.java",
+      "V2MetricChartView.java",
+      "six localized v21_polish_strings.xml files"
+    ],
+    "protected_protocol_files_touched": false
+  },
   "release_identity": {
     "current_stable_version": "2.0.0",
     "current_stable_version_code": 43,
     "v2_1_version_bump_allowed": false,
-    "gate": "physical overlap-bar visual check + E + F, remaining UI/i18n/accessibility polish, then exact signed v2.1 RC physical acceptance"
+    "gate": "physical combined candidate check + E + F, then exact signed v2.1 RC physical acceptance"
   },
   "private_research": {
     "repository": "MarcLeinenDE/engineering-lab",
@@ -125,5 +141,5 @@
     "head": "65358d55ee52a6911ab4fa8d1a66bc0d0dda0fd0",
     "rule": "consult only if protocol/time-evidence behavior itself must be revisited; never publish private evidence"
   },
-  "next_action": "Install exact candidate 4f388f8fb9f3d759dbb8cc00be0e2c673d6f958f without another History sync. Retest Statistics for 10 September 2026: edge-overlap Hour intervals should be dashed outlines, full intervals filled, coverage should still report 22/24 fully contained, and KPI values must remain unchanged. Then spot-check September, pass E invalid-zone rejection and F one final protected normal Live read. Keep PR #22 Draft; do not bump/merge/release v2.1 yet."
+  "next_action": "Install exact candidate e6967885315283ed7943bb77b589b78d855fc6c1. Without another History sync, verify History All nearest-archive Live baseline, Statistics edge bars/22-of-24 KPIs, one-label-per-bar axis ownership, date · time, localized zone abbreviations and contextual info dialogs. Then pass E invalid-zone rejection and F exactly one final protected normal Live/default NFC read. Keep PR #22 Draft; do not bump/merge/release v2.1 yet."
 }
