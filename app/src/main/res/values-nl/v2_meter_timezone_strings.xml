@@ -8,8 +8,8 @@
     <string name="v21_meter_timezone_source_user">Handmatig geselecteerd</string>
     <string name="v21_meter_timezone_note">Wordt gebruikt voor lokale tijd in geschiedenis en statistieken. Een wijziging verandert geen ruwe metergegevens.</string>
     <string name="v21_meter_timezone_edit">Tijdzone van de meter wijzigen</string>
-    <string name="v21_meter_timezone_dialog_message">Voer een IANA-tijdzone in, zoals Europe/Berlin. Alleen de interpretatie van lokale tijd verandert; ruwe meter-/loggertijden blijven ongewijzigd.</string>
-    <string name="v21_meter_timezone_hint">Europe/Berlin</string>
+    <string name="v21_meter_timezone_dialog_message">Selecteer of zoek een IANA-tijdzone die door dit apparaat wordt ondersteund. Alleen de interpretatie van lokale tijd verandert; ruwe meter-/loggertijden blijven ongewijzigd.</string>
+    <string name="v21_meter_timezone_hint">Tijdzone zoeken</string>
     <string name="v21_meter_timezone_save">Opslaan</string>
-    <string name="v21_meter_timezone_invalid">Voer een geldige IANA-tijdzone in.</string>
+    <string name="v21_meter_timezone_invalid">Selecteer een tijdzone uit de ondersteunde lijst.</string>
 </resources>
