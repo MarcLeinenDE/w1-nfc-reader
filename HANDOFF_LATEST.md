@@ -180,6 +180,16 @@ Only if protocol/time-evidence behavior itself must be revisited:
 
 Never publish private meter IDs, consumption data, captures, backup payloads or NFC traffic.
 
+## Deferred for the next app version — complete chart-axis audit
+
+Do **not** churn the current v2.1 release candidate only for this deferred polish item. At the start of the next app version, audit every Statistics chart so the x-axis label behavior is not only correct for consumption.
+
+Required scope includes consumption, battery, flow, water temperature, ambient temperature and any alarm/event chart with an x-axis. Battery and flow are explicit spot-check targets because inconsistent/leftover vertical x-axis text was noticed during the current physical review.
+
+The next-version acceptance rule is global rather than metric-by-metric: dense bar/categorical charts use the same complete-set rotated/vertical label policy consistently, one visible bar keeps one centered period label, chart height accommodates the rotated labels, and there must be no accidental mixture of orientations or skipped labels that makes ownership unclear. Line charts may thin labels only when point ownership remains visually unambiguous. Prefer centralizing this in the shared chart renderer/policy and protect it with regression tests so new metrics automatically inherit the same behavior.
+
+This deferred item is also recorded in `CURRENT_STATE.json` and `UX_CONTEXTUAL_HELP_CONTRACT.md` so a future chat must carry it forward.
+
 ## Next action
 
 Install exact CI-green candidate `67aafb713a0b09d23058b31640ba94bc0353bb21`. Verify the searchable supported-zone picker and quick UI regressions without History sync/NFC. Then perform exactly one final protected Live/default NFC read for F. Keep PR #22 Draft; do not bump/merge/release v2.1 yet.
