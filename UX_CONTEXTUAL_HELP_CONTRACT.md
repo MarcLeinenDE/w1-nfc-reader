@@ -1,189 +1,157 @@
-# W1 NFC Reader — Contextual Help UX Contract
+# W1 NFC Reader — Contextual Help / Presentation UX Contract
 
 Date: 2026-09-12
 Status: accepted UX rule for v2.1 release-candidate polish and future app work
 
 ## Purpose
 
-Contextual help exists to explain technically correct behavior that a normal user could reasonably misinterpret without domain knowledge. It must reduce uncertainty, not make the interface look instrumented everywhere.
+Contextual help exists to explain technically correct behavior that a normal user could reasonably misinterpret without domain knowledge. It must reduce uncertainty without instrumenting every repeated label in the interface.
 
-The user should be able to understand a page without searching Settings, GitHub or a manual, but explanations should stay out of the primary flow unless they are actually needed.
-
-## Placement and redundancy rule
-
-The v2.1 physical UI review established a stricter placement rule:
+## Placement and redundancy
 
 - History help belongs on the **History page heading only**.
 - Statistics help belongs on the **Statistics page heading only**.
-- Do not attach an info affordance merely because the words `History` / `Historie` or `Statistics` / `Statistik` occur elsewhere.
-- In particular, no duplicate info icon belongs on drawer/navigation entries, overview labels, settings rows or other repeated occurrences of the same word.
-- A page-level explanation should absorb generic explanatory copy that would otherwise be repeated farther down the same page.
-- Do not repeat the same explanation both behind the page info control and as a long inline paragraph.
-- Keep inline text when it is **metric-specific, actionable, warning-level or otherwise not covered by the page help**.
-- Do not hide warnings, failures or required actions behind an info control.
+- Do not attach an info affordance merely because `History` / `Historie` or `Statistics` / `Statistik` occurs elsewhere.
+- No duplicate page-help icon belongs on drawer/navigation entries, overview labels, settings rows or other repeated occurrences.
+- Generic page-level explanation should absorb generic explanatory copy that would otherwise be repeated lower on the same page.
+- Keep inline text when it is metric-specific, actionable, warning-level or otherwise not covered by page help.
+- Never hide warnings, failures or required actions behind an info control.
 
-For v2.1 Statistics this means the generic explanation of filled bars, dashed edge intervals, KPI inclusion, zero-consumption markers, true gaps and coverage-vs-sync semantics lives in the single Statistics page info dialog. The chart remains visually self-explanatory and the visible coverage line remains concise. Metric-specific caveats for temperature, flow, battery and alarm evidence may remain inline because they are not generic page-help duplication.
+For v2.1 Statistics, the generic explanation of filled bars, dashed edge intervals, KPI inclusion, zero markers, true gaps and coverage-vs-sync semantics belongs in the single Statistics page help dialog. Metric-specific caveats for temperature, flow, battery and alarm evidence may stay inline.
 
 ## Interaction pattern
 
-- Use a small Material info icon associated with the actual page heading or other deliberately chosen concept.
+- Use a small accessible Material info affordance associated with the deliberately chosen page heading/concept.
 - Tapping opens a short context-specific dialog or bottom sheet.
-- The first paragraph answers the immediate question in plain language.
-- Optional secondary text may explain technical reason and consequences.
-- Explanations are localized with the rest of the product UI.
-- The control must be accessible through TalkBack/content descriptions and have a sufficiently large touch target.
-- Do not add info icons to self-evident labels or repeated navigation text merely to create visual consistency.
+- First paragraph answers the immediate question in plain language.
+- Optional secondary text explains technical reason/consequence.
+- Copy is localized with the rest of the UI.
+- Do not add info icons to self-evident or repeated navigation text merely for visual consistency.
 
-## Canonical real timeline / raw meter-clock evidence
+## Canonical real timeline / raw evidence
 
-The normal v2.1 product UI has one canonical real timeline. Archive real time is reconstructed from verified Live/default anchors plus monotonic meter `ON_TIME`, then projected through the persisted per-meter IANA zone. Live real time is the actual acquisition epoch.
+Normal v2.1 has one canonical real timeline.
 
-The raw meter/logger wall clock is preserved source evidence, but it is no longer an equal normal-product time mode. The former global `Local time / Meter time` selector is retired from normal Settings.
+- Live real time = actual acquisition epoch.
+- Archive real time = single newest fully verified Live/default anchor per physical meter + monotonic `ON_TIME`.
+- `ON_TIME` defines native elapsed-time geometry; the active anchor only places that complete geometry on UTC.
+- Raw meter/logger wall clock remains preserved source evidence, not a peer primary product timeline.
+- Unsafe/unavailable reconstruction fails closed rather than silently promoting raw meter time.
 
-Where raw meter/logger time is shown as secondary evidence, explanations should make clear that:
+Where raw meter/logger time is shown, explanations should make clear that the meter clock may drift and that raw time remains available for diagnosis/export/backup.
 
-- the meter's internal wall clock may drift relative to real time;
-- the app does not simply apply today's wall-clock difference retrospectively;
-- archive real time is reconstructed from elapsed `ON_TIME` plus a verified real-time anchor;
-- `ON_TIME` alone is not a civil timestamp and cannot be used without a suitable anchor;
-- unsafe/unavailable reconstruction fails closed rather than silently promoting raw meter time;
-- raw meter/logger time remains available for diagnosis, export and backup.
+## Global date/time presentation
 
-## Global date/time presentation consistency
-
-The v2.1 polish pass uses a repository-wide presentation rule rather than screen-specific punctuation fixes.
-
-Rules:
-
-- when one displayed instant contains both a date and a time, separate them consistently with `date · time`;
-- interval labels use the same convention, e.g. `11.09.2026 · 18:00–19:00`;
-- locale-specific ordering remains authoritative;
-- central locale-aware presentation helpers/hardening are preferred so Overview, History, Statistics, Meter Details, sync/result UI and warnings do not drift apart;
-- raw stored timestamps are never rewritten by this presentation rule;
-- secondary evidence, acquisition timestamps and accessibility descriptions are included where applicable.
+- When one displayed instant contains date and time, separate consistently with `date · time`.
+- Interval labels follow the same convention, e.g. `11.09.2026 · 18:00–19:00`.
+- Locale-specific ordering remains authoritative.
+- Prefer centralized locale-aware presentation helpers across Overview, History, Statistics, Meter Details, sync/result UI and warnings.
+- Raw stored timestamps are never rewritten by presentation formatting.
 
 ## Timezone presentation and selection
 
-For ordinary local display, prefer a recognizable localized zone abbreviation such as `MEZ/MESZ` or `CET/CEST` instead of routinely showing `+01:00/+02:00`.
+For ordinary local display, prefer recognizable localized zone abbreviations such as `MEZ/MESZ` or `CET/CEST`, with enough numeric-offset information retained where a DST fold is genuinely ambiguous.
 
-The per-meter IANA-zone editor follows a constrained-selection product rule:
-
-- do not expose arbitrary free-text persistence in the normal UI;
-- populate the searchable picker from the timezone IDs supported by the running Android runtime (`ZoneId.getAvailableZoneIds()`), with `UTC` available;
-- preselect the meter's currently persisted zone;
-- allow typing to filter/search the supported set;
-- Save succeeds only for an exact member of that supported set and still passes through the canonical `MeterTimeModelStore` validation/persistence path;
-- changing the assigned zone changes only the local-time interpretation and never rewrites raw meter/logger timestamps, `ON_TIME`, canonical occurrence identity or archive payloads.
-
-Additional guardrails:
-
-- the assigned IANA zone remains the actual timezone identity;
-- numeric UTC offset remains diagnostic truth;
-- in a repeated/ambiguous DST fold hour, include enough offset information to distinguish occurrences;
-- never use a friendly abbreviation to erase real occurrence ambiguity;
-- do not invent localized country/city aliases that could obscure the stored IANA ID; the picker may display the canonical IDs directly.
-
-The former release smoke test that depended on deliberately typing an invalid free-text IANA ID is superseded by the stronger normal-product guarantee that unsupported arbitrary IDs cannot be persisted through the picker.
+Per-meter zone selection:
+- populate the searchable picker from runtime-supported `ZoneId.getAvailableZoneIds()` plus `UTC`;
+- preselect the persisted zone;
+- typing filters the supported set;
+- Save succeeds only for an exact supported ID through canonical validation/persistence;
+- arbitrary unsupported free text cannot persist;
+- changing the assigned zone changes only local-time interpretation and never rewrites raw meter/logger timestamps, `ON_TIME`, occurrence identity or archive payloads.
 
 ## Statistics / coverage semantics
-
-A count such as `22 von 24` must not imply missing data when two real physical archive intervals merely overlap civil-window edges.
-
-Current chart contract:
 
 - fully-contained bucket = filled bar and included in selected-window KPIs;
 - partially overlapping real bucket = dashed outline showing the complete measured value as context only, excluded from KPIs;
 - genuine zero bucket = visible baseline marker;
-- missing native bucket = no fabricated bar.
+- missing native bucket = no fabricated bar;
+- concise coverage count describes the selected analytical view and does not by itself prove protocol synchronization completeness.
 
-The Statistics page info explanation covers:
+Do not repeat the generic explanation under every chart when it already exists in page help.
 
-- why fixed physical archive intervals may not align to local calendar boundaries;
-- why edge intervals are not split or prorated;
-- why dashed intervals are shown but excluded from KPIs;
-- the distinction between zero consumption and missing data;
-- that coverage count describes the selected analytical view and does not by itself prove protocol synchronization completeness.
+## Statistics x-axis — implemented shared v2.1 policy
 
-The normal page should therefore show the concise coverage count without repeating the same explanatory paragraph underneath the chart.
+The adaptive x-axis behavior is now implemented centrally in `V2MetricChartView`; it is no longer deferred to a later app version.
 
-## Statistics x-axis ownership
+### Bar charts
 
-Every visible consumption bar must map unambiguously to a period while labels are actually rendered.
+Current bar metrics are consumption and flow. The complete visible label set follows one whole-set policy:
 
-Adaptive label policy:
+1. render all labels horizontally if the complete set fits cleanly;
+2. otherwise rotate the complete set together and reserve enough chart height;
+3. if even rotated text would collide because each slot is too narrow, hide the complete x-axis label set;
+4. never keep an arbitrary mixture by skipping isolated bar labels;
+5. hiding labels changes presentation only — no bucket/value is dropped, merged or aggregated.
 
-1. Use horizontal labels when the complete visible label set fits cleanly.
-2. If horizontal labels no longer fit, rotate the **complete** label set together and reserve enough chart height.
-3. If even the rotated labels would collide because the per-slot horizontal footprint is too small, hide the x-axis period labels for that chart instead of rendering an unreadable text block.
-4. Never keep a partially readable mixture by skipping arbitrary individual bar labels. The transition is whole-set: horizontal -> rotated -> hidden.
-5. The fit decision must be calculated from actual available plot width, visible point/bar count, text metrics/font scale and minimum spacing rather than from a hard-coded number of periods alone.
-6. Hiding labels is presentation-only: no bucket, point, value or period identity may be dropped or aggregated merely to make the axis fit.
-7. Labels describe the actual represented interval/period, including shifted resolved intervals where a compact civil label would be false.
-8. Line charts may thin labels where point ownership remains visually unambiguous, but must also fall back to hiding the label set if remaining labels still collide.
+### Line charts
 
-## Deferred next-version chart-axis audit
+Current line metrics are temperature and battery.
 
-Do not alter the current v2.1 release candidate solely for this deferred audit. In the next app version, perform a repository-wide visual/implementation audit of **every Statistics chart**, not only consumption.
+- label thinning is allowed only when measured spacing keeps the remaining labels non-overlapping and point ownership understandable;
+- choose the smallest fitting thinning step from actual text metrics and plot width;
+- if even the sparsest useful label set collides, hide x-axis labels entirely rather than produce an unreadable text block;
+- line data points and gaps remain unchanged.
 
-The same adaptive x-axis policy must be applied consistently to all relevant metrics, including at minimum consumption, battery, flow, water temperature, ambient temperature and alarm/event views where an x-axis is shown.
+The current alarm metric is a textual event timeline and therefore has no `V2MetricChartView` x-axis to apply this policy to.
 
-Specific acceptance points for that audit:
+### Fit calculation / future metrics
 
-- verify that no metric has a leftover chart-specific x-axis implementation with different rotation/orientation behavior;
-- determine label fit from real chart width, visible item count, measured text/font scale and spacing;
-- use the same whole-set fallback everywhere: horizontal when it fits, rotated/vertical when that fits, and no x-axis labels when even the rotated set would overlap into an unreadable block;
-- never render colliding text just to preserve a nominal one-label-per-bar rule;
-- do not mix horizontal and vertical labels within the same chart state and do not arbitrarily omit isolated bar labels;
-- preserve every underlying data point/bucket when axis labels are hidden;
-- reserve enough chart height when rotated labels are used, but reclaim unnecessary label space when labels are hidden;
-- line-chart label thinning remains allowed only where point ownership stays visually unambiguous; if thinning still collides, hide the remaining x-axis labels;
-- check the real UI for battery and flow in particular, because inconsistent x-axis text orientation was observed there during the v2.1 physical review;
-- explicitly test very long selected ranges, because the failure mode observed on-device is that dense labels merge visually into one continuous block;
-- prefer fixing this in shared chart-axis policy/rendering rather than one metric at a time, and add regression coverage so future metrics inherit the same behavior.
+- decisions use actual available plot width, visible item count, rendered text/font metrics and minimum spacing, not only hard-coded point counts;
+- rotated labels reserve extra height; hidden labels reclaim unnecessary label space;
+- future Statistics chart metrics must reuse the shared renderer/policy rather than implement their own x-axis behavior;
+- a future ambient-temperature or alarm/event chart, if added, must inherit the same contract.
 
-## History `All` — Live delta baseline semantics
+`V2MetricChartAxisPolicyTest` protects horizontal -> rotated -> hidden bar behavior and measured thinning -> hidden line behavior.
 
-In `History → All`, the Live card is part of a mixed chronological timeline. Its consumption delta uses the chronologically nearest trustworthy **earlier archive observation** from the same physical meter as its baseline.
+## History `All` — Live delta baseline
 
-Baseline selection:
+In mixed `History -> All`, a Live card uses the chronologically nearest trustworthy **earlier archive cumulative observation** on the same physical meter as baseline.
 
-1. Consider valid archive observations from Hour, Day and Month together.
-2. Choose the archive observation with the latest canonical time that is still strictly earlier than the Live read.
-3. Do not use a fixed family priority such as Hour > Day > Month; chronology is authoritative.
-4. If no valid earlier archive observation exists, fall back to the immediately previous valid Live observation.
+1. Consider valid Hour, Day and Month archive observations together.
+2. Choose the latest canonical observation that is strictly earlier than the Live read.
+3. Chronology is authoritative; do not use a fixed family priority.
+4. If no archive predecessor exists, fall back to immediately previous valid Live.
 5. If neither exists, do not fabricate a delta.
-6. Never calculate across meter replacement, incompatible meter identity, known conflict or unsafe/unresolved chronology.
+6. Never calculate across meter replacement, incompatible identity, known conflict or unsafe chronology.
 
-The dedicated `Live` filter remains Live-to-Live. Archive cards retain same-family archive-series delta semantics.
+Dedicated Live remains Live-to-Live; archive cards retain same-family archive-series semantics.
+
+## Future Home Assistant source identity presentation rule
+
+`source_record_id` is a source identity, not a display timestamp. The current primitive is `w1:v1:<sha256>` derived from immutable meter-native evidence. Reconstructed UTC/local time must not participate in the ID because a newer verified anchor may legitimately improve the absolute time placement of an unchanged physical occurrence.
+
+Android does not maintain an authoritative already-sent state for HA. A future integration may resend all eligible local records; HA owns idempotence on `source_record_id`.
 
 ## Guardrails
 
-- Explanations describe implemented behavior; they do not paper over incorrect behavior.
-- Primary labels must remain understandable without requiring the dialog for basic correctness.
-- Do not duplicate the same generic help in page body and dialog.
+- Help describes implemented behavior; it does not paper over incorrect behavior.
+- Do not duplicate generic help in page body and dialog.
 - Do not put page-help icons into navigation/drawer/menu repetitions.
 - Never fabricate data to make coverage look complete.
-- Never present a real coverage gap as a time-resolution problem, or vice versa.
-- Never calculate a Live delta across meter replacement or unsafe chronology.
-- Never silently promote raw meter/logger wall-clock to canonical real time.
-- Canonical UTC/archive identity, raw meter evidence and protocol-safety rules remain authoritative.
+- Never present a real native coverage gap as a time-resolution issue or vice versa.
+- Never calculate Live deltas across replacement/unsafe chronology.
+- Never silently promote raw meter/logger wall clock to canonical real time.
+- Hiding x-axis text never changes the underlying data series.
+- Canonical UTC, native occurrence identity, raw evidence and protocol safety remain authoritative.
 
 ## v2.1 implementation status
 
-Current candidate: `67aafb713a0b09d23058b31640ba94bc0353bb21`.
+Current exact candidate: `b38006f9dab270a574d7e08cb9e3785a231a2ef8`.
+
+CI `34715215357`: **SUCCESS**.
 
 Implemented and CI-green:
-
+- single-active-anchor archive projection;
 - mixed History-All Live archive-baseline rule;
-- one-label-per-bar Statistics axis ownership with automatic rotation;
-- centered `date · time` presentation hardening;
+- adaptive shared Statistics x-axis policy for consumption/flow/temperature/battery;
+- centered locale-aware `date · time` presentation;
 - localized timezone abbreviations with DST-fold disambiguation;
-- dashed partial-edge bars and visible zero-consumption markers;
-- History/Statistics contextual help scoped to the actual page heading only;
-- duplicate generic Statistics explanation removed from chart body; concise coverage line retained;
-- searchable device-supported IANA timezone picker replacing arbitrary free-text persistence;
+- dashed partial-edge bars and visible zero markers;
+- History/Statistics help scoped only to actual page headings;
+- duplicate generic Statistics explanation removed from chart body;
+- searchable supported-IANA timezone picker;
+- deterministic `SourceRecordId` primitive for future HA idempotence;
 - six-locale UI/help copy and regression suite.
 
-The adaptive horizontal -> rotated -> hidden x-axis policy is **deferred to the next app version** and is not part of the current v2.1 candidate.
-
-Physical spot-check of the timezone picker and final UI state is still required before the final protected Live regression and release preparation.
+Physical acceptance still required: recheck the previously stretched Hour, check normal and very dense Statistics ranges for label behavior, complete any remaining timezone/help spot-check, then perform final protected normal Live/default NFC regression F before exact signed RC preparation.
