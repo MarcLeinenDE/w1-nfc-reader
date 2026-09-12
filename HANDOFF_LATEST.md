@@ -38,15 +38,15 @@ Active development branch:
 - `dev/v2.1.0-real-time-timeline`
 
 Current exact candidate:
-- commit `a6cd9463abdebe4fdeae710d1005397a87683e0b`
-- Android CI `34704383843`: **SUCCESS**
+- commit `67aafb713a0b09d23058b31640ba94bc0353bb21`
+- Android CI `34705241442`: **SUCCESS**
 - unit/Robolectric suite: **PASS**
 - product translations: **PASS across 6 locales**
 - debug build/signature/hash/artifact upload: **PASS**
 - artifact `w1-nfc-reader-debug`
-- artifact id `10301735560`
-- artifact ZIP SHA-256 `546cef95cd11fd5ab2ef0fb22aab9ddb625c65fa88c7c30f98dfa7c033597b1d`
-- APK SHA-256 `f4a8c422b4b73c1939cfac1683c5efb83320f8088bda2db1eff293308c6d1b37`
+- artifact id `10300648753`
+- artifact ZIP SHA-256 `77e244d729e0f6cca41d59a43f0f2e3624b32af02c066d3219e821164bd64134`
+- APK SHA-256 `ee4ab5f352cef17891c3f1d29bce5d5e120956810df92f127955eb429e470678`
 - artifact independently downloaded/re-hashed; ZIP digest matches GitHub and APK matches `SHA256SUMS.txt`.
 
 Draft PR:
@@ -80,13 +80,7 @@ Protected normal Live NFC read passed on the real Qalcosonic W1. No automatic Hi
 
 ### C — PASS
 
-Confirmed real-device corrections include:
-
-- LOCAL period ownership / DST projection;
-- false warning from empty/out-of-range family;
-- fresh post-History verified time anchor;
-- native-valid statistics bucket across anchor handover;
-- natural-oldest retained boundary no longer causing false warning.
+Confirmed real-device corrections include LOCAL period ownership/DST projection, empty-family false warning, fresh post-History verified time anchor, anchor-handover statistics bucket ownership, and natural-oldest retention handling.
 
 Known physical reproductions:
 - September 2026 Statistics = **10/30** fully-contained Day buckets;
@@ -98,71 +92,56 @@ Known physical reproductions:
 
 Physical product presentation with the single canonical real timeline was accepted. Raw meter/logger time remains secondary evidence.
 
-## 5. Statistics edge presentation — implemented and physically plausible
+## 5. Statistics / History / UI polish — implemented
 
-- fully-contained archive buckets = filled bars and included in selected-window KPIs;
-- partial edge overlaps = dashed outline bars using the complete measured archive delta as context only;
-- partial edge values are never prorated and are excluded from KPIs;
-- genuine zero consumption = visible baseline marker;
-- native gaps remain gaps;
-- coverage wording says **fully contained**.
+- fully-contained Statistics buckets = filled bars and included in selected-window KPIs;
+- partial edge overlaps = dashed outline bars using the complete measured archive delta as context only, never prorated and excluded from KPIs;
+- genuine zero consumption = visible baseline marker; native gaps remain gaps;
+- History -> All Live delta uses the chronologically nearest trustworthy earlier archive cumulative reading on the same meter across Hour/Day/Month; fallback to previous Live only if no earlier archive exists;
+- dedicated Live filter remains Live-to-Live; archive cards remain same-family;
+- one visible bar = one centered x-axis label; dense bar charts rotate the complete label set instead of skipping labels;
+- user-facing combined date/time follows locale-aware `date · time`;
+- ordinary local display prefers localized zone abbreviations, with DST-fold numeric disambiguation where necessary;
+- History/Statistics page help is scoped to the actual page heading only, not drawer/menu repetitions;
+- generic Statistics help is consolidated in the page info dialog; metric-specific caveats stay inline.
 
-User spot-checks showed the presentation basically functioning as intended.
+## 6. Timezone editor — searchable supported-zone picker
 
-## 6. Combined History / UI polish — implemented
+The former free-text IANA timezone editor is retired from the normal product UI.
 
-### History -> All Live baseline
+Current behavior:
 
-Only in mixed **History -> All**, a visible Live card uses the chronologically nearest trustworthy earlier archive cumulative reading from the same physical meter, across Hour/Day/Month. If none exists, it falls back to the previous valid Live read. Dedicated Live filter stays Live-to-Live; archive cards retain same-family semantics.
+- Meter Details loads the runtime-supported timezone IDs from `ZoneId.getAvailableZoneIds()` and includes `UTC`;
+- the list is sorted and shown through a searchable Material exposed dropdown;
+- the current persisted zone is preselected;
+- typing filters the choices, but Save accepts only an exact ID from the runtime-supported set;
+- arbitrary unsupported/free-text IDs cannot be persisted through the normal UI;
+- the selected ID is still normalized and persisted through `MeterTimeModelStore.setZone(..., ZONE_SOURCE_USER_SELECTED, ...)`;
+- changing the presentation zone never rewrites raw meter/logger evidence or archive data.
 
-### Statistics x-axis ownership
+Regression `MeterDetailsTimeZoneUiTest` protects the dropdown/list-only product contract and verifies no archive/history write path is involved.
 
-- one visible bar = one centered x-axis label;
-- dense bar charts rotate all labels together instead of skipping labels;
-- chart reserves sufficient height for rotated labels.
-
-### Date/time and timezone presentation
-
-- shared locale-aware `date · time` convention;
-- ordinary local display prefers localized zone abbreviations such as `MEZ/MESZ` or `CET/CEST`;
-- ambiguous DST-fold occurrences retain enough numeric offset information for disambiguation.
-
-### Contextual help — corrected after physical UI review
-
-Candidate `e696788...` functionally worked but over-applied info affordances because word matching attached icons to repeated `Historie` / `Statistik` occurrences, including drawer/navigation labels.
-
-Current candidate `a6cd946...` fixes that:
-
-- **History info appears only on the actual History page heading.**
-- **Statistics info appears only on the actual Statistics page heading.**
-- No info icon is added merely because `Historie` or `Statistik` appears in drawer/menu/overview/settings text.
-- The generic Statistics explanation that duplicated the info dialog is removed from the chart body.
-- The visible coverage line is shortened to the count only; its generic coverage-vs-sync explanation is moved into the Statistics info dialog.
-- Metric-specific caveats for temperature, flow, battery and alarms remain inline because they contain information not duplicated by the generic page help.
-- The earlier extra Meter Details time-model icon injection is no longer part of the generic hardening path.
-
-All six product locales contain the consolidated help copy.
+This supersedes the old Section E smoke test that deliberately entered an invalid free-text IANA ID. The stronger product contract is now that the normal UI does not offer a path to persist such an invalid ID.
 
 ## 7. Current candidate change boundary
 
-Compared with the previous combined polish candidate, the current cleanup touches only downstream presentation/help resources:
+Compared with the previously physically spot-checked product behavior, the timezone-picker change touches only:
 
-- `ProductUiHardening.java`
-- six localized `v21_polish_strings.xml` files.
+- `MeterDetailsActivity.java`;
+- six localized `v2_meter_timezone_strings.xml` files;
+- `MeterDetailsTimeZoneUiTest.java`.
 
 Protected `QalcosonicReader.java`, `MbusParser.java` and validated archive traversal/state-machine behavior remain untouched.
 
-## 8. Remaining physical checks on `a6cd946...`
+## 8. Remaining physical checks on `67aafb7...`
 
-No History sync is required for the UI check.
+No History sync or NFC contact is required for the UI checks.
 
-1. Open the hamburger drawer: **no info icons** beside History/Statistics navigation entries.
-2. Open History: exactly one info affordance on the History page heading; no duplicated generic help lower on the page.
-3. Open Statistics: exactly one info affordance on the Statistics page heading; generic bar/coverage explanatory paragraph is not repeated under the chart; concise coverage count remains.
-4. Confirm metric-specific caveats still appear where useful for temperature/flow/battery/alarms.
-5. Quick regression spot-check: History-All delta, statistics bars/labels and `date · time` remain intact.
-6. **E — invalid timezone smoke**: invalid IANA value must be rejected without changing the existing valid zone.
-7. **F — final protected Live regression**: exactly one normal Live/default NFC read; no automatic History sync, no archive-state leak, no protocol regression.
+1. Confirm the earlier help-density cleanup remains correct: no drawer/menu info-icon duplicates; one page-level info affordance on History and Statistics; no duplicated generic Statistics paragraph.
+2. Meter Details -> Time zone: tapping the row opens the searchable dropdown; current zone is preselected; typing e.g. `Berlin` filters to matching supported IDs; selecting `Europe/Berlin` and saving works.
+3. Confirm an arbitrary unsupported typed value cannot be saved and the current valid zone is not replaced. This is optional defensive UI confirmation rather than the old free-text product flow.
+4. Quick regression spot-check: History-All delta, Statistics bars/labels, `date · time` and zone display remain intact.
+5. **F — final protected Live regression**: exactly one normal Live/default NFC read; no automatic History sync, no archive-state leak, no protocol regression.
 
 ## 9. Safety boundary
 
@@ -188,7 +167,7 @@ Do **not** yet:
 - merge PR #22;
 - create/move a v2.1.0 tag or release.
 
-First physically confirm the reduced help density, then pass E and F. After that prepare version metadata/changelog/release notes and the exact signed v2.1.0 RC, and physically accept that exact RC before publication.
+First physically confirm the timezone picker and final UI state, then perform F. After that prepare version metadata/changelog/release notes and the exact signed v2.1.0 RC, and physically accept that exact RC before publication.
 
 ## 11. Private research authority
 
@@ -203,4 +182,4 @@ Never publish private meter IDs, consumption data, captures, backup payloads or 
 
 ## Next action
 
-Install exact CI-green candidate `a6cd9463abdebe4fdeae710d1005397a87683e0b`. Verify only the reduced help density and that no presentation regression was introduced. Then pass E and exactly one final protected Live/default NFC read for F. Keep PR #22 Draft; do not bump/merge/release v2.1 yet.
+Install exact CI-green candidate `67aafb713a0b09d23058b31640ba94bc0353bb21`. Verify the searchable supported-zone picker and quick UI regressions without History sync/NFC. Then perform exactly one final protected Live/default NFC read for F. Keep PR #22 Draft; do not bump/merge/release v2.1 yet.
