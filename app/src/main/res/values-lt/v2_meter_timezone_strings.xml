@@ -8,8 +8,8 @@
     <string name="v21_meter_timezone_source_user">Pasirinkta rankiniu būdu</string>
     <string name="v21_meter_timezone_note">Naudojama vietiniam laikui istorijoje ir statistikoje. Pakeitimas nekeičia neapdorotų skaitiklio duomenų.</string>
     <string name="v21_meter_timezone_edit">Keisti skaitiklio laiko juostą</string>
-    <string name="v21_meter_timezone_dialog_message">Įveskite IANA laiko juostą, pvz., Europe/Berlin. Keičiamas tik vietinio laiko interpretavimas; neapdorotos skaitiklio/logger laiko žymos lieka nepakeistos.</string>
-    <string name="v21_meter_timezone_hint">Europe/Berlin</string>
+    <string name="v21_meter_timezone_dialog_message">Pasirinkite arba ieškokite šio įrenginio palaikomos IANA laiko juostos. Keičiamas tik vietinio laiko interpretavimas; neapdorotos skaitiklio/logger laiko žymos lieka nepakeistos.</string>
+    <string name="v21_meter_timezone_hint">Ieškoti laiko juostos</string>
     <string name="v21_meter_timezone_save">Išsaugoti</string>
-    <string name="v21_meter_timezone_invalid">Įveskite galiojančią IANA laiko juostą.</string>
+    <string name="v21_meter_timezone_invalid">Pasirinkite laiko juostą iš palaikomo sąrašo.</string>
 </resources>
