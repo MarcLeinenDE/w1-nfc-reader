@@ -19,6 +19,7 @@ import java.util.Locale;
 /** Theme-aware chart for the v2 Statistics metrics. Supports negative values and line gaps. */
 final class V2MetricChartView extends View {
     enum Mode { BARS, LINE }
+    enum AxisLabelMode { HORIZONTAL, ROTATED, HIDDEN }
 
     static final class Entry {
         final String label;
@@ -75,12 +76,14 @@ final class V2MetricChartView extends View {
         if (mode == Mode.BARS && !entries.isEmpty()) {
             textPaint.setTextSize(sp(9));
             float plotWidth = Math.max(1f, width - dp(62));
-            float slot = plotWidth / Math.max(1, entries.size());
-            if (shouldRotateBarLabels(slot)) {
-                extraForLabels = Math.max(0, Math.round(barLabelReserve(true) - dp(44)));
+            AxisLabelMode labelMode = barAxisLabelMode(plotWidth);
+            if (labelMode == AxisLabelMode.ROTATED) {
+                extraForLabels = Math.max(0,
+                        Math.round(barLabelReserve(labelMode) - dp(44)));
             }
         }
-        int desired = dp(250 + Math.round(Math.max(0f, fontScale - 1f) * 100f)) + extraForLabels;
+        int desired = dp(250 + Math.round(Math.max(0f, fontScale - 1f) * 100f))
+                + extraForLabels;
         setMeasuredDimension(width, resolveSize(desired, heightMeasureSpec));
     }
 
@@ -93,10 +96,15 @@ final class V2MetricChartView extends View {
         int secondary = MaterialColors.getColor(this, com.google.android.material.R.attr.colorSecondary);
 
         float left = dp(52), right = getWidth() - dp(10), top = dp(18);
+        float plotWidth = Math.max(1f, right - left);
         textPaint.setTextSize(sp(9));
-        float slot = (right - left) / Math.max(1, entries.size());
-        boolean rotateBarLabels = mode == Mode.BARS && shouldRotateBarLabels(slot);
-        float bottomReserve = mode == Mode.BARS ? barLabelReserve(rotateBarLabels) : dp(44);
+        AxisLabelMode barLabelMode = mode == Mode.BARS
+                ? barAxisLabelMode(plotWidth)
+                : AxisLabelMode.HIDDEN;
+        int lineLabelStep = mode == Mode.LINE ? lineLabelStep(plotWidth) : 0;
+        float bottomReserve = mode == Mode.BARS
+                ? barLabelReserve(barLabelMode)
+                : (lineLabelStep > 0 ? dp(44) : dp(24));
         float bottom = getHeight() - bottomReserve;
         if (right <= left || bottom <= top) return;
 
@@ -146,14 +154,17 @@ final class V2MetricChartView extends View {
             canvas.drawText(formatTick(tick), left - dp(6), y + dp(3), textPaint);
         }
 
-        if (mode == Mode.LINE) drawLine(canvas, left, right, top, bottom, min, max, primary, muted);
-        else drawBars(canvas, left, right, top, bottom, min, max, primary, secondary, muted,
-                rotateBarLabels);
+        if (mode == Mode.LINE) {
+            drawLine(canvas, left, right, top, bottom, min, max, primary, muted, lineLabelStep);
+        } else {
+            drawBars(canvas, left, right, top, bottom, min, max, primary, secondary, muted,
+                    barLabelMode);
+        }
     }
 
     private void drawBars(Canvas canvas, float left, float right, float top, float bottom,
                           double min, double max, int primary, int secondary, int muted,
-                          boolean rotateLabels) {
+                          AxisLabelMode labelMode) {
         float width = right - left;
         float slot = width / Math.max(1, entries.size());
         float barWidth = Math.max(dp(4), Math.min(dp(28), slot * 0.62f));
@@ -188,17 +199,18 @@ final class V2MetricChartView extends View {
             }
             paint.setPathEffect(null);
 
-            // Every visible bar gets exactly one axis label centred on the same slot. When labels no
-            // longer fit horizontally, rotate all bar labels together. This preserves an unambiguous
-            // one-bar/one-period mapping instead of skipping labels and making ownership guesswork.
-            if (rotateLabels) {
+            // Axis labels use one central policy for every bar metric: horizontal while the complete
+            // set fits, then rotate the complete set together, and finally hide the complete set if
+            // even rotated glyph rows would collide into an unreadable text block. Data/bars are
+            // never dropped or aggregated merely to make labels fit.
+            if (labelMode == AxisLabelMode.ROTATED) {
                 canvas.save();
                 float labelTop = bottom + dp(8);
                 canvas.rotate(90f, cx, labelTop);
                 textPaint.setTextAlign(Paint.Align.LEFT);
                 canvas.drawText(entry.label, cx, labelTop + dp(3), textPaint);
                 canvas.restore();
-            } else {
+            } else if (labelMode == AxisLabelMode.HORIZONTAL) {
                 textPaint.setTextAlign(Paint.Align.CENTER);
                 canvas.drawText(entry.label, cx, bottom + dp(20), textPaint);
             }
@@ -206,10 +218,9 @@ final class V2MetricChartView extends View {
     }
 
     private void drawLine(Canvas canvas, float left, float right, float top, float bottom,
-                          double min, double max, int primary, int muted) {
+                          double min, double max, int primary, int muted, int labelStep) {
         float width = right - left;
         float slot = entries.size() <= 1 ? 0f : width / (entries.size() - 1f);
-        int labelStep = labelStep(entries.size());
         textPaint.setTextAlign(Paint.Align.CENTER);
         textPaint.setTextSize(sp(9));
         textPaint.setColor(muted);
@@ -226,7 +237,9 @@ final class V2MetricChartView extends View {
             if (connect) path.lineTo(x, y); else path.moveTo(x, y);
             pathStarted = true;
             previousSegment = entry.segment;
-            if (showLabel(i, labelStep)) canvas.drawText(entry.label, x, bottom + dp(20), textPaint);
+            if (labelStep > 0 && showLabel(i, labelStep)) {
+                canvas.drawText(entry.label, x, bottom + dp(20), textPaint);
+            }
         }
         paint.setPathEffect(null);
         paint.setColor(primary);
@@ -243,30 +256,75 @@ final class V2MetricChartView extends View {
         }
     }
 
-    private boolean shouldRotateBarLabels(float slot) {
-        if (entries.size() <= 1) return false;
-        float maxWidth = 0f;
+    AxisLabelMode barAxisLabelMode(float plotWidth) {
+        if (entries.isEmpty()) return AxisLabelMode.HIDDEN;
         textPaint.setTextSize(sp(9));
-        for (Entry entry : entries) maxWidth = Math.max(maxWidth, textPaint.measureText(entry.label));
-        return entries.size() > 7 || maxWidth > Math.max(dp(24), slot * 0.88f);
+        float safeWidth = Math.max(1f, plotWidth);
+        float slot = safeWidth / Math.max(1, entries.size());
+        float maxWidth = 0f;
+        for (Entry entry : entries) {
+            maxWidth = Math.max(maxWidth, textPaint.measureText(entry.label));
+        }
+
+        if (entries.size() == 1) {
+            return maxWidth + dp(8) <= safeWidth
+                    ? AxisLabelMode.HORIZONTAL
+                    : AxisLabelMode.HIDDEN;
+        }
+        if (maxWidth + dp(8) <= slot) return AxisLabelMode.HORIZONTAL;
+
+        Paint.FontMetrics metrics = textPaint.getFontMetrics();
+        float rotatedThickness = metrics.descent - metrics.ascent;
+        return rotatedThickness + dp(4) <= slot
+                ? AxisLabelMode.ROTATED
+                : AxisLabelMode.HIDDEN;
     }
 
-    private float barLabelReserve(boolean rotated) {
-        if (!rotated) return dp(44);
+    private float barLabelReserve(AxisLabelMode labelMode) {
+        if (labelMode == AxisLabelMode.HIDDEN) return dp(24);
+        if (labelMode == AxisLabelMode.HORIZONTAL) return dp(44);
         textPaint.setTextSize(sp(9));
         float maxWidth = 0f;
         for (Entry entry : entries) maxWidth = Math.max(maxWidth, textPaint.measureText(entry.label));
         return Math.min(dp(132), Math.max(dp(72), maxWidth + dp(18)));
     }
 
+    /**
+     * Returns the smallest readable thinning step for line labels, or 0 when even the sparsest
+     * first/last label set collides. Unlike the old count-only rule this uses actual plot width,
+     * rendered label widths and current font scaling.
+     */
+    int lineLabelStep(float plotWidth) {
+        if (entries.isEmpty()) return 0;
+        textPaint.setTextSize(sp(9));
+        float safeWidth = Math.max(1f, plotWidth);
+        if (entries.size() == 1) {
+            return textPaint.measureText(entries.get(0).label) + dp(8) <= safeWidth ? 1 : 0;
+        }
+        for (int step = 1; step < entries.size(); step++) {
+            if (lineLabelsFit(safeWidth, step)) return step;
+        }
+        return 0;
+    }
+
+    private boolean lineLabelsFit(float plotWidth, int step) {
+        float slot = plotWidth / (entries.size() - 1f);
+        float previousRight = Float.NEGATIVE_INFINITY;
+        float minimumGap = dp(6);
+        for (int i = 0; i < entries.size(); i++) {
+            if (!showLabel(i, step)) continue;
+            float x = slot * i;
+            float halfWidth = textPaint.measureText(entries.get(i).label) / 2f;
+            float currentLeft = x - halfWidth;
+            if (currentLeft < previousRight + minimumGap) return false;
+            previousRight = x + halfWidth;
+        }
+        return true;
+    }
+
     private float valueY(double value, float top, float bottom, double min, double max) {
         double fraction = (value - min) / (max - min);
         return bottom - (float) fraction * (bottom - top);
-    }
-
-    private int labelStep(int size) {
-        if (size <= 7) return 1;
-        return (int) Math.ceil((size - 1) / 6.0);
     }
 
     private boolean showLabel(int index, int step) {
