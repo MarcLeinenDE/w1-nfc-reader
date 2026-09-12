@@ -189,7 +189,10 @@ final class HistoryStatisticsAnalytics {
         Map<String, BucketAccumulator> buckets = new TreeMap<>();
         if (observations != null) {
             for (HistoryStatisticsRepository.Observation observation : observations) {
-                if (observation == null || observation.contextOnly) continue;
+                if (observation == null) continue;
+                boolean partialEdge = partialIntervalContext(observation);
+                if (observation.contextOnly && !partialEdge) continue;
+
                 Delta delta = deltas.get(observation.identity);
                 if (delta == null || delta.consumptionM3 == null || delta.previous == null) continue;
 
@@ -212,23 +215,27 @@ final class HistoryStatisticsAnalytics {
                         ignored -> new BucketAccumulator(bucketTimestamp, observation.granularity, meter));
                 bucket.value += delta.consumptionM3;
                 bucket.count++;
+                bucket.partial = bucket.partial || partialEdge;
             }
         }
 
         List<MetricPoint> points = new ArrayList<>();
         double total = 0.0;
+        int fullBuckets = 0;
         Double max = null, min = null;
         String maxAt = null, minAt = null;
         for (BucketAccumulator bucket : buckets.values()) {
-            points.add(new MetricPoint(bucket.timestamp, bucket.value, false, bucket.segment,
+            points.add(new MetricPoint(bucket.timestamp, bucket.value, bucket.partial, bucket.segment,
                     bucket.granularity));
+            if (bucket.partial) continue;
+            fullBuckets++;
             total += bucket.value;
             if (max == null || bucket.value > max) { max = bucket.value; maxAt = bucket.timestamp; }
             if (min == null || bucket.value < min) { min = bucket.value; minAt = bucket.timestamp; }
         }
-        Double totalValue = points.isEmpty() ? null : total;
-        Double average = points.isEmpty() ? null : total / points.size();
-        return new ConsumptionSummary(points, totalValue, average, max, maxAt, min, minAt, points.size());
+        Double totalValue = fullBuckets == 0 ? null : total;
+        Double average = fullBuckets == 0 ? null : total / fullBuckets;
+        return new ConsumptionSummary(points, totalValue, average, max, maxAt, min, minAt, fullBuckets);
     }
 
     static TemperatureSummary temperature(List<HistoryStatisticsRepository.Observation> observations) {
@@ -348,6 +355,17 @@ final class HistoryStatisticsAnalytics {
     }
 
     /**
+     * A statistics edge interval is deliberately carried as contextOnly while retaining a resolved
+     * interval token. Pure predecessor context uses a boundary token and must never become a chart
+     * point. This distinction lets charts show measured overlaps without polluting KPIs.
+     */
+    private static boolean partialIntervalContext(HistoryStatisticsRepository.Observation observation) {
+        if (observation == null || !observation.contextOnly) return false;
+        HistoryResolvedTimeToken.Parsed resolved = HistoryResolvedTimeToken.parse(observation.timestamp);
+        return resolved != null && resolved.interval;
+    }
+
+    /**
      * Raw METER observations still need their predecessor boundary converted to the period start.
      * A resolved LOCAL observation already is an explicit interval, so that interval itself must
      * survive into charts/KPIs; reducing it to its start boundary loses ownership and can relabel a
@@ -387,6 +405,7 @@ final class HistoryStatisticsAnalytics {
         final String segment;
         double value;
         int count;
+        boolean partial;
 
         BucketAccumulator(String timestamp, HistorySemanticTimeline.Granularity granularity,
                           String segment) {
