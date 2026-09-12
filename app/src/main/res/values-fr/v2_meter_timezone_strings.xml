@@ -8,8 +8,8 @@
     <string name="v21_meter_timezone_source_user">Sélectionné manuellement</string>
     <string name="v21_meter_timezone_note">Utilisé pour l’heure locale dans l’historique et les statistiques. Une modification ne change pas les données brutes du compteur.</string>
     <string name="v21_meter_timezone_edit">Modifier le fuseau horaire du compteur</string>
-    <string name="v21_meter_timezone_dialog_message">Saisissez un fuseau horaire IANA tel que Europe/Berlin. Seule l’interprétation de l’heure locale change ; les horodatages bruts du compteur/logger restent inchangés.</string>
-    <string name="v21_meter_timezone_hint">Europe/Berlin</string>
+    <string name="v21_meter_timezone_dialog_message">Sélectionnez ou recherchez un fuseau horaire IANA pris en charge par cet appareil. Seule l’interprétation de l’heure locale change ; les horodatages bruts du compteur/logger restent inchangés.</string>
+    <string name="v21_meter_timezone_hint">Rechercher un fuseau horaire</string>
     <string name="v21_meter_timezone_save">Enregistrer</string>
-    <string name="v21_meter_timezone_invalid">Saisissez un fuseau horaire IANA valide.</string>
+    <string name="v21_meter_timezone_invalid">Sélectionnez un fuseau horaire dans la liste prise en charge.</string>
 </resources>
