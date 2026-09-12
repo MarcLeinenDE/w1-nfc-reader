@@ -16,13 +16,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Durable per-meter timezone and verified Live-anchor state for the v2.1 real-time model.
- *
- * <p>This store is intentionally not wired into NFC acquisition yet. It first establishes a
- * testable persistence contract; portability wiring must land before production code starts
- * creating user-owned records here.</p>
- */
+/** Durable per-meter timezone and single active verified Live-anchor state for v2.1 real time. */
 final class MeterTimeModelStore extends SQLiteOpenHelper {
     static final String DB_NAME = "meter_time.db";
     static final int DB_VERSION = 1;
@@ -118,6 +112,11 @@ final class MeterTimeModelStore extends SQLiteOpenHelper {
         }
     }
 
+    /**
+     * Records the newest verified Live/default anchor as the one active anchor for this meter.
+     * Older rows from previous app versions are collapsed transactionally on the next write.
+     * A backwards ON_TIME is an invariant violation and never replaces the active anchor.
+     */
     long recordAnchor(
             VerifiedLiveTimeAnchor anchor,
             String provenance,
@@ -127,49 +126,76 @@ final class MeterTimeModelStore extends SQLiteOpenHelper {
         }
         String source = requireText(provenance, "provenance");
         String state = requireText(validation, "validation");
-        ContentValues values = new ContentValues();
-        values.put("meter_id", anchor.meterId);
-        values.put("read_before_epoch_ms", anchor.readBeforeEpochMs);
-        values.put("read_after_epoch_ms", anchor.readAfterEpochMs);
-        values.put("anchor_epoch_ms", anchor.anchorEpochMs);
-        values.put("uncertainty_ms", anchor.uncertaintyMs);
-        values.put("raw_meter_wall_clock", anchor.rawMeterWallClock);
-        put(values, "raw_type_f_hex", anchor.rawTypeFHex);
-        values.put("type_f_iv", anchor.invalidTime ? 1 : 0);
-        values.put("type_f_su", anchor.summerTime ? 1 : 0);
-        values.put("on_time_seconds", anchor.onTimeSeconds);
-        values.put("provenance", source);
-        values.put("validation", state);
-        long id = getWritableDatabase().insertWithOnConflict(
-                TABLE_ANCHORS, null, values, SQLiteDatabase.CONFLICT_IGNORE);
-        if (id != -1L) return id;
-        AnchorRecord existing = findAnchor(
-                anchor.meterId, anchor.anchorEpochMs, anchor.onTimeSeconds, anchor.rawMeterWallClock);
-        if (existing == null) throw new IllegalStateException("anchor insert ignored without existing row");
-        return existing.id;
+        AnchorRecord candidate = new AnchorRecord(
+                -1L,
+                anchor.meterId,
+                anchor.readBeforeEpochMs,
+                anchor.readAfterEpochMs,
+                anchor.anchorEpochMs,
+                anchor.uncertaintyMs,
+                anchor.rawMeterWallClock,
+                anchor.rawTypeFHex,
+                anchor.invalidTime,
+                anchor.summerTime,
+                anchor.onTimeSeconds,
+                source,
+                state);
+
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            AnchorRecord existing = latestAnchor(db, anchor.meterId);
+            if (existing != null && candidate.onTimeSeconds < existing.onTimeSeconds) {
+                throw new IllegalArgumentException("verified anchor ON_TIME moved backwards");
+            }
+            if (existing != null && !newerThan(candidate, existing)) {
+                pruneOtherAnchors(db, anchor.meterId, existing.id);
+                db.setTransactionSuccessful();
+                return existing.id;
+            }
+
+            db.delete(TABLE_ANCHORS, "meter_id=?", new String[]{anchor.meterId});
+            long id = db.insertOrThrow(TABLE_ANCHORS, null, candidate.valuesWithoutId());
+            db.setTransactionSuccessful();
+            return id;
+        } finally {
+            db.endTransaction();
+        }
     }
 
     AnchorRecord latestAnchor(String meterId) {
         if (meterId == null || meterId.trim().isEmpty()) return null;
-        try (Cursor c = getReadableDatabase().query(
-                TABLE_ANCHORS, anchorProjection(), "meter_id=?", new String[]{meterId.trim()},
-                null, null, "anchor_epoch_ms DESC,id DESC", "1")) {
-            return c.moveToFirst() ? readAnchor(c) : null;
-        }
+        return latestAnchor(getReadableDatabase(), meterId.trim());
     }
 
+    /**
+     * Returns only active anchors. Old databases may physically contain historical anchor rows, but
+     * they are intentionally hidden from projection/export and are pruned on the next anchor write.
+     */
     List<AnchorRecord> anchors(String meterId) {
         List<AnchorRecord> out = new ArrayList<>();
-        String selection = null;
-        String[] args = null;
+        SQLiteDatabase db = getReadableDatabase();
         if (meterId != null && !meterId.trim().isEmpty()) {
-            selection = "meter_id=?";
-            args = new String[]{meterId.trim()};
+            AnchorRecord active = latestAnchor(db, meterId.trim());
+            if (active != null) out.add(active);
+            return out;
         }
-        try (Cursor c = getReadableDatabase().query(
-                TABLE_ANCHORS, anchorProjection(), selection, args,
-                null, null, "meter_id,anchor_epoch_ms,id")) {
-            while (c.moveToNext()) out.add(readAnchor(c));
+
+        String previousMeter = null;
+        try (Cursor c = db.query(
+                TABLE_ANCHORS,
+                anchorProjection(),
+                null,
+                null,
+                null,
+                null,
+                "meter_id,on_time_seconds DESC,anchor_epoch_ms DESC,id DESC")) {
+            while (c.moveToNext()) {
+                AnchorRecord candidate = readAnchor(c);
+                if (candidate.meterId.equals(previousMeter)) continue;
+                out.add(candidate);
+                previousMeter = candidate.meterId;
+            }
         }
         return out;
     }
@@ -213,7 +239,7 @@ final class MeterTimeModelStore extends SQLiteOpenHelper {
         }
     }
 
-    /** Merge rule: existing per-meter zone wins on conflict; immutable anchor evidence is additive. */
+    /** Merge rule: existing per-meter zone wins; newest active anchor wins per physical meter. */
     void mergeJson(JSONObject root) throws JSONException {
         validateJson(root);
         SQLiteDatabase db = getWritableDatabase();
@@ -255,26 +281,63 @@ final class MeterTimeModelStore extends SQLiteOpenHelper {
         JSONArray importedProfiles = root.getJSONArray("profiles");
         for (int i = 0; i < importedProfiles.length(); i++) {
             Profile profile = Profile.fromJson(importedProfiles.getJSONObject(i));
-            if (getProfile(profile.meterId) != null) continue;
-            ContentValues values = profile.values();
-            db.insertOrThrow(TABLE_PROFILES, null, values);
+            if (profileExists(db, profile.meterId)) continue;
+            db.insertOrThrow(TABLE_PROFILES, null, profile.values());
         }
         JSONArray importedAnchors = root.getJSONArray("anchors");
         for (int i = 0; i < importedAnchors.length(); i++) {
-            AnchorRecord anchor = AnchorRecord.fromJson(importedAnchors.getJSONObject(i));
-            db.insertWithOnConflict(
-                    TABLE_ANCHORS, null, anchor.valuesWithoutId(), SQLiteDatabase.CONFLICT_IGNORE);
+            mergeActiveAnchorInTransaction(db,
+                    AnchorRecord.fromJson(importedAnchors.getJSONObject(i)));
         }
     }
 
-    private AnchorRecord findAnchor(
-            String meterId, long anchorEpochMs, long onTimeSeconds, String rawWallClock) {
-        try (Cursor c = getReadableDatabase().query(
-                TABLE_ANCHORS, anchorProjection(),
-                "meter_id=? AND anchor_epoch_ms=? AND on_time_seconds=? AND raw_meter_wall_clock=?",
-                new String[]{meterId, Long.toString(anchorEpochMs), Long.toString(onTimeSeconds), rawWallClock},
-                null, null, null, "1")) {
+    private void mergeActiveAnchorInTransaction(SQLiteDatabase db, AnchorRecord candidate) {
+        AnchorRecord existing = latestAnchor(db, candidate.meterId);
+        if (existing != null && !newerThan(candidate, existing)) {
+            pruneOtherAnchors(db, candidate.meterId, existing.id);
+            return;
+        }
+        db.delete(TABLE_ANCHORS, "meter_id=?", new String[]{candidate.meterId});
+        db.insertOrThrow(TABLE_ANCHORS, null, candidate.valuesWithoutId());
+    }
+
+    private static boolean newerThan(AnchorRecord candidate, AnchorRecord existing) {
+        if (candidate.onTimeSeconds != existing.onTimeSeconds) {
+            return candidate.onTimeSeconds > existing.onTimeSeconds;
+        }
+        if (candidate.anchorEpochMs != existing.anchorEpochMs) {
+            return candidate.anchorEpochMs > existing.anchorEpochMs;
+        }
+        if (candidate.uncertaintyMs != existing.uncertaintyMs) {
+            return candidate.uncertaintyMs < existing.uncertaintyMs;
+        }
+        return false;
+    }
+
+    private static void pruneOtherAnchors(SQLiteDatabase db, String meterId, long keepId) {
+        db.delete(TABLE_ANCHORS,
+                "meter_id=? AND id<>?",
+                new String[]{meterId, Long.toString(keepId)});
+    }
+
+    private static AnchorRecord latestAnchor(SQLiteDatabase db, String meterId) {
+        try (Cursor c = db.query(
+                TABLE_ANCHORS,
+                anchorProjection(),
+                "meter_id=?",
+                new String[]{meterId},
+                null,
+                null,
+                "on_time_seconds DESC,anchor_epoch_ms DESC,id DESC",
+                "1")) {
             return c.moveToFirst() ? readAnchor(c) : null;
+        }
+    }
+
+    private static boolean profileExists(SQLiteDatabase db, String meterId) {
+        try (Cursor c = db.query(TABLE_PROFILES, new String[]{"meter_id"},
+                "meter_id=?", new String[]{meterId}, null, null, null, "1")) {
+            return c.moveToFirst();
         }
     }
 
