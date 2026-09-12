@@ -42,9 +42,6 @@ public final class HistoryLocalArchiveCalendarRegressionTest {
         assertTrue(HistoryResolvedTimeToken.adjacent(
                 previous, anchorHandoverShifted, HistorySemanticTimeline.Granularity.DAY));
 
-        // Native duration/missing-record validation now belongs to ArchiveUtcProjection where the
-        // consecutive ON_TIME evidence still exists. The resolved token intentionally carries only
-        // occurrence-safe UTC continuity + zone identity; see ArchiveAnchorHandoverRegressionTest.
         String disconnected = HistoryResolvedTimeToken.boundary(start - 1L, BERLIN);
         assertFalse(HistoryResolvedTimeToken.adjacent(
                 disconnected, nominal, HistorySemanticTimeline.Granularity.DAY));
@@ -121,8 +118,8 @@ public final class HistoryLocalArchiveCalendarRegressionTest {
                 Locale.GERMANY, HistorySemanticTimeline.Granularity.MONTH, month);
         assertTrue(monthLabel.contains("28.02.2026"));
         assertTrue(monthLabel.contains("01.04.2026"));
-        assertTrue(monthLabel.contains("+01:00"));
-        assertTrue(monthLabel.contains("+02:00"));
+        assertTrue(monthLabel.contains("MEZ"));
+        assertTrue(monthLabel.contains("MESZ"));
         assertEquals(monthLabel, HistoryTimePresentation.formatFloatingPrimary(
                 Locale.GERMANY, HistorySemanticTimeline.Granularity.MONTH, month));
 
