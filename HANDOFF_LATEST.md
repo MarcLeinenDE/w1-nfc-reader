@@ -10,25 +10,25 @@ Read strictly in this order before changing implementation:
 
 1. `HANDOFF_LATEST.md` on `handoff/v2.1.0-current`
 2. `CURRENT_STATE.json` on `handoff/v2.1.0-current`
-3. `docs/product-decisions/v2.1-canonical-real-time-product-timeline.md` on `dev/v2.1.0-real-time-timeline`
-4. `docs/V2_1_CANONICAL_REAL_TIME_VALIDATION_ADDENDUM.md` on `dev/v2.1.0-real-time-timeline`
-5. `docs/V2_1_TIME_MODEL_IMPLEMENTATION.md` on `dev/v2.1.0-real-time-timeline`
-6. `docs/V2_1_REAL_DEVICE_VALIDATION.md` on `dev/v2.1.0-real-time-timeline` — old Section D is superseded by the canonical-real-time addendum
-7. `docs/product-decisions/v2.1-real-time-timeline-and-coverage.md` on `main`
-8. `docs/V2_ARCHIVE_PERIOD_SEMANTICS.md`
-9. `docs/V2_HISTORY_NAVIGATION_FILTERS.md`
-10. `docs/V2_HISTORY_SYNC_ARCHITECTURE.md`
-11. `docs/V2_BREAKING_CHANGES.md`
-12. `docs/PROTOCOL_SAFETY.md`
-13. `docs/research/PUBLIC_QW1_EVIDENCE.md`
-14. `docs/RELEASING.md`
-15. `CHANGELOG.md`
-16. `AGENTS.md`
-17. `UX_CONTEXTUAL_HELP_CONTRACT.md` on this handoff branch
+3. `UX_CONTEXTUAL_HELP_CONTRACT.md` on this handoff branch
+4. `docs/product-decisions/v2.1-canonical-real-time-product-timeline.md` on `dev/v2.1.0-real-time-timeline`
+5. `docs/V2_1_CANONICAL_REAL_TIME_VALIDATION_ADDENDUM.md` on the dev branch
+6. `docs/V2_1_TIME_MODEL_IMPLEMENTATION.md` on the dev branch
+7. `docs/V2_1_REAL_DEVICE_VALIDATION.md` on the dev branch — old Section D is superseded by the canonical-real-time addendum
+8. `docs/product-decisions/v2.1-real-time-timeline-and-coverage.md`
+9. `docs/V2_ARCHIVE_PERIOD_SEMANTICS.md`
+10. `docs/V2_HISTORY_NAVIGATION_FILTERS.md`
+11. `docs/V2_HISTORY_SYNC_ARCHITECTURE.md`
+12. `docs/V2_BREAKING_CHANGES.md`
+13. `docs/PROTOCOL_SAFETY.md`
+14. `docs/research/PUBLIC_QW1_EVIDENCE.md`
+15. `docs/RELEASING.md`
+16. `CHANGELOG.md`
+17. `AGENTS.md`
 
 The handoff branch is coordination-only. Development stays on the dev branch.
 
-## 2. Repository / current exact APK candidate
+## 2. Repository / current exact physical candidate
 
 Public repository: `MarcLeinenDE/w1-nfc-reader`
 
@@ -39,16 +39,16 @@ Stable main baseline:
 Active development branch:
 - `dev/v2.1.0-real-time-timeline`
 
-Current exact functional candidate:
-- `4f388f8fb9f3d759dbb8cc00be0e2c673d6f958f`
-- Android CI `34696006781`: **SUCCESS**
-- translations: **227 keys / 6 locales PASS**
-- unit/Robolectric suite: **PASS**, including partial-edge statistics regression
+Current exact candidate:
+- `e6967885315283ed7943bb77b589b78d855fc6c1`
+- Android CI `34702429499`: **SUCCESS**
+- unit/Robolectric suite: **PASS**
+- product translations: **PASS across 6 locales**
 - debug build/signature/hash/artifact upload: **PASS**
 - artifact `w1-nfc-reader-debug`
-- artifact id `10299310144`
-- artifact ZIP SHA-256 `6a2399514ac6d8bd4604e84d60316d85e528ad844780588fa1b04b70e36faf26`
-- APK SHA-256 `bef486df8318a6d0baee79513b28cd4580d2c8c172e548226e4469151516861f`
+- artifact id `10300264718`
+- artifact ZIP SHA-256 `4dee21419a179d994ee103f0170ede066edb3f095da0441e2eb08f6590d3bdfa`
+- APK SHA-256 `bd7727fbe1cf940633939294c3516746dff2cedda56e28364503e2bace999336`
 - downloaded artifact independently re-hashed; ZIP digest matches GitHub and APK matches `SHA256SUMS.txt`.
 
 Draft PR:
@@ -67,11 +67,9 @@ Normal v2.1 UI has **one canonical real timeline**:
 - Archive primary time = verified Live/default anchor + monotonic `ON_TIME` -> canonical UTC -> persisted per-meter IANA-zone presentation.
 - Raw meter/logger wall-clock remains preserved evidence and may be shown secondarily, in diagnostics, export and backup.
 - The former global `Local time / Meter time` selector is removed from normal Settings.
-- Old/restored development state that still contains `METER` is normalized to `LOCAL` when a normal product Activity starts.
+- Old/restored development state containing `METER` is normalized to `LOCAL` on normal product Activity startup.
 - If reconstruction is unsafe/unavailable, fail closed. Never silently promote raw meter clock to canonical real time.
-- `ON_TIME` by itself is not a civil timestamp; a suitable verified anchor is required.
-
-This is also the intended future Home Assistant contract: canonical UTC interval identity plus IANA projection; raw meter time only as auxiliary evidence.
+- `ON_TIME` alone is not a civil timestamp; a suitable verified anchor is required.
 
 No NFC command, parser, mailbox, traversal, overlap or terminal semantics were changed by this product decision.
 
@@ -79,11 +77,11 @@ No NFC command, parser, mailbox, traversal, overlap or terminal semantics were c
 
 ### A
 
-Debug app installed and usable; no coexistence problem. A completely fresh-state default check was not explicitly recorded and can be done on the final exact release candidate without deleting current test data.
+Debug app installed and usable; no coexistence problem. A completely fresh-state default check was not explicitly recorded and can be done on the exact signed RC without deleting current test data.
 
 ### B — PASS
 
-Protected normal Live NFC read passed on the real Qalcosonic W1. No automatic History sync. `Europe/Berlin` zone/provenance and localized meter time were visible. Final protected regression is still repeated in F.
+Protected normal Live NFC read passed on the real Qalcosonic W1. No automatic History sync. `Europe/Berlin` zone/provenance and localized meter time were visible. Final protected regression is repeated in F.
 
 ### C — PASS on real reproduction cases
 
@@ -102,73 +100,106 @@ Confirmed after fixes:
 - 10 September Statistics = **22/24** fully-contained Hour buckets;
 - February no-Hour-data case has normal empty state without false red warning;
 - `Alle Zeiträume` no longer shows the natural-oldest false warning;
-- History/Statistics values and chronology are plausible on real backup/data.
+- History/Statistics values and chronology are plausible on real data.
 
 ### Revised D — canonical-real-time product surface
 
-Candidate `205720b5bb70cd8d0436d43a5de805aa0dc72b33` removed the normal Settings time-basis selector and made reconstructed real time the single primary product timeline. User physically reported the new product presentation **fits so far**. Raw meter/logger time remains secondary evidence.
+Candidate `205720b5bb70cd8d0436d43a5de805aa0dc72b33` removed the normal Settings time-basis selector and made reconstructed real time the single primary product timeline. Physical product presentation was accepted so far. Raw meter/logger time remains secondary evidence.
 
-The current `4f388f8...` candidate is the same protected time model plus Statistics edge-interval presentation; no NFC/protocol path changed.
+Current candidate `e696788...` inherits the same protected time model and adds only downstream History/Statistics/UI presentation behavior.
 
-## 5. Statistics edge-interval presentation — implemented, awaiting physical visual confirmation
+## 5. Statistics edge-interval presentation — implemented
 
-The earlier `22/24` result was mathematically correct but visually looked like missing data because physical Hour intervals crossing the civil-day edges were omitted from the bar chart.
+The earlier `22/24` result was mathematically correct but visually looked like missing data because physical Hour intervals crossing civil-window edges were omitted from the chart.
 
-Current candidate `4f388f8...` changes **presentation only**:
+Implemented behavior:
 
-- fully-contained archive buckets remain normal filled bars and are the only buckets included in selected-window total/average/minimum/maximum and the `availableBuckets` count;
-- real physical archive intervals that overlap the selected civil window only partly are retained as chart context and drawn as **dashed outline bars** using their complete measured archive delta;
-- those edge values are **not prorated** and are **not included in selected-window KPIs**;
-- genuine zero-consumption buckets receive a visible baseline marker instead of disappearing;
-- known missing native records remain gaps and are not fabricated into overlap bars;
-- the same mechanism is generic for Hour/Day/Month consumption statistics;
-- coverage wording now says **fully contained** instead of implying the other physical records are unavailable;
-- the explanatory consumption note documents solid versus dashed bars in all six product locales.
+- fully-contained archive buckets are filled bars and are the only buckets included in selected-window total/average/minimum/maximum and `availableBuckets`;
+- real physical archive intervals that overlap the selected civil window only partly are visible as **dashed outline bars** using their complete measured archive delta;
+- partial-edge values are never prorated and are excluded from selected-window KPIs;
+- genuine zero-consumption buckets receive a visible baseline marker;
+- known native gaps remain gaps and are not fabricated into overlap bars;
+- behavior is generic for Hour/Day/Month consumption statistics;
+- coverage wording says **fully contained**.
 
-Regression `StatisticsPartialEdgePresentationTest` proves that 24 physical chart intervals can remain visible while only 22 fully-contained intervals contribute to KPIs; deliberately large partial-edge values are excluded from totals/average/min/max.
+Regression `StatisticsPartialEdgePresentationTest` protects these semantics.
 
-## 6. Remaining physical checks
+## 6. Combined History / UI polish — implemented in current candidate
 
-### Statistics overlap visual check
+The remaining agreed polish is now folded into `e696788...`:
 
-No new NFC contact is required. On current stored data, inspect the known 10 September 2026 statistics reproduction:
+### History -> All Live baseline
 
-- fully-contained Hour bars stay solid;
-- edge-overlapping physical Hour intervals are visible as dashed outlines;
-- coverage still states **22/24 fully contained** for the known case;
-- selected-period total/average/high/low do not change merely because edge bars are now visible;
-- zero-consumption buckets are visibly distinguishable from missing data.
+Only in the mixed **History -> All** view, each visible Live card uses the **chronologically nearest trustworthy earlier archive cumulative reading** as its consumption baseline, regardless of Hour/Day/Month granularity.
 
-Also spot-check September Month/Day statistics for unchanged values and sensible edge presentation.
+Rules:
+- same physical meter only;
+- candidate archive row must be strictly earlier in canonical chronology;
+- conflicted archive rows are skipped;
+- nearest trustworthy archive row wins — no fixed Hour > Day > Month priority;
+- if no earlier archive row exists, retain the previous-Live fallback;
+- dedicated Live filter remains Live-to-Live;
+- archive cards keep same-family archive delta semantics;
+- a negative/unsafe resulting delta is not fabricated.
 
-### E — invalid timezone smoke
+New regressions: `HistoryAllLiveBaselineTest` plus updated `LiveHistoryDeltaTest`.
 
-Open Meter Details -> timezone. Enter an obviously invalid IANA value. Save must be rejected; dialog stays open and existing valid zone remains unchanged. No successful manual zone replacement is required.
+### Statistics x-axis ownership
 
-### F — final protected normal Live regression
+- every visible bar receives exactly one x-axis period label;
+- labels remain centered on their bar slot;
+- when labels no longer fit horizontally, all bar labels rotate 90 degrees together instead of skipping labels;
+- chart height reserves extra room for the rotated labels.
 
-Return to Overview and perform exactly one normal Live NFC read. Expected:
+This is specifically intended to remove ambiguity over which Hour/Day/Month period belongs to which bar.
 
-- normal Live/default read succeeds;
-- real and raw meter timestamps are plausible and locale formatted;
-- no archive state leaks into Live;
-- no History synchronization starts automatically;
-- no protocol regression.
+### Date/time convention
 
-## 7. Remaining UI / UX polish
+Normal product UI now applies a shared locale-aware **`date · time`** convention for visible combined date/time strings. A central presentation hardening pass covers existing surfaces instead of independent one-off fixes.
 
-Before stable release preparation, perform the combined polish pass:
+### Timezone labels
 
-- repository-wide user-facing date/time audit; whenever one instant contains date + time use a shared locale-aware `date · time` convention;
-- contextual `i` explanations wherever technically correct behavior is not self-evident;
-- explain canonical real-time reconstruction versus raw meter-clock evidence;
-- further distinguish fully-contained buckets, edge intervals and actual gaps wherever the model can expose those states directly;
-- locale-aware timezone abbreviations such as German MEZ/MESZ or English CET/CEST instead of ordinary `+01:00/+02:00` labels; exact IANA zone/offset remains diagnostic truth;
-- `History -> All` Live delta baseline: nearest trustworthy previous archive observation regardless of Hour/Day/Month; if no archive predecessor exists, fall back to previous Live; otherwise no invented delta.
+Ordinary resolved local-time display now prefers localized zone abbreviations, e.g. German `MEZ/MESZ` or English `CET/CEST`, instead of ordinary numeric offsets. Exact IANA zone/offset truth is preserved internally. During ambiguous DST folds, the numeric offset remains included so duplicated wall-clock times stay distinguishable.
 
-Do not hide real failures behind help text. Primary wording must itself be correct.
+### Contextual info explanations
 
-## 8. Safety boundary
+Localized Material info affordances are now attached where correct behavior is technically non-obvious:
+
+- History — explains mixed All Live baseline versus dedicated Live/archive-series semantics;
+- Statistics — explains filled full buckets, dashed edge intervals, KPI inclusion, zero-consumption marker and true gaps;
+- Meter Details time model — explains canonical reconstructed real time versus raw meter/logger clock evidence.
+
+The info affordances are clickable/focusable, have minimum touch height and accessibility descriptions. Warnings and actions remain primary UI and are not hidden behind help text. Help copy exists in all six product locales.
+
+## 7. Current-candidate change boundary
+
+Compare `4f388f8fb9f3d759dbb8cc00be0e2c673d6f958f` -> `e6967885315283ed7943bb77b589b78d855fc6c1`:
+
+Changed only:
+- `HistoryStatisticsAnalytics.java`
+- `HistoryTimePresentation.java`
+- `ProductUiHardening.java`
+- `V2MetricChartView.java`
+- six localized polish string files
+- tests for the new presentation/History contracts.
+
+Protected `QalcosonicReader.java`, `MbusParser.java` and validated archive traversal/state-machine behavior are untouched.
+
+## 8. Remaining physical checks on `e696788...`
+
+No History sync is required for presentation checks.
+
+1. **History -> Alle**: Live card must compare against the nearest earlier historical archive row; reference time/type must look plausible.
+2. **Statistics 10 September 2026**: full bars solid, edge overlaps dashed, zero buckets visible, coverage still **22/24 fully contained**, KPIs unchanged.
+3. **Axis labels**: every visible bar must map clearly to one period; dense Hour labels may be vertical.
+4. Spot-check September Month/Day statistics for unchanged values and sensible labels.
+5. Spot-check `date · time` on Overview, History and Meter Details.
+6. Spot-check normal localized timezone abbreviations and DST ambiguity safety.
+7. Tap the History, Statistics and Meter Details time-model info affordances; localized dialogs must be readable and non-blocking.
+8. **E — invalid timezone smoke**: enter an obviously invalid IANA zone in Meter Details. Save must be rejected, dialog stays open and existing valid zone remains unchanged.
+9. **F — final protected normal Live regression**: perform exactly one normal Live NFC read. Expected: Live/default read succeeds; plausible real/raw timestamps; no automatic History sync; no archive state leak; no protocol regression.
+
+## 9. Safety boundary
 
 Remain protected:
 
@@ -178,14 +209,12 @@ Remain protected:
 - accepted archive observations persist immediately;
 - COMPLETE requires semantic terminal plus verified final Default Restore/Live;
 - incremental `KNOWN_RECORD_REACHED` requires secure overlap; timestamp-only overlap remains forbidden;
-- semantic terminal/overlap behavior remains authoritative; public manufacturer capacities are not traversal limits;
+- semantic terminal/overlap behavior remains authoritative; manufacturer capacities are not traversal limits;
 - raw Type-F/logger time, ON_TIME and occurrence identity are never overwritten by derived UTC/LOCAL presentation;
 - no intentional persistent meter/radio/calibration/firmware writes;
 - `QalcosonicReader.java`, `MbusParser.java` and validated archive traversal/state machine remain protected.
 
-The diff from canonical-real-time functional candidate `205720b...` to `4f388f8...` touches only downstream History/Statistics read-model/chart code, six locale string files, tests and documentation; no protected NFC/parser/traversal file changed.
-
-## 9. Release gate
+## 10. Release gate
 
 Do **not** yet:
 
@@ -194,9 +223,9 @@ Do **not** yet:
 - merge PR #22;
 - create/move a v2.1.0 tag or release.
 
-First physically confirm the new Statistics edge presentation, then pass E and F. After the remaining combined UI/i18n/accessibility polish, prepare version metadata/changelog/release notes and the exact signed v2.1.0 release candidate, and physically accept that exact candidate before publication.
+First physically confirm the combined candidate, including E and F. Then prepare version metadata/changelog/release notes and the exact signed v2.1.0 RC, and physically accept that exact RC before publication.
 
-## 10. Private research authority
+## 11. Private research authority
 
 Only if protocol/time-evidence behavior itself must be revisited:
 
@@ -209,4 +238,4 @@ Never publish private meter IDs, consumption data, captures, backup payloads or 
 
 ## Next action
 
-Install exact CI-green candidate `4f388f8fb9f3d759dbb8cc00be0e2c673d6f958f` and visually retest Statistics for 10 September 2026 and September 2026. No History sync/NFC contact is needed for that check. If the dashed edge bars and unchanged KPI semantics pass, continue with E and F. Keep PR #22 Draft.
+Install exact CI-green candidate `e6967885315283ed7943bb77b589b78d855fc6c1`. First validate the presentation/UI checks without a new History sync. Then perform E and exactly one final protected Live/default NFC read for F. Keep PR #22 Draft; do not bump/merge/release v2.1 yet.
