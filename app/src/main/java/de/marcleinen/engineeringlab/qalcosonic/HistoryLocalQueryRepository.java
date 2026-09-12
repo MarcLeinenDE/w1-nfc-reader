@@ -254,11 +254,20 @@ final class HistoryLocalQueryRepository implements AutoCloseable {
         return new Result(rows, states, false);
     }
 
-    /** Known native archive gaps have known real boundaries and are coverage gaps, not time ambiguity. */
+    /**
+     * All-period views naturally begin with one oldest retained archive boundary whose predecessor
+     * is not stored. That open prefix is expected retention geometry, not a LOCAL time-resolution
+     * failure. Known native gaps likewise represent coverage, not time ambiguity. An unresolved
+     * boundary inside the retained series must still warn fail-closed.
+     */
     static boolean contributesUnresolvedAllPeriodsWarning(ArchiveUtcProjection.Period period) {
-        return period != null
-                && !period.resolvedInterval()
-                && period.status != ArchiveUtcProjection.PeriodStatus.NATIVE_GAP;
+        if (period == null || period.resolvedInterval()) return false;
+        if (period.status == ArchiveUtcProjection.PeriodStatus.NATIVE_GAP) return false;
+        if (period.status == ArchiveUtcProjection.PeriodStatus.START_BOUNDARY_UNAVAILABLE
+                && period.startBoundary == null) {
+            return false;
+        }
+        return true;
     }
 
     private static void appendRows(
