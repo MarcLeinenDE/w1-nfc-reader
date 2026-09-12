@@ -43,71 +43,97 @@ Suggested plain-language explanation in localized form:
 
 ## Global date/time presentation consistency
 
-The v2.1 polish pass must perform a repository-wide audit of every user-facing date/time presentation path, not only the currently observed Overview and Meter Details examples.
+The v2.1 polish pass uses a repository-wide presentation rule rather than screen-specific punctuation fixes.
 
 Rules:
 
 - whenever one displayed instant contains both a date and a time, separate them consistently with the centered dot pattern `date · time`;
 - interval labels use the same convention, for example `11.09.2026 · 18:00–19:00`;
-- do not manually concatenate date/time independently in individual screens when a shared presentation helper can express the same semantics;
-- prefer central locale-aware presentation helpers so Overview, History, Statistics, Meter Details, sync/result UI, warnings/status cards and other screens cannot drift into different punctuation/formatting rules;
+- do not force German date ordering onto other locales;
+- central locale-aware presentation helpers/hardening are preferred so Overview, History, Statistics, Meter Details, sync/result UI, warnings/status cards and other screens cannot drift into different punctuation rules;
 - preserve raw stored timestamps unchanged; this is a presentation-only contract;
-- locale-specific date and time ordering remains authoritative. The centered dot separates the date component from the time component; it does not force German ordering onto other locales;
-- audit labels, secondary evidence, warning timestamps, latest-sync timestamps, acquisition timestamps, dialog summaries and accessibility/content-description strings as well as the obvious main cards;
-- add regression coverage for representative shared formatters and high-value UI contracts instead of relying only on screenshot inspection.
+- include secondary evidence, warning timestamps, acquisition timestamps, dialog summaries and accessibility/content-description strings in the audit where applicable;
+- retain regression coverage for representative formatters/high-value UI paths.
 
-Known examples that motivated the global audit include Overview `Lokale Zeit` / former `Ausgelesen`, Meter Details `Am Handy ausgelesen`, History secondary `Lokale Zeit`, and `Letzte Archivsynchronisierung`, but the work item is explicitly broader than these examples.
+## Timezone label presentation
 
-## Statistics / coverage example
+For ordinary local display, prefer a recognizable localized zone abbreviation such as `MEZ/MESZ` or `CET/CEST` instead of routinely showing `+01:00/+02:00`.
 
-Current ambiguous wording such as `22 von 24 Datenpunkten verfügbar` can make a user believe that two records are missing even when all stored evidence is present and two physical Hour intervals merely intersect the LOCAL civil-day edges.
+Guardrails:
 
-Prefer a semantically precise visible summary such as:
+- the assigned IANA zone remains the actual timezone identity;
+- numeric UTC offset remains available as diagnostic truth;
+- in a repeated/ambiguous DST fold hour, include enough offset information to distinguish the two occurrences even if the localized abbreviation is also shown;
+- never use a friendly abbreviation to erase real occurrence ambiguity.
+
+## Statistics / coverage semantics
+
+Wording such as `22 von 24 Datenpunkten verfügbar` can make a user believe two records are missing even when all stored evidence is present and two physical Hour intervals merely intersect the LOCAL civil-day edges.
+
+Prefer semantically precise visible wording such as:
 
 - `22 von 24 Stunden vollständig enthalten  ⓘ`
 - `10 von 30 Tagen vollständig enthalten  ⓘ`
 
-The corresponding explanation should state, in localized plain language:
+The explanation should state:
 
 - the meter stores consumption in fixed physical archive intervals;
 - those intervals do not necessarily begin/end at LOCAL calendar boundaries;
-- only intervals fully contained in the selected Statistics window are used for consumption differences;
+- fully-contained intervals are included in selected-window consumption KPIs;
 - edge intervals that only partially overlap are not split or prorated because the app must not invent fractional consumption;
-- therefore a count below the civil-window total does not automatically mean that archive records are missing.
+- a count below the civil-window total does not automatically mean archive records are missing;
+- genuine zero consumption is valid data and should be visually distinguishable from a missing interval;
+- known native gaps remain real gaps.
 
-Where the data model can distinguish causes, the visible UI should distinguish them too. For example:
+Current chart contract:
 
-- `22 von 24 vollständig enthalten · 2 Randintervalle`
-- versus `21 von 24 · 1 Datenlücke`
+- fully-contained bucket = filled bar and included in KPIs;
+- partially overlapping real bucket = dashed outline showing the complete measured value as context only, excluded from KPIs;
+- genuine zero bucket = visible baseline marker;
+- missing native bucket = no fabricated bar.
 
-Do not collapse these semantically different cases into the same generic `available` wording.
+## Statistics x-axis ownership
+
+Every visible consumption bar must map unambiguously to one visible period label.
+
+Rules:
+
+- one visible bar = one x-axis label;
+- label is centered on the same slot as its bar;
+- do not silently skip labels on dense Hour charts if that makes bar ownership ambiguous;
+- when labels no longer fit horizontally, rotate the complete set of bar labels together and reserve sufficient chart height;
+- labels must describe the actual represented interval/period, including shifted resolved intervals where a compact civil label would be false;
+- line charts may continue to thin labels where point ownership remains visually unambiguous; this one-label-per-bar contract is specifically for bar charts.
 
 ## History `All` — Live delta baseline semantics
 
-In `History → All`, the Live card is part of a mixed chronological timeline. Its consumption delta should therefore use the chronologically nearest trustworthy previous observation from that same physical meter as its baseline.
+In `History → All`, the Live card is part of a mixed chronological timeline. Its consumption delta uses the chronologically nearest trustworthy **earlier archive observation** from the same physical meter as its baseline.
 
 Baseline selection:
 
-1. Prefer the latest valid archive observation before the Live read, regardless of whether it is Hour, Day or Month.
-2. If no valid archive observation exists before the Live read, fall back to the immediately previous valid Live observation.
-3. If neither exists, do not fabricate a delta.
-4. Never calculate across meter replacement, incompatible physical meter identity, known conflict or an unsafe/unresolved chronology.
-5. If more than one archive resolution ends at the same effective boundary, prefer the finest available archive resolution (`Hour` before `Day` before `Month`) for deterministic presentation; the cumulative meter reading should remain consistent.
+1. Consider valid archive observations from Hour, Day and Month together.
+2. Choose the archive observation with the latest canonical time that is still strictly earlier than the Live read.
+3. Do **not** use a fixed family priority such as Hour > Day > Month. Chronology is authoritative.
+4. If no valid earlier archive observation exists, fall back to the immediately previous valid Live observation.
+5. If neither exists, do not fabricate a delta.
+6. Never calculate across meter replacement, incompatible meter identity, known conflict or unsafe/unresolved chronology.
+7. If two trustworthy archive observations represent exactly the same effective boundary, the implementation may choose a deterministic representative only if doing so does not change the cumulative meter total or imply a false chronology; no family priority should be presented as product semantics.
 
 Examples:
 
 - latest historical observation is an Hour boundary at 19:00 → Live delta means `since 19:00`;
-- no Hour/Day data exists but the latest historical observation is a Month boundary → Live delta means `since month-end ...`;
-- there are no historical archive observations at all, but an earlier Live read exists → Live delta means `since previous Live read`;
+- no recent Hour exists and the nearest earlier observation is a Day close → Live delta uses that Day close;
+- only a Month close exists before the Live read → Live delta uses that Month close;
+- no earlier archive observation exists but an earlier Live read exists → Live delta means `since previous Live read`;
 - first-ever Live read with no predecessor → no consumption delta is shown.
 
-This behavior applies only to the mixed `All` timeline. The dedicated `Live` filter may continue to compare Live reads with the previous Live read.
+This behavior applies only to the mixed `All` timeline. The dedicated `Live` filter continues to compare Live reads with the previous Live read. Archive cards retain their same-family archive-series delta semantics.
 
-The visible label must make the baseline explicit.
+The visible label should make the chosen baseline time clear enough that the user does not need to infer it.
 
 ## Scope across the app
 
-During the release-candidate UI/polish pass, review all user-facing screens for concepts that are technically correct but may not be immediately obvious. Candidate areas include, but are not limited to:
+Review all user-facing screens for concepts that are technically correct but may not be immediately obvious. Candidate areas include:
 
 - canonical real-time reconstruction versus raw meter-clock evidence;
 - Statistics coverage / fully-contained buckets / edge intervals;
@@ -126,7 +152,7 @@ The review is not limited to Hour views. Day, Month, All, Overview, History, Sta
 
 ## Guardrails
 
-- Explanations must describe the implemented behavior, not paper over incorrect behavior.
+- Explanations must describe implemented behavior, not paper over incorrect behavior.
 - A contextual explanation does not turn a confusing or wrong primary label into an acceptable label; primary wording should still be improved where possible.
 - Never fabricate data to make coverage look complete.
 - Never present a known coverage gap as a time-resolution failure, or vice versa.
@@ -134,6 +160,16 @@ The review is not limited to Hour views. Day, Month, All, Overview, History, Sta
 - Never silently promote raw meter/logger wall-clock to canonical real time.
 - Canonical UTC/archive identity, raw meter evidence and existing protocol-safety rules remain authoritative.
 
-## Release integration
+## v2.1 implementation status
 
-After the functional gate passes, implement the contextual-help pass together with the recorded presentation items: locale-aware timezone abbreviations, global centered date/time separators, visible zero-consumption markers, precise coverage wording, and the `All`-timeline Live baseline rule. Then run UI/i18n/accessibility regression checks before preparing the exact v2.1 release candidate.
+Implemented in CI-green candidate `e6967885315283ed7943bb77b589b78d855fc6c1`:
+
+- mixed History-All Live archive-baseline rule;
+- one-label-per-bar Statistics axis ownership with automatic rotation;
+- centered `date · time` presentation hardening;
+- localized timezone abbreviations with DST-fold disambiguation;
+- contextual info dialogs for History, Statistics and Meter Details time model;
+- visible zero-consumption marker and dashed partial-edge Statistics presentation;
+- six-locale help copy and regression coverage.
+
+Physical visual confirmation is still required before release preparation. The help contract remains a continuing product rule beyond v2.1.
