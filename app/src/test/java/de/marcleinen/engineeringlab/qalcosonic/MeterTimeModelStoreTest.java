@@ -150,4 +150,81 @@ public final class MeterTimeModelStoreTest {
         assertEquals(first, second);
         assertEquals(1, store.anchors("M1").size());
     }
+
+    @Test public void newerVerifiedAnchorReplacesOlderActiveAnchor() {
+        long firstCenter = Instant.parse("2026-09-08T20:00:00Z").toEpochMilli();
+        long secondCenter = Instant.parse("2026-09-09T20:00:00Z").toEpochMilli();
+        VerifiedLiveTimeAnchor first = new VerifiedLiveTimeAnchor(
+                "M1", firstCenter - 100L, firstCenter + 100L,
+                "2026-09-08 21:00", "00 15 28 39", false, false, 81_000_000L);
+        VerifiedLiveTimeAnchor second = new VerifiedLiveTimeAnchor(
+                "M1", secondCenter - 100L, secondCenter + 100L,
+                "2026-09-09 21:00", "00 15 29 39", false, false, 81_086_400L);
+
+        store.recordAnchor(first,
+                MeterTimeModelStore.ANCHOR_PROVENANCE_VERIFIED_LIVE_DEFAULT,
+                MeterTimeModelStore.ANCHOR_VALIDATION_COMPLETE);
+        store.recordAnchor(second,
+                MeterTimeModelStore.ANCHOR_PROVENANCE_VERIFIED_LIVE_DEFAULT,
+                MeterTimeModelStore.ANCHOR_VALIDATION_COMPLETE);
+
+        assertEquals(1, store.anchors("M1").size());
+        assertEquals(81_086_400L, store.latestAnchor("M1").onTimeSeconds);
+        assertEquals(secondCenter, store.latestAnchor("M1").anchorEpochMs);
+    }
+
+    @Test public void backwardsOnTimeCannotReplaceActiveAnchor() {
+        long firstCenter = Instant.parse("2026-09-09T20:00:00Z").toEpochMilli();
+        long laterCenter = Instant.parse("2026-09-10T20:00:00Z").toEpochMilli();
+        VerifiedLiveTimeAnchor active = new VerifiedLiveTimeAnchor(
+                "M1", firstCenter - 100L, firstCenter + 100L,
+                "2026-09-09 21:00", "00 15 29 39", false, false, 81_086_400L);
+        VerifiedLiveTimeAnchor backwards = new VerifiedLiveTimeAnchor(
+                "M1", laterCenter - 100L, laterCenter + 100L,
+                "2026-09-10 21:00", "00 15 2A 39", false, false, 81_000_000L);
+        store.recordAnchor(active,
+                MeterTimeModelStore.ANCHOR_PROVENANCE_VERIFIED_LIVE_DEFAULT,
+                MeterTimeModelStore.ANCHOR_VALIDATION_COMPLETE);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> store.recordAnchor(backwards,
+                        MeterTimeModelStore.ANCHOR_PROVENANCE_VERIFIED_LIVE_DEFAULT,
+                        MeterTimeModelStore.ANCHOR_VALIDATION_COMPLETE));
+        assertEquals(81_086_400L, store.latestAnchor("M1").onTimeSeconds);
+        assertEquals(1, store.anchors("M1").size());
+    }
+
+    @Test public void restoreOfLegacyMultiAnchorJsonKeepsOnlyNewestPerMeter() throws Exception {
+        long firstCenter = Instant.parse("2026-09-08T20:00:00Z").toEpochMilli();
+        long secondCenter = Instant.parse("2026-09-09T20:00:00Z").toEpochMilli();
+        JSONObject older = anchorJson("M1", firstCenter, 81_000_000L, "2026-09-08 21:00");
+        JSONObject newer = anchorJson("M1", secondCenter, 81_086_400L, "2026-09-09 21:00");
+        JSONObject legacy = new JSONObject()
+                .put("schema_version", MeterTimeModelStore.JSON_SCHEMA)
+                .put("profiles", new JSONArray())
+                .put("anchors", new JSONArray().put(newer).put(older));
+
+        store.restoreJson(legacy);
+
+        assertEquals(1, store.anchors("M1").size());
+        assertEquals(81_086_400L, store.latestAnchor("M1").onTimeSeconds);
+        assertEquals(secondCenter, store.latestAnchor("M1").anchorEpochMs);
+    }
+
+    private static JSONObject anchorJson(
+            String meterId, long center, long onTime, String rawClock) throws Exception {
+        return new JSONObject()
+                .put("meter_id", meterId)
+                .put("read_before_epoch_ms", center - 100L)
+                .put("read_after_epoch_ms", center + 100L)
+                .put("anchor_epoch_ms", center)
+                .put("uncertainty_ms", 100L)
+                .put("raw_meter_wall_clock", rawClock)
+                .put("raw_type_f_hex", "00 15 28 39")
+                .put("type_f_iv", false)
+                .put("type_f_su", false)
+                .put("on_time_seconds", onTime)
+                .put("provenance", MeterTimeModelStore.ANCHOR_PROVENANCE_VERIFIED_LIVE_DEFAULT)
+                .put("validation", MeterTimeModelStore.ANCHOR_VALIDATION_COMPLETE);
+    }
 }
