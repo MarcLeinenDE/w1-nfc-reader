@@ -63,6 +63,6 @@ abstract class MaterialBaseActivity extends AppCompatActivity {
                     startBottom + bars.bottom);
             return windowInsets;
         });
-        ViewCompat.requestApplyWindowInsets(root);
+        ViewCompat.requestApplyInsets(root);
     }
 }
