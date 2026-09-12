@@ -301,9 +301,12 @@ final class HistoryTimePresentation {
         }
         ZonedDateTime end = resolved.endLocal();
         switch (useGranularity) {
-            case HOUR:
-                return formatResolvedTime(locale, start,
-                        !start.getOffset().equals(end.getOffset()) || isAmbiguous(start));
+            case HOUR: {
+                boolean showZone = !start.getOffset().equals(end.getOffset())
+                        || isAmbiguous(start) || isAmbiguous(end);
+                return formatResolvedTime(locale, start, showZone)
+                        + "–" + formatResolvedTime(locale, end, showZone);
+            }
             case DAY:
                 if (isExactCivilPeriod(start, end, useGranularity)) {
                     return DateTimeFormatter.ofPattern("d", locale).format(start);
@@ -415,12 +418,20 @@ final class HistoryTimePresentation {
                 .format(point);
     }
 
-    private static String formatResolvedTime(Locale locale, ZonedDateTime point, boolean includeOffset) {
+    private static String formatResolvedTime(Locale locale, ZonedDateTime point, boolean includeZone) {
         String value = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
                 .withLocale(locale)
                 .format(point);
-        if (!includeOffset) return value;
-        return value + " " + DateTimeFormatter.ofPattern("XXX", locale).format(point);
+        if (!includeZone) return value;
+        String zone = DateTimeFormatter.ofPattern("z", locale).format(point);
+        if (zone == null || zone.trim().isEmpty()) {
+            zone = DateTimeFormatter.ofPattern("XXX", locale).format(point);
+        }
+        if (isAmbiguous(point)) {
+            String offset = DateTimeFormatter.ofPattern("XXX", locale).format(point);
+            return value + " " + zone + " (" + offset + ")";
+        }
+        return value + " " + zone;
     }
 
     private static boolean isAmbiguous(ZonedDateTime point) {
@@ -428,8 +439,10 @@ final class HistoryTimePresentation {
     }
 
     private static String formatDeviceDateTime(Locale locale, long ms) {
-        return DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale)
-                .format(new Date(ms));
+        Date value = new Date(ms);
+        DateFormat date = DateFormat.getDateInstance(DateFormat.MEDIUM, locale);
+        DateFormat time = DateFormat.getTimeInstance(DateFormat.SHORT, locale);
+        return date.format(value) + " · " + time.format(value);
     }
 
     private static String formatFloatingDate(Locale locale, Date date) {
