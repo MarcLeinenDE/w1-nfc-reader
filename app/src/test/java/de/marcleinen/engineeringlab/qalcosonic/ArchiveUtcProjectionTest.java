@@ -41,22 +41,41 @@ public final class ArchiveUtcProjectionTest {
         assertNotNull(projected.get(1).coverageInterval());
     }
 
-    @Test public void nearestVerifiedFutureAnchorIsSelectedPerMeter() {
+    @Test public void newestVerifiedAnchorIsSelectedForWholeMeterTimeline() {
+        long base = Instant.parse("2026-09-06T12:00:00Z").toEpochMilli();
         ArchiveFamilyStore.StoredPeriod source = period(3L, "M1", "2026-09-06 12:00",
                 20_000L, "OT:20000", "04 6D 00 00", 0, 0);
-        MeterTimeModelStore.AnchorRecord far = anchor(10L, "M1", 5_000_000L,
+        MeterTimeModelStore.AnchorRecord newest = anchor(10L, "M1", base + 10_000_000L,
                 "2026-09-06 14:00", 30_000L, 50L);
-        MeterTimeModelStore.AnchorRecord near = anchor(11L, "M1", 4_000_000L,
+        MeterTimeModelStore.AnchorRecord closerHistorical = anchor(11L, "M1", base + 1_000_000L,
                 "2026-09-06 13:00", 21_000L, 200L);
-        MeterTimeModelStore.AnchorRecord otherMeter = anchor(12L, "M2", 3_000_000L,
-                "2026-09-06 13:00", 20_500L, 1L);
+        MeterTimeModelStore.AnchorRecord otherMeter = anchor(12L, "M2", base + 2_000_000L,
+                "2026-09-06 13:00", 31_000L, 1L);
 
         ArchiveUtcProjection.Boundary boundary = ArchiveUtcProjection.resolveBoundary(
-                source, Arrays.asList(far, otherMeter, near));
+                source, Arrays.asList(newest, otherMeter, closerHistorical));
 
         assertTrue(boundary.resolved());
-        assertEquals(Long.valueOf(11L), boundary.anchorId);
-        assertEquals(Long.valueOf(3_000_000L), boundary.utcMs);
+        assertEquals(Long.valueOf(10L), boundary.anchorId);
+        assertEquals(Long.valueOf(base), boundary.utcMs);
+    }
+
+    @Test public void archiveNewerThanActiveAnchorFailsClosedWithoutOlderFallback() {
+        long base = Instant.parse("2026-09-06T12:00:00Z").toEpochMilli();
+        ArchiveFamilyStore.StoredPeriod source = period(30L, "M1", "2026-09-06 15:00",
+                31_000L, "OT:31000", "04 6D 00 00", 0, 0);
+        MeterTimeModelStore.AnchorRecord active = anchor(31L, "M1", base + 10_000_000L,
+                "2026-09-06 14:00", 30_000L, 50L);
+        MeterTimeModelStore.AnchorRecord historical = anchor(32L, "M1", base + 5_000_000L,
+                "2026-09-06 13:00", 25_000L, 50L);
+
+        ArchiveUtcProjection.Boundary boundary = ArchiveUtcProjection.resolveBoundary(
+                source, Arrays.asList(historical, active));
+
+        assertEquals(ArchiveUtcProjection.BoundaryStatus.RESOLUTION_FAILED, boundary.status);
+        assertEquals(MeterTimeResolver.Status.ON_TIME_AFTER_ANCHOR, boundary.resolverStatus);
+        assertEquals(Long.valueOf(active.id), boundary.anchorId);
+        assertNull(boundary.utcMs);
     }
 
     @Test public void migratedOnTimeWithoutNativeTypeFEvidenceNeverClaimsUtc() {
