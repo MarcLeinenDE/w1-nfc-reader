@@ -1,5 +1,5 @@
 {
-  "schema_version": 16,
+  "schema_version": 17,
   "project": "W1 NFC Reader",
   "date": "2026-09-12",
   "public_repository": "MarcLeinenDE/w1-nfc-reader",
@@ -10,9 +10,10 @@
   },
   "development": {
     "branch": "dev/v2.1.0-real-time-timeline",
-    "head": "67aafb713a0b09d23058b31640ba94bc0353bb21",
-    "head_ci_run": 34705241442,
+    "head": "92c7c24e717a8e250c87385eb88faace08d0449c",
+    "head_ci_run": 34713492978,
     "head_ci_conclusion": "success",
+    "translation_key_count": 227,
     "translation_locale_count": 6,
     "pull_request": 22,
     "pull_request_state": "open",
@@ -20,31 +21,49 @@
     "pull_request_base": "main"
   },
   "physical_validation_candidate": {
-    "source_commit": "67aafb713a0b09d23058b31640ba94bc0353bb21",
-    "ci_run": 34705241442,
+    "source_commit": "92c7c24e717a8e250c87385eb88faace08d0449c",
+    "ci_run": 34713492978,
     "artifact_name": "w1-nfc-reader-debug",
-    "artifact_id": 10300648753,
-    "artifact_zip_sha256": "77e244d729e0f6cca41d59a43f0f2e3624b32af02c066d3219e821164bd64134",
-    "apk_sha256": "ee4ab5f352cef17891c3f1d29bce5d5e120956810df92f127955eb429e470678",
+    "artifact_id": 10304500771,
+    "artifact_zip_sha256": "1c56163329ef28ed15d47d5f3240f49bc8845e7944565cc811b8dc9983b3c519",
+    "apk_sha256": "26c96aa8dd66561acbc671f6f34ef27f1737875890ec929a777ba17752493e74",
     "artifact_integrity": "independently verified: downloaded ZIP digest matches GitHub artifact digest and APK hash matches SHA256SUMS.txt",
-    "status": "awaiting physical timezone-picker/UI spot-check and final protected Live regression F"
+    "status": "awaiting physical single-active-anchor Hour-duration regression; then remaining final Live regression F"
   },
   "accepted_product_decision": {
     "summary": "normal product UI has one canonical reconstructed real timeline; raw meter/logger wall-clock is preserved secondary/diagnostic evidence rather than a peer primary time mode",
-    "archive_primary_time": "verified Live/default anchors + monotonic ON_TIME -> canonical UTC -> persisted per-meter IANA projection",
+    "archive_primary_time": "single newest fully verified Live/default anchor per physical meter + monotonic ON_TIME -> canonical UTC -> persisted per-meter IANA projection",
     "live_primary_time": "actual acquisition epoch",
+    "on_time_role": "defines immutable native timeline geometry; active anchor defines only absolute UTC placement",
     "former_global_meter_mode": "removed from normal Settings",
     "unsafe_reconstruction": "fail closed; never silently promote raw meter clock to canonical real time"
+  },
+  "single_active_anchor": {
+    "status": "implemented and CI-green; physical regression pending",
+    "selection": "newest fully verified Live/default anchor for the physical meter, ordered primarily by ON_TIME",
+    "refresh": "accepted normal Live/default reads and verified final Default/Live after each History family replace the active anchor when ON_TIME advances",
+    "projection": "all Hour/Day/Month/Year archive boundaries for a meter project backward from the same active anchor",
+    "duration_invariant": "native adjacent Hour 3600s remains exactly 3600s real time; analogous native Day/Month/Year duration preservation",
+    "future_archive": "archive ON_TIME greater than active anchor fails closed with ON_TIME_AFTER_ANCHOR; no historical-anchor fallback",
+    "backwards_anchor": "backwards/reset ON_TIME cannot silently replace active anchor",
+    "legacy_multi_anchor": "readable; projection exposes newest active only; later accepted write/import collapses to one active anchor per meter"
+  },
+  "release_blocker_regression": {
+    "finding": "real-device History exposed a native Hour archive interval displayed longer than one hour",
+    "evidence": "private backup confirmed exact 3600-second ON_TIME adjacency and no archive conflict; root cause was boundary-by-boundary use of different historical Live anchors",
+    "fix_scope": "ArchiveUtcProjection + MeterTimeModelStore + tests/docs only; protected NFC/parser/archive traversal unchanged",
+    "physical_acceptance": "reopen the previously affected History range on exact candidate; every valid consecutive Hour interval must be exactly one hour; absolute labels may shift coherently"
   },
   "physical_validation_progress": {
     "section_a": "partial-pass; fresh-state default check may be done on exact signed RC",
     "section_b": "pass; final protected normal Live regression repeated in F",
-    "section_c": "pass",
-    "section_d_revised": "pass so far; canonical real timeline presentation accepted",
-    "combined_polish": "user reported functionality basically works; help-density issue corrected in a6cd946",
-    "timezone_picker": "implemented and CI-green on 67aafb7; pending physical UI spot-check",
+    "section_c_previous_cases": "pass",
+    "single_active_anchor_regression": "code-fixed and CI-green; physical retest pending",
+    "section_d_revised": "canonical real timeline presentation accepted; projection engine subsequently hardened to single active anchor",
+    "combined_polish": "user reported functionality basically works; help-density issue corrected",
+    "timezone_picker": "implemented and CI-green; physical UI spot-check may still be completed if not already done",
     "section_e_legacy": "superseded: normal UI no longer offers arbitrary free-text timezone persistence",
-    "section_f": "pending final protected normal Live NFC regression read"
+    "section_f": "pending final protected normal Live NFC regression read after single-anchor physical retest"
   },
   "statistics_edge_presentation": {
     "fully_contained": "filled bars included in selected-window KPIs",
@@ -61,7 +80,6 @@
     "contextual_help": "History/Statistics help only at actual page heading; no drawer/menu duplicates; generic Statistics help consolidated in dialog"
   },
   "timezone_picker": {
-    "implemented_commit": "67aafb713a0b09d23058b31640ba94bc0353bb21",
     "source": "ZoneId.getAvailableZoneIds() on the running Android runtime plus UTC",
     "presentation": "searchable MaterialAutoCompleteTextView exposed dropdown",
     "current_zone": "preselected",
@@ -72,28 +90,29 @@
     "locales": 6,
     "regression": "MeterDetailsTimeZoneUiTest"
   },
+  "future_home_assistant_identity": {
+    "status": "design contract recorded; HA transport/export not implemented yet",
+    "primary_rule": "canonical UTC/local timestamps and app-local database ids must not be duplicate identities",
+    "source_record_id": "versioned deterministic meter-native identity, semantically w1:v1:<meter-identity>:<archive-family>:<occurrence-key>",
+    "occurrence_key": "use OT:<on_time_seconds> when valid ON_TIME exists; existing ArchiveOccurrenceKey provides this building block",
+    "collision_guard": "raw logger timestamp / ArchiveRecordIdentity plus explicit generation discriminator for real ON_TIME reset scenarios",
+    "why_not_on_time_alone": "same ON_TIME can exist across meters and archive families; reset/generation could later reuse it",
+    "server_authority": "Home Assistant must enforce unique-key/UPSERT/ignore-known-ID idempotence; an app-side sent-cache is only an optimization",
+    "new_phone_behavior": "fresh app install can reread and resend retained archive; deterministic source ids reproduce and HA ignores/upserts known occurrences without duplicates"
+  },
   "deferred_next_version": {
     "statistics_chart_axis_audit": {
-      "status": "explicitly deferred until the next app version; do not churn the current v2.1 RC solely for this",
+      "status": "explicitly deferred until the next app version; do not churn current v2.1 solely for this polish",
       "scope": "audit every Statistics chart and metric, not only consumption",
-      "known_spot_checks": [
-        "battery",
-        "flow"
-      ],
-      "also_cover": [
-        "consumption",
-        "water temperature",
-        "ambient temperature",
-        "alarm/event views with an x-axis"
-      ],
-      "fit_policy": "horizontal when the complete label set fits; otherwise rotate the complete set; if even rotated labels collide, hide the x-axis label set entirely for that chart",
-      "fit_detection": "calculate from actual plot width, visible item count, measured text/font scale and minimum spacing; do not rely only on a hard-coded point-count threshold",
-      "no_partial_skip": "do not arbitrarily skip isolated bar labels or mix horizontal/vertical labels; transition whole-set horizontal -> rotated -> hidden",
-      "data_preservation": "hiding labels is presentation-only; never drop, merge or aggregate data points/buckets to make labels fit",
-      "layout": "reserve enough height for rotated labels and reclaim the space when labels are hidden",
-      "line_charts": "label thinning remains allowed only while point ownership is visually unambiguous; if remaining labels still collide, hide them",
-      "long_range_regression": "explicitly test very long selected ranges so labels cannot merge visually into one continuous block",
-      "implementation_preference": "centralize shared chart-axis policy and add regression coverage so future metrics inherit it"
+      "known_spot_checks": ["battery", "flow"],
+      "also_cover": ["consumption", "water temperature", "ambient temperature", "alarm/event views with an x-axis"],
+      "fit_policy": "horizontal when complete label set fits; otherwise rotate complete set; if even rotated labels collide, hide x-axis label set entirely",
+      "fit_detection": "actual plot width + visible item count + measured text/font scale + minimum spacing; not only hard-coded point count",
+      "no_partial_skip": "do not arbitrarily skip isolated bar labels or mix horizontal/vertical labels; whole-set horizontal -> rotated -> hidden",
+      "data_preservation": "hiding labels is presentation-only; never drop/merge/aggregate data to make labels fit",
+      "line_charts": "label thinning allowed only while point ownership remains visually unambiguous; otherwise hide labels",
+      "long_range_regression": "explicitly test very long ranges so labels cannot merge into a continuous text block",
+      "implementation_preference": "centralize shared chart-axis policy and regression coverage"
     }
   },
   "protected_invariants": [
@@ -103,16 +122,16 @@
     "COMPLETE requires semantic terminal plus verified final Default Restore/Live",
     "incremental KNOWN_RECORD_REACHED requires secure overlap; timestamp-only overlap forbidden",
     "manufacturer capacities are not traversal limits",
-    "raw meter/logger time and timing evidence are never overwritten",
+    "raw meter/logger time, ON_TIME and occurrence identity are never overwritten",
     "no intentional persistent meter/radio/calibration/firmware writes",
     "QalcosonicReader.java and MbusParser.java remain protected",
-    "timezone picker changes no NFC/parser/mailbox/archive traversal behavior"
+    "single-active-anchor correction changes no NFC/parser/mailbox/archive traversal behavior"
   ],
   "release_identity": {
     "current_stable_version": "2.0.0",
     "current_stable_version_code": 43,
     "v2_1_version_bump_allowed": false,
-    "gate": "physical timezone-picker/final UI spot-check + F, then exact signed v2.1 RC physical acceptance"
+    "gate": "physical single-active-anchor regression + remaining timezone/UI spot-check if needed + F; then exact signed v2.1 RC physical acceptance"
   },
   "private_research": {
     "repository": "MarcLeinenDE/engineering-lab",
@@ -121,5 +140,5 @@
     "head": "65358d55ee52a6911ab4fa8d1a66bc0d0dda0fd0",
     "rule": "consult only if protocol/time-evidence behavior itself must be revisited; never publish private evidence"
   },
-  "next_action": "Install exact candidate 67aafb713a0b09d23058b31640ba94bc0353bb21. Without History sync/NFC, verify Meter Details timezone editor opens a searchable supported-zone dropdown, current zone is preselected, search/filter works, a supported zone can be selected/saved, and arbitrary unsupported text cannot replace the valid zone. Quick-check help density, History/Statistics/date-time presentation. Then perform exactly one final protected Live/default NFC read for F. Keep PR #22 Draft; do not bump/merge/release v2.1 yet."
+  "next_action": "Install exact candidate 92c7c24e717a8e250c87385eb88faace08d0449c. No new History sync/NFC is needed for the first check. Reopen the History range that previously showed an Hour interval longer than one hour and confirm every valid consecutive Hour interval is exactly one hour with no anchor-handover stretch/compression. Absolute labels may shift coherently because the newest active anchor places the entire ON_TIME geometry. If pass, complete any remaining timezone-picker spot-check and perform exactly one final protected Live/default NFC read for F. Keep PR #22 Draft; do not bump/merge/release v2.1 yet."
 }
