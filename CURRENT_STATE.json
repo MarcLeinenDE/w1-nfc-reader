@@ -1,5 +1,5 @@
 {
-  "schema_version": 10,
+  "schema_version": 11,
   "project": "W1 NFC Reader",
   "date": "2026-09-12",
   "public_repository": "MarcLeinenDE/w1-nfc-reader",
@@ -10,8 +10,8 @@
   },
   "development": {
     "branch": "dev/v2.1.0-real-time-timeline",
-    "head": "205720b5bb70cd8d0436d43a5de805aa0dc72b33",
-    "head_ci_run": 34693507298,
+    "head": "4f388f8fb9f3d759dbb8cc00be0e2c673d6f958f",
+    "head_ci_run": 34696006781,
     "head_ci_conclusion": "success",
     "translation_key_count": 227,
     "translation_locale_count": 6,
@@ -21,14 +21,14 @@
     "pull_request_base": "main"
   },
   "physical_validation_candidate": {
-    "source_commit": "205720b5bb70cd8d0436d43a5de805aa0dc72b33",
-    "ci_run": 34693507298,
+    "source_commit": "4f388f8fb9f3d759dbb8cc00be0e2c673d6f958f",
+    "ci_run": 34696006781,
     "artifact_name": "w1-nfc-reader-debug",
-    "artifact_id": 10298341211,
-    "artifact_zip_sha256": "65ffcad2c5a29209d472fb3757fafe9931f8488127901cca232e5f7d4e38412a",
-    "apk_sha256": "122965a45956013b44df4e8dde6cacfac5c573cf0bdfa38cf190a384d9555a86",
+    "artifact_id": 10299310144,
+    "artifact_zip_sha256": "6a2399514ac6d8bd4604e84d60316d85e528ad844780588fa1b04b70e36faf26",
+    "apk_sha256": "bef486df8318a6d0baee79513b28cd4580d2c8c172e548226e4469151516861f",
     "artifact_integrity": "independently verified: downloaded ZIP digest matches GitHub artifact digest and APK hash matches SHA256SUMS.txt",
-    "status": "canonical-real-time replacement candidate awaiting selective physical confirmation of revised D, then E and F"
+    "status": "awaiting physical visual confirmation of statistics edge-overlap bars, then E and F"
   },
   "accepted_product_decision": {
     "document": "docs/product-decisions/v2.1-canonical-real-time-product-timeline.md",
@@ -44,46 +44,42 @@
   "physical_validation_progress": {
     "section_a": {
       "status": "partial-pass",
-      "confirmed": [
-        "debug app installed and usable",
-        "no installation/coexistence issue"
-      ],
-      "note": "fresh-state default-LOCAL check can be done on exact release candidate without deleting current test data"
+      "note": "fresh-state default check can be done on exact signed RC"
     },
-    "section_b": {
-      "status": "pass-with-ui-polish-notes",
-      "confirmed": [
-        "protected normal Live NFC read succeeds",
-        "no automatic History sync on normal contact",
-        "Europe/Berlin timezone/provenance visible",
-        "locale formatting basically correct"
-      ]
-    },
+    "section_b": "pass; final protected normal Live regression repeated in F",
     "section_c": {
-      "status": "pass on physical reproduction cases",
+      "status": "pass",
       "confirmed": [
         "post-History final verified Default/Live reads create fresh time anchors",
-        "September 2026 Statistics shows 10/30 completed Day buckets",
-        "10 September Statistics shows 22/24 fully-contained Hour buckets",
-        "empty/out-of-range family no longer causes false LOCAL warning",
-        "natural oldest retained boundary no longer causes false all-period warning",
-        "History/Statistics ordering and period ownership are plausible on real backup/data"
+        "September 2026 Statistics showed 10/30 fully-contained Day buckets",
+        "10 September Statistics showed 22/24 fully-contained Hour buckets",
+        "empty/out-of-range family does not cause false warning",
+        "natural oldest retained boundary does not cause false all-period warning"
       ]
     },
-    "section_d": {
-      "status": "superseded-by-product-decision",
-      "old_gate": "LOCAL <-> METER global switch",
-      "new_gate": "docs/V2_1_CANONICAL_REAL_TIME_VALIDATION_ADDENDUM.md",
-      "required": [
-        "former time-basis selector absent from normal Settings",
-        "real/reconstructed local time primary on Overview, Live History and archive History",
-        "raw meter/logger time remains secondary evidence",
-        "legacy/restored METER preference returns to canonical real-time product UI",
-        "no sync/NFC action triggered by presentation navigation"
-      ]
+    "section_d_revised": {
+      "status": "physical presentation accepted so far",
+      "candidate": "205720b5bb70cd8d0436d43a5de805aa0dc72b33",
+      "confirmed": [
+        "former normal Local/Meter selector removed",
+        "canonical real timeline is normal product presentation",
+        "raw meter/logger wall-clock remains secondary evidence"
+      ],
+      "note": "current overlap-bar candidate inherits same time model and changes only downstream Statistics presentation/read-model"
     },
+    "statistics_overlap_visual": "pending physical visual check on 4f388f8",
     "section_e": "pending invalid-IANA-zone rejection smoke test",
     "section_f": "pending final protected normal Live NFC regression read"
+  },
+  "statistics_edge_presentation": {
+    "implemented_commit": "4f388f8fb9f3d759dbb8cc00be0e2c673d6f958f",
+    "fully_contained": "filled bars; included in selected-window total/average/minimum/maximum and availableBuckets",
+    "partial_overlap": "dashed outline bars showing the complete measured physical archive delta as context only; never prorated and excluded from selected-window KPIs",
+    "native_gap": "remains a gap; no fabricated bar",
+    "zero_consumption": "visible baseline marker instead of an invisible zero-height bar",
+    "scope": "generic consumption presentation for Hour/Day/Month archive statistics",
+    "wording": "coverage explicitly says fully contained; consumption explanation updated in all six locales",
+    "regression": "StatisticsPartialEdgePresentationTest proves 24 visible physical intervals with 22 full KPI buckets and excludes deliberately large partial-edge values from KPIs"
   },
   "time_model_hardening": {
     "canonical_rule": "UTC interval identity derived from verified timing evidence is authoritative; LOCAL is an IANA projection; raw meter/logger wall-clock remains source evidence only",
@@ -91,19 +87,17 @@
     "anchor_direction_rule": "never resolve an archive boundary newer in ON_TIME than the selected verified anchor",
     "retention_rule": "natural oldest open prefix is retention geometry, not time ambiguity",
     "gap_rule": "missing native records remain explicit NATIVE_GAP and are never compressed",
-    "dst_rule": "LOCAL civil windows may be 23/24/25 hours; folds/gaps fail closed unless explicitly safe",
-    "home_assistant_implication": "preserve canonical UTC plus explicit coverage state; derive LOCAL through IANA; expose raw meter clock only as auxiliary evidence"
+    "dst_rule": "LOCAL civil windows may be 23/24/25 hours; folds/gaps fail closed unless explicitly safe"
   },
-  "post_validation_ui_followups": {
+  "remaining_ui_followups": {
     "contract": "UX_CONTEXTUAL_HELP_CONTRACT.md",
     "items": [
-      "repository-wide date/time presentation audit; use centered 'date · time' separator consistently through shared locale-aware formatters",
-      "contextual info-button explanations wherever technically correct behavior is not self-evident",
-      "explain canonical real-time reconstruction versus raw meter-clock evidence",
-      "coverage wording distinguishes fully-contained buckets, edge intervals and actual gaps",
+      "repository-wide date/time presentation audit with centered date · time separator",
+      "contextual info-button explanations wherever correct behavior is not self-evident",
+      "explain canonical reconstructed real time versus raw meter-clock evidence",
       "locale-aware timezone abbreviations such as MEZ/MESZ or CET/CEST while retaining IANA/offset truth internally",
-      "zero-consumption statistic buckets need a visible non-misleading marker",
-      "History -> All Live delta uses nearest trustworthy previous archive observation; falls back to previous Live only if no archive predecessor exists"
+      "History -> All Live delta uses nearest trustworthy previous archive observation; fallback to previous Live only if no archive predecessor exists",
+      "further distinguish real gaps from overlap/context visually wherever appropriate"
     ]
   },
   "protected_invariants": [
@@ -116,13 +110,13 @@
     "raw meter/logger time and timing evidence are never overwritten",
     "no intentional persistent meter/radio/calibration/firmware writes",
     "QalcosonicReader.java and MbusParser.java remain protected",
-    "canonical real-time product change adds no NFC command and changes no mailbox/archive traversal semantics"
+    "current Statistics change adds no NFC command and changes no mailbox/archive traversal semantics"
   ],
   "release_identity": {
     "current_stable_version": "2.0.0",
     "current_stable_version_code": 43,
     "v2_1_version_bump_allowed": false,
-    "gate": "selective revised D + E + F, then UI/i18n/accessibility polish, then exact signed v2.1 release candidate physical acceptance"
+    "gate": "physical overlap-bar visual check + E + F, remaining UI/i18n/accessibility polish, then exact signed v2.1 RC physical acceptance"
   },
   "private_research": {
     "repository": "MarcLeinenDE/engineering-lab",
@@ -131,5 +125,5 @@
     "head": "65358d55ee52a6911ab4fa8d1a66bc0d0dda0fd0",
     "rule": "consult only if protocol/time-evidence behavior itself must be revisited; never publish private evidence"
   },
-  "next_action": "Install exact candidate 205720b5bb70cd8d0436d43a5de805aa0dc72b33. Confirm Settings no longer exposes Local/Meter choice and existing data automatically present the canonical real timeline with raw meter time secondary. Then perform Section E invalid-zone rejection and Section F one final normal Live NFC regression read. Keep PR #22 Draft; do not bump/merge/release v2.1 yet."
+  "next_action": "Install exact candidate 4f388f8fb9f3d759dbb8cc00be0e2c673d6f958f without another History sync. Retest Statistics for 10 September 2026: edge-overlap Hour intervals should be dashed outlines, full intervals filled, coverage should still report 22/24 fully contained, and KPI values must remain unchanged. Then spot-check September, pass E invalid-zone rejection and F one final protected normal Live read. Keep PR #22 Draft; do not bump/merge/release v2.1 yet."
 }
