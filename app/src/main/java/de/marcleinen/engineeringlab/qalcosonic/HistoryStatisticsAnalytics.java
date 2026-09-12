@@ -162,6 +162,8 @@ final class HistoryStatisticsAnalytics {
     static Map<String, Delta> deltas(List<HistoryStatisticsRepository.Observation> observations) {
         List<WaterUsageAnalytics.Point> points = new ArrayList<>();
         Map<String, HistoryStatisticsRepository.Observation> byIdentity = new HashMap<>();
+        boolean hasVisibleLive = false;
+        boolean hasArchive = false;
         if (observations != null) {
             for (HistoryStatisticsRepository.Observation observation : observations) {
                 if (observation == null || observation.totalM3 == null) continue;
@@ -169,19 +171,61 @@ final class HistoryStatisticsAnalytics {
                         observation.timestamp, observation.sortMs, observation.granularity,
                         observation.totalM3));
                 byIdentity.put(observation.identity, observation);
+                if (observation.live && !observation.contextOnly) hasVisibleLive = true;
+                if (!observation.live) hasArchive = true;
             }
         }
 
-        // Every History card uses the previous observation from the same physical meter and the
-        // same semantic series. This keeps Live-to-Live, Hour-to-Hour, Day-to-Day and Month-to-Month
-        // deltas stable regardless of which other granularities happen to be visible or persisted.
+        // Base rule: archive cards stay within their own semantic archive series and a dedicated
+        // Live filter stays Live-to-Live. This preserves validated Hour/Day/Month statistics and
+        // the simple Live-only history behavior.
         Map<String, Delta> out = new HashMap<>();
         for (WaterUsageAnalytics.HistoryDelta delta : WaterUsageAnalytics.historyNewestFirst(points)) {
             HistoryStatisticsRepository.Observation previous = delta.previousPoint == null
                     ? null : byIdentity.get(delta.previousPoint.identity);
             out.put(delta.point.identity, new Delta(delta.consumptionSincePreviousM3, previous));
         }
+
+        // History -> All is one chronological product timeline. In that mixed view, a Live card is
+        // most useful when its consumption is measured from the closest trustworthy archive total
+        // before that Live read, regardless of whether that archive row is Hour, Day or Month. Only
+        // if there is no trustworthy archive predecessor at all do we retain the base Live-to-Live
+        // fallback. Statistics never contains visible Live rows, so it cannot enter this branch.
+        if (hasVisibleLive && hasArchive && observations != null) {
+            for (HistoryStatisticsRepository.Observation live : observations) {
+                if (live == null || !live.live || live.contextOnly || !finite(live.totalM3)) continue;
+                HistoryStatisticsRepository.Observation archive = nearestArchivePredecessor(live, observations);
+                if (archive == null) continue;
+                double consumption = live.totalM3 - archive.totalM3;
+                if (!Double.isFinite(consumption) || consumption < -1e-9) {
+                    // A backwards total is not silently re-baselined to an older source. The nearest
+                    // trustworthy historical predecessor exists, but this delta itself is unsafe.
+                    out.put(live.identity, new Delta(null, archive));
+                    continue;
+                }
+                if (consumption < 0.0) consumption = 0.0; // absorb harmless floating-point noise
+                out.put(live.identity, new Delta(consumption, archive));
+            }
+        }
         return out;
+    }
+
+    private static HistoryStatisticsRepository.Observation nearestArchivePredecessor(
+            HistoryStatisticsRepository.Observation live,
+            List<HistoryStatisticsRepository.Observation> observations) {
+        HistoryStatisticsRepository.Observation best = null;
+        for (HistoryStatisticsRepository.Observation candidate : observations) {
+            if (candidate == null || candidate.live || !finite(candidate.totalM3)) continue;
+            if (candidate.conflictFlags != 0) continue;
+            if (live.meterId == null || !live.meterId.equals(candidate.meterId)) continue;
+            if (candidate.sortMs >= live.sortMs) continue;
+            if (best == null || candidate.sortMs > best.sortMs
+                    || (candidate.sortMs == best.sortMs
+                    && candidate.identity.compareTo(best.identity) > 0)) {
+                best = candidate;
+            }
+        }
+        return best;
     }
 
     static ConsumptionSummary consumption(List<HistoryStatisticsRepository.Observation> observations) {
