@@ -2,7 +2,7 @@ package de.marcleinen.engineeringlab.qalcosonic;
 
 import android.content.DialogInterface;
 import android.os.Bundle;
-import android.widget.EditText;
+import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -12,8 +12,13 @@ import androidx.appcompat.app.AlertDialog;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.text.DateFormat;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -152,18 +157,37 @@ public final class MeterDetailsActivity extends MaterialBaseActivity {
             current = store.getProfile(meterId);
         }
 
-        EditText input = new EditText(this);
+        // Use the tzdb shipped by the running device instead of maintaining a hand-written list.
+        // The exposed dropdown is searchable, but Save accepts only an exact value from this set,
+        // so normal product UI cannot persist an unsupported/free-text time-zone identifier.
+        List<String> zones = new ArrayList<>(ZoneId.getAvailableZoneIds());
+        if (!zones.contains("UTC")) zones.add("UTC");
+        Collections.sort(zones);
+
+        TextInputLayout field = new TextInputLayout(this);
+        field.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
+        field.setEndIconMode(TextInputLayout.END_ICON_DROPDOWN_MENU);
+        field.setHint(getString(R.string.v21_meter_timezone_hint));
+
+        MaterialAutoCompleteTextView input = new MaterialAutoCompleteTextView(this);
         input.setSingleLine(true);
-        input.setHint(R.string.v21_meter_timezone_hint);
-        if (current != null) {
-            input.setText(current.zoneId);
+        input.setThreshold(0);
+        input.setAdapter(new ArrayAdapter<>(this,
+                android.R.layout.simple_dropdown_item_1line, zones));
+        input.setOnClickListener(v -> input.showDropDown());
+        input.setOnItemClickListener((parent, view, position, id) -> field.setError(null));
+        if (current != null && current.zoneId != null) {
+            input.setText(current.zoneId, false);
             input.setSelection(input.getText().length());
         }
+        field.addView(input, new TextInputLayout.LayoutParams(
+                TextInputLayout.LayoutParams.MATCH_PARENT,
+                TextInputLayout.LayoutParams.WRAP_CONTENT));
 
         AlertDialog dialog = new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.v21_meter_timezone_edit)
                 .setMessage(R.string.v21_meter_timezone_dialog_message)
-                .setView(input)
+                .setView(field)
                 .setNegativeButton(R.string.m3_cancel, null)
                 .setPositiveButton(R.string.v21_meter_timezone_save, null)
                 .create();
@@ -171,6 +195,10 @@ public final class MeterDetailsActivity extends MaterialBaseActivity {
                 .setOnClickListener(v -> {
                     String candidate = input.getText() == null
                             ? "" : input.getText().toString().trim();
+                    if (!zones.contains(candidate)) {
+                        field.setError(getString(R.string.v21_meter_timezone_invalid));
+                        return;
+                    }
                     try {
                         String normalized = MeterTimeModelStore.normalizeZoneId(candidate);
                         try (MeterTimeModelStore store = new MeterTimeModelStore(this)) {
@@ -181,7 +209,7 @@ public final class MeterDetailsActivity extends MaterialBaseActivity {
                         dialog.dismiss();
                         recreate();
                     } catch (IllegalArgumentException error) {
-                        input.setError(getString(R.string.v21_meter_timezone_invalid));
+                        field.setError(getString(R.string.v21_meter_timezone_invalid));
                     }
                 }));
         dialog.show();
