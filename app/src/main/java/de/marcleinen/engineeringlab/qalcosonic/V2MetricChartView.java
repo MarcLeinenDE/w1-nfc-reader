@@ -59,6 +59,7 @@ final class V2MetricChartView extends View {
                 : Collections.unmodifiableList(new ArrayList<>(values));
         this.mode = mode == null ? Mode.BARS : mode;
         this.unit = unit == null ? "" : unit;
+        requestLayout();
         invalidate();
     }
 
@@ -70,7 +71,16 @@ final class V2MetricChartView extends View {
     @Override protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int width = MeasureSpec.getSize(widthMeasureSpec);
         float fontScale = getResources().getConfiguration().fontScale;
-        int desired = dp(250 + Math.round(Math.max(0f, fontScale - 1f) * 100f));
+        int extraForLabels = 0;
+        if (mode == Mode.BARS && !entries.isEmpty()) {
+            textPaint.setTextSize(sp(9));
+            float plotWidth = Math.max(1f, width - dp(62));
+            float slot = plotWidth / Math.max(1, entries.size());
+            if (shouldRotateBarLabels(slot)) {
+                extraForLabels = Math.max(0, Math.round(barLabelReserve(true) - dp(44)));
+            }
+        }
+        int desired = dp(250 + Math.round(Math.max(0f, fontScale - 1f) * 100f)) + extraForLabels;
         setMeasuredDimension(width, resolveSize(desired, heightMeasureSpec));
     }
 
@@ -82,7 +92,12 @@ final class V2MetricChartView extends View {
         int primary = MaterialColors.getColor(this, com.google.android.material.R.attr.colorPrimary);
         int secondary = MaterialColors.getColor(this, com.google.android.material.R.attr.colorSecondary);
 
-        float left = dp(52), right = getWidth() - dp(10), top = dp(18), bottom = getHeight() - dp(44);
+        float left = dp(52), right = getWidth() - dp(10), top = dp(18);
+        textPaint.setTextSize(sp(9));
+        float slot = (right - left) / Math.max(1, entries.size());
+        boolean rotateBarLabels = mode == Mode.BARS && shouldRotateBarLabels(slot);
+        float bottomReserve = mode == Mode.BARS ? barLabelReserve(rotateBarLabels) : dp(44);
+        float bottom = getHeight() - bottomReserve;
         if (right <= left || bottom <= top) return;
 
         textPaint.setTypeface(android.graphics.Typeface.DEFAULT);
@@ -132,17 +147,17 @@ final class V2MetricChartView extends View {
         }
 
         if (mode == Mode.LINE) drawLine(canvas, left, right, top, bottom, min, max, primary, muted);
-        else drawBars(canvas, left, right, top, bottom, min, max, primary, secondary, muted);
+        else drawBars(canvas, left, right, top, bottom, min, max, primary, secondary, muted,
+                rotateBarLabels);
     }
 
     private void drawBars(Canvas canvas, float left, float right, float top, float bottom,
-                          double min, double max, int primary, int secondary, int muted) {
+                          double min, double max, int primary, int secondary, int muted,
+                          boolean rotateLabels) {
         float width = right - left;
         float slot = width / Math.max(1, entries.size());
         float barWidth = Math.max(dp(4), Math.min(dp(28), slot * 0.62f));
         float zeroY = valueY(0.0, top, bottom, min, max);
-        int labelStep = labelStep(entries.size());
-        textPaint.setTextAlign(Paint.Align.CENTER);
         textPaint.setTextSize(sp(9));
         textPaint.setColor(muted);
         for (int i = 0; i < entries.size(); i++) {
@@ -172,7 +187,21 @@ final class V2MetricChartView extends View {
                 canvas.drawRoundRect(rect, dp(3), dp(3), paint);
             }
             paint.setPathEffect(null);
-            if (showLabel(i, labelStep)) canvas.drawText(entry.label, cx, bottom + dp(20), textPaint);
+
+            // Every visible bar gets exactly one axis label centred on the same slot. When labels no
+            // longer fit horizontally, rotate all bar labels together. This preserves an unambiguous
+            // one-bar/one-period mapping instead of skipping labels and making ownership guesswork.
+            if (rotateLabels) {
+                canvas.save();
+                float labelTop = bottom + dp(8);
+                canvas.rotate(90f, cx, labelTop);
+                textPaint.setTextAlign(Paint.Align.LEFT);
+                canvas.drawText(entry.label, cx, labelTop + dp(3), textPaint);
+                canvas.restore();
+            } else {
+                textPaint.setTextAlign(Paint.Align.CENTER);
+                canvas.drawText(entry.label, cx, bottom + dp(20), textPaint);
+            }
         }
     }
 
@@ -212,6 +241,22 @@ final class V2MetricChartView extends View {
             float y = valueY(entry.value, top, bottom, min, max);
             canvas.drawCircle(x, y, dp(3), paint);
         }
+    }
+
+    private boolean shouldRotateBarLabels(float slot) {
+        if (entries.size() <= 1) return false;
+        float maxWidth = 0f;
+        textPaint.setTextSize(sp(9));
+        for (Entry entry : entries) maxWidth = Math.max(maxWidth, textPaint.measureText(entry.label));
+        return entries.size() > 7 || maxWidth > Math.max(dp(24), slot * 0.88f);
+    }
+
+    private float barLabelReserve(boolean rotated) {
+        if (!rotated) return dp(44);
+        textPaint.setTextSize(sp(9));
+        float maxWidth = 0f;
+        for (Entry entry : entries) maxWidth = Math.max(maxWidth, textPaint.measureText(entry.label));
+        return Math.min(dp(132), Math.max(dp(72), maxWidth + dp(18)));
     }
 
     private float valueY(double value, float top, float bottom, double min, double max) {
