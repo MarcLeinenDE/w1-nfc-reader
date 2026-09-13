@@ -2,7 +2,7 @@
 
 ## Status
 
-Current functional code candidate: `b38006f9dab270a574d7e08cb9e3785a231a2ef8` on `dev/v2.1.0-real-time-timeline`.
+Current functional code candidate: `571e225e17f69d94ec6b09b92d748ef3c712939b` on `dev/v2.1.0-real-time-timeline`.
 
 This document describes the implemented v2.1 contract. The older dual `LOCAL / METER` product proposal is superseded by `docs/product-decisions/v2.1-canonical-real-time-product-timeline.md`.
 
@@ -119,7 +119,7 @@ For the canonical product path:
 - raw meter/logger time remains available as secondary evidence;
 - records are never shifted to another physical occurrence merely to fit civil labels.
 
-The mixed History → All Live delta uses the chronologically nearest trustworthy earlier archive cumulative reading from the same physical meter, regardless of Hour/Day/Month family. If none exists it may fall back to the previous valid Live reading. It never crosses meter replacement, identity conflict or unsafe chronology.
+In mixed `History -> All`, a Live card uses the chronologically nearest trustworthy earlier **cumulative observation** on the same physical meter, regardless of whether that predecessor is Live, Hour, Day or Month. There is no archive-family priority. This specifically covers consecutive Live reads with no archive occurrence between them: the newer Live read is based on the immediately preceding Live read. Dedicated Live history remains Live-to-Live, while archive cards retain their same-family archive-series semantics. Deltas never cross meter replacement, identity conflict or unsafe chronology.
 
 ## DST-aware statistics and edge intervals
 
@@ -166,16 +166,16 @@ See `docs/research/PUBLIC_QW1_EVIDENCE.md`.
 
 Functional code candidate:
 
-- commit: `b38006f9dab270a574d7e08cb9e3785a231a2ef8`
-- Android CI: `34715215357` — **SUCCESS**
+- commit: `571e225e17f69d94ec6b09b92d748ef3c712939b`
+- Android CI: `34744809727` — **SUCCESS**
 - unit/Robolectric suite: **SUCCESS**
 - product translation check across 6 locales: **SUCCESS**
 - debug APK build/signature/hash/artifact upload: **SUCCESS**
-- artifact id: `10304503134`
-- artifact ZIP SHA-256: `cc48ffd4548fcff663583c1d722309b36584b4285de66ad24a3b4cfc1a367059`
-- APK SHA-256: `4488e1b1d500cf52ff03cc4ab294a9152e5623a111133533e3cd3ef4003b1686`
+- artifact id: `10313108673`
+- artifact ZIP SHA-256: `63260084c3648ee7d7c118a2edc3526a15795d7f6abc1eab48e614203451d5c4`
+- APK SHA-256: `81b16bd97205b565e5fc4fa00b0ecd42d162ab934c3da544f7933738cd927baa`
 
-This candidate contains the single-active-anchor fix, deterministic `SourceRecordId`, and centralized chart-axis collision handling.
+This candidate contains the single-active-anchor fix, deterministic `SourceRecordId`, centralized chart-axis collision handling and the chronological Live-delta predecessor fix. `HistoryAllLiveBaselineTest` explicitly protects consecutive Live reads in mixed History.
 
 ## Safety boundary
 
@@ -185,9 +185,11 @@ Normal NFC contact remains the fast Live/default read. History synchronization r
 
 ## Remaining release gates
 
+The protected normal Live/default regression read (Section F) passed on 2026-09-13 immediately before the chronological Live-delta defect was identified in History presentation. The subsequent fix is confined to `HistoryStatisticsAnalytics` plus its regression test and does not touch NFC/protocol/archive acquisition behavior.
+
 Before v2.1 release:
 
-1. perform one final normal protected Live/default NFC read on the current candidate (Section F);
+1. physically spot-check the corrected mixed-History Live baseline on the current functional candidate using the already stored consecutive Live reads; no new NFC contact is required;
 2. prepare v2.1.0 version metadata, changelog/release notes and the exact signed RC;
 3. physically accept that exact signed RC, including fresh/default-state smoke as appropriate;
 4. only then move PR #22 out of Draft, merge, tag and release.
