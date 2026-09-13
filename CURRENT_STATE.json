@@ -1,5 +1,5 @@
 {
-  "schema_version": 20,
+  "schema_version": 21,
   "project": "W1 NFC Reader",
   "date": "2026-09-13",
   "public_repository": "MarcLeinenDE/w1-nfc-reader",
@@ -10,27 +10,25 @@
   },
   "development": {
     "branch": "dev/v2.1.0-real-time-timeline",
-    "head": "24aece01684ee78c913b5fd6c98e273e1d4b29e4",
-    "head_note": "documentation-only cleanup plus ROADMAP.md after the physically tested functional code candidate; no runtime/NFC/parser/archive code changed",
-    "functional_code_head": "b38006f9dab270a574d7e08cb9e3785a231a2ef8",
-    "functional_ci_run": 34715215357,
+    "head": "b8655ebf5351f6d1bf652250a6800ebd53eae46a",
+    "head_note": "documentation-only commit after current functional candidate; no runtime/NFC/parser/archive acquisition code changed",
+    "functional_code_head": "571e225e17f69d94ec6b09b92d748ef3c712939b",
+    "functional_ci_run": 34744809727,
     "functional_ci_conclusion": "success",
-    "translation_key_count": 227,
-    "translation_locale_count": 6,
     "pull_request": 22,
     "pull_request_state": "open",
     "pull_request_draft": true,
     "pull_request_base": "main"
   },
   "physical_validation_candidate": {
-    "source_commit": "b38006f9dab270a574d7e08cb9e3785a231a2ef8",
-    "ci_run": 34715215357,
+    "source_commit": "571e225e17f69d94ec6b09b92d748ef3c712939b",
+    "ci_run": 34744809727,
     "artifact_name": "w1-nfc-reader-debug",
-    "artifact_id": 10304503134,
-    "artifact_zip_sha256": "cc48ffd4548fcff663583c1d722309b36584b4285de66ad24a3b4cfc1a367059",
-    "apk_sha256": "4488e1b1d500cf52ff03cc4ab294a9152e5623a111133533e3cd3ef4003b1686",
-    "artifact_integrity": "independently verified: downloaded ZIP digest matches GitHub artifact digest and APK hash matches SHA256SUMS.txt",
-    "status": "single-active-anchor and chart-axis physical retests accepted; only final protected Live regression F remains before RC preparation"
+    "artifact_id": 10313108673,
+    "artifact_zip_sha256": "63260084c3648ee7d7c118a2edc3526a15795d7f6abc1eab48e614203451d5c4",
+    "apk_sha256": "81b16bd97205b565e5fc4fa00b0ecd42d162ab934c3da544f7933738cd927baa",
+    "artifact_integrity": "downloaded ZIP digest matches GitHub artifact digest and APK hash matches SHA256SUMS.txt",
+    "status": "awaiting one physical History-All consecutive-Live baseline spot-check using stored data; no additional NFC contact required"
   },
   "accepted_product_decision": {
     "summary": "normal UI has one canonical reconstructed real timeline; raw meter/logger wall clock is secondary evidence",
@@ -40,14 +38,24 @@
     "unsafe_reconstruction": "fail closed; never silently promote raw meter clock"
   },
   "single_active_anchor": {
-    "status": "implemented, CI-green and physically accepted on the current functional candidate",
+    "status": "implemented, CI-green and physically accepted",
     "selection": "newest fully verified Live/default anchor for the physical meter, ordered primarily by ON_TIME",
     "refresh": "accepted normal Live/default reads and verified final Default/Live after each History family replace active anchor when ON_TIME advances",
     "projection": "all Hour/Day/Month/Year boundaries for one meter project backwards from the same active anchor",
     "duration_invariant": "native adjacent Hour 3600s remains exactly 3600s real time; analogous native Day/Month/Year duration preservation",
     "future_archive": "archive ON_TIME greater than active anchor fails closed",
-    "backwards_anchor": "backwards/reset ON_TIME cannot silently replace active anchor",
-    "legacy_multi_anchor": "readable; projection/export exposes newest active only; later accepted write/import collapses to one active anchor"
+    "backwards_anchor": "backwards/reset ON_TIME cannot silently replace active anchor"
+  },
+  "history_all_live_delta": {
+    "status": "code-fixed and CI-green; physical spot-check pending",
+    "rule": "visible Live in mixed History-All uses chronologically nearest trustworthy earlier cumulative observation on same physical meter",
+    "eligible_predecessors": ["LIVE", "HOUR", "DAY", "MONTH"],
+    "priority": "chronology only; no archive-family priority and no archive-over-Live preference",
+    "consecutive_live": "if live1 is later than the newest archive and earlier than live2, live2 uses live1",
+    "dedicated_live": "remains Live-to-Live",
+    "archive_cards": "retain same-family archive-series semantics",
+    "safety": "never cross meter identity, known conflict or unsafe chronology; nearest backwards cumulative total fails closed instead of silently choosing an older source",
+    "regression_test": "HistoryAllLiveBaselineTest.mixedAllViewUsesImmediatePreviousLiveWhenItIsCloserThanArchive"
   },
   "source_record_id": {
     "status": "implemented and CI-green; HA transport/export itself not implemented",
@@ -77,47 +85,30 @@
     "renderer": "V2MetricChartView",
     "bars": "consumption/flow: complete set horizontal when it fits -> complete set rotated when that fits -> complete set hidden if rotated text would collide",
     "lines": "temperature/battery: measured-fit thinning -> hide labels if remaining set still collides",
-    "data_preservation": "axis presentation never drops/merges/aggregates data points or buckets",
-    "alarms": "current alarm metric is a textual event timeline, not a V2MetricChartView x-axis chart",
-    "regression": "V2MetricChartAxisPolicyTest"
+    "data_preservation": "axis presentation never drops/merges/aggregates data points or buckets"
   },
   "physical_validation_progress": {
     "section_a": "partial-pass; fresh/default-state check may be done on exact signed RC",
-    "section_b": "pass; final protected normal Live regression repeated in F",
+    "section_b": "pass",
     "section_c": "pass for accepted physical cases including coverage/retention/warning fixes",
     "section_d_revised": "canonical real timeline presentation accepted",
-    "single_active_anchor_regression": "pass on current functional candidate",
-    "adaptive_chart_axis": "pass on current functional candidate",
+    "single_active_anchor_regression": "pass",
+    "adaptive_chart_axis": "pass",
     "timezone_picker": "implemented; no current blocker reported",
     "section_e_legacy": "retired: constrained runtime-supported timezone picker supersedes mandatory free-text invalid-IANA test",
-    "section_f": "pending; only remaining functional debug-candidate gate"
+    "section_f": "PASS on 2026-09-13: protected normal Live/default read succeeded; no automatic History sync or protocol regression reported",
+    "post_f_history_delta_finding": "new Live card incorrectly preferred older archive baseline over closer previous Live; downstream analytics only",
+    "post_f_history_delta_fix": "functional commit 571e225e; CI green; physical stored-data spot-check pending"
   },
   "documentation_cleanup": {
-    "status": "completed before RC",
-    "dev_head": "24aece01684ee78c913b5fd6c98e273e1d4b29e4",
+    "status": "current",
+    "dev_head": "b8655ebf5351f6d1bf652250a6800ebd53eae46a",
     "changes": [
       "old dual LOCAL/METER proposal explicitly marked SUPERSEDED",
-      "time-model implementation aligned to single-active-anchor and SourceRecordId",
-      "validation addendum aligned to constrained timezone picker and final F gate",
-      "real-device validation consolidated to current canonical timeline and RC flow",
-      "root ROADMAP.md added for v2.1/v2.2/v3.0 product direction"
-    ],
-    "runtime_code_changed": false
-  },
-  "statistics_edge_presentation": {
-    "fully_contained": "filled bars included in selected-window KPIs",
-    "partial_overlap": "dashed outline full measured context only; never prorated; excluded from KPIs",
-    "native_gap": "remains a gap",
-    "zero_consumption": "visible baseline marker",
-    "coverage": "concise fully-contained count"
-  },
-  "timezone_picker": {
-    "source": "ZoneId.getAvailableZoneIds() on running Android runtime plus UTC",
-    "presentation": "searchable MaterialAutoCompleteTextView exposed dropdown",
-    "current_zone": "preselected",
-    "save_rule": "candidate must exactly belong to runtime-supported set before normalization/persistence",
-    "free_text_invalid": "cannot persist through normal product UI",
-    "raw_data_effect": "none; changing zone changes only local-time interpretation"
+      "time-model implementation aligned to single-active-anchor, SourceRecordId, chart policy and chronological Live baseline",
+      "validation flow aligned to constrained timezone picker and RC process",
+      "root ROADMAP.md records v2.1/v2.2/v3.0 direction"
+    ]
   },
   "protected_invariants": [
     "normal NFC contact remains protected Live/default read only",
@@ -134,7 +125,7 @@
     "current_stable_version": "2.0.0",
     "current_stable_version_code": 43,
     "v2_1_version_bump_allowed": false,
-    "gate": "final protected Live regression F; then exact signed v2.1.0 RC build/provenance and physical acceptance"
+    "gate": "physical stored-data spot-check of chronological Live baseline; then exact signed v2.1.0 RC build/provenance and physical acceptance"
   },
   "deferred_v2_2_cleanup": {
     "status": "planned after v2.1 release",
@@ -146,8 +137,7 @@
       "audit other compatibility helpers for genuine redundancy",
       "final repository hygiene pass and maintenance-mode handoff"
     ],
-    "target_state": "feature-complete local NFC product / maintenance mode after cleanup",
-    "not_cleanup_targets": "physically validated NFC/parser/archive regression tests and public backup/migration compatibility without separate proof"
+    "target_state": "feature-complete local NFC product / maintenance mode after cleanup"
   },
   "roadmap_v3_home_assistant": {
     "status": "planned major future version; no implementation in v2.x",
@@ -155,13 +145,9 @@
     "architecture": "Qalcosonic W1 -> NFC -> Android app -> local connector protocol -> Home Assistant custom integration -> sensors/long-term statistics",
     "pairing": "HA creates short-lived one-time pairing session and QR code; app scans and redeems over reachable local network",
     "qr_security": "no Wi-Fi credentials; no normal HA administrator/long-lived user token; issue dedicated least-privilege device/app credential after pairing",
-    "network_requirement": "phone must be able to reach HA connector over same LAN or routable local network; discovery is optional convenience, not a requirement",
+    "network_requirement": "phone must be able to reach HA connector over same LAN or routable local network; discovery is optional convenience",
     "dedupe": "Android may resend all eligible local records; HA deduplicates/UPSERTs by deterministic source_record_id",
-    "phone_replacement": "fresh/replacement phone can pair again, reread retained archive and resend without duplicate physical occurrences",
-    "multiple_phones": "supported; central HA dedupe remains authoritative",
-    "ha_data_model": "current state as normal entities where appropriate; historical archive intended for HA long-term statistics",
-    "android_permission_boundary": "v3.0 intentionally introduces network access/INTERNET permission; v2.x remains local NFC only",
-    "implementation_note": "revalidate exact Home Assistant APIs/storage interfaces against the then-current HA platform before implementation"
+    "android_permission_boundary": "v3.0 intentionally introduces network access/INTERNET permission; v2.x remains local NFC only"
   },
   "private_research": {
     "repository": "MarcLeinenDE/engineering-lab",
@@ -170,5 +156,5 @@
     "head": "65358d55ee52a6911ab4fa8d1a66bc0d0dda0fd0",
     "rule": "consult only if protocol/time-evidence behavior itself must be revisited; never publish private evidence"
   },
-  "next_action": "Perform exactly one final protected normal Live/default NFC read from Overview on the current installed functional candidate. If it passes, prepare v2.1.0 version metadata/changelog/release notes and the exact signed RC, then physically accept that exact RC before PR #22 leaves Draft / merge / tag / release."
+  "next_action": "Install exact functional candidate 571e225e17f69d94ec6b09b92d748ef3c712939b and reopen the already stored consecutive Live reads in History-All. Confirm the newest Live card uses the immediately preceding Live read as its consumption baseline. No new NFC contact is required. If PASS, prepare exact signed v2.1.0 RC."
 }
