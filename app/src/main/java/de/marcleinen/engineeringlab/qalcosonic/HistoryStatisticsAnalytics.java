@@ -186,37 +186,39 @@ final class HistoryStatisticsAnalytics {
             out.put(delta.point.identity, new Delta(delta.consumptionSincePreviousM3, previous));
         }
 
-        // History -> All is one chronological product timeline. In that mixed view, a Live card is
-        // most useful when its consumption is measured from the closest trustworthy archive total
-        // before that Live read, regardless of whether that archive row is Hour, Day or Month. Only
-        // if there is no trustworthy archive predecessor at all do we retain the base Live-to-Live
-        // fallback. Statistics never contains visible Live rows, so it cannot enter this branch.
+        // History -> All is one chronological product timeline. In that mixed view, every visible
+        // Live card measures consumption from the immediately preceding trustworthy cumulative
+        // observation on the same physical meter, regardless of whether that predecessor is Live,
+        // Hour, Day or Month. Time proximity wins; there is no archive-family priority. Statistics
+        // never contains visible Live rows, so it cannot enter this branch.
         if (hasVisibleLive && hasArchive && observations != null) {
             for (HistoryStatisticsRepository.Observation live : observations) {
                 if (live == null || !live.live || live.contextOnly || !finite(live.totalM3)) continue;
-                HistoryStatisticsRepository.Observation archive = nearestArchivePredecessor(live, observations);
-                if (archive == null) continue;
-                double consumption = live.totalM3 - archive.totalM3;
+                HistoryStatisticsRepository.Observation previous =
+                        nearestTrustworthyPredecessor(live, observations);
+                if (previous == null) continue;
+                double consumption = live.totalM3 - previous.totalM3;
                 if (!Double.isFinite(consumption) || consumption < -1e-9) {
                     // A backwards total is not silently re-baselined to an older source. The nearest
-                    // trustworthy historical predecessor exists, but this delta itself is unsafe.
-                    out.put(live.identity, new Delta(null, archive));
+                    // trustworthy chronological predecessor exists, but this delta itself is unsafe.
+                    out.put(live.identity, new Delta(null, previous));
                     continue;
                 }
                 if (consumption < 0.0) consumption = 0.0; // absorb harmless floating-point noise
-                out.put(live.identity, new Delta(consumption, archive));
+                out.put(live.identity, new Delta(consumption, previous));
             }
         }
         return out;
     }
 
-    private static HistoryStatisticsRepository.Observation nearestArchivePredecessor(
+    private static HistoryStatisticsRepository.Observation nearestTrustworthyPredecessor(
             HistoryStatisticsRepository.Observation live,
             List<HistoryStatisticsRepository.Observation> observations) {
         HistoryStatisticsRepository.Observation best = null;
         for (HistoryStatisticsRepository.Observation candidate : observations) {
-            if (candidate == null || candidate.live || !finite(candidate.totalM3)) continue;
+            if (candidate == null || candidate == live || !finite(candidate.totalM3)) continue;
             if (candidate.conflictFlags != 0) continue;
+            if (candidate.live && candidate.contextOnly) continue;
             if (live.meterId == null || !live.meterId.equals(candidate.meterId)) continue;
             if (candidate.sortMs >= live.sortMs) continue;
             if (best == null || candidate.sortMs > best.sortMs
