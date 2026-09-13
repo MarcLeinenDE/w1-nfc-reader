@@ -108,13 +108,13 @@ The current alarm metric is a textual event timeline and therefore has no `V2Met
 
 ## History `All` — Live delta baseline
 
-In mixed `History -> All`, a Live card uses the chronologically nearest trustworthy **earlier archive cumulative observation** on the same physical meter as baseline.
+In mixed `History -> All`, a Live card uses the chronologically nearest trustworthy **earlier cumulative observation** on the same physical meter as baseline.
 
-1. Consider valid Hour, Day and Month archive observations together.
-2. Choose the latest canonical observation that is strictly earlier than the Live read.
-3. Chronology is authoritative; do not use a fixed family priority.
-4. If no archive predecessor exists, fall back to immediately previous valid Live.
-5. If neither exists, do not fabricate a delta.
+1. Consider valid Live, Hour, Day and Month cumulative observations together.
+2. Choose the latest canonical observation that is strictly earlier than the current Live read.
+3. Chronology is authoritative; there is no archive-family priority and no preference for archive over Live.
+4. Consecutive Live reads with no archive occurrence between them therefore use Live-to-Live deltas.
+5. If no trustworthy predecessor exists, do not fabricate a delta.
 6. Never calculate across meter replacement, incompatible identity, known conflict or unsafe chronology.
 
 Dedicated Live remains Live-to-Live; archive cards retain same-family archive-series semantics.
@@ -139,13 +139,13 @@ Android does not maintain an authoritative already-sent state for HA. A future i
 
 ## v2.1 implementation / physical status
 
-Functional code candidate: `b38006f9dab270a574d7e08cb9e3785a231a2ef8`.
+Current functional code candidate: `571e225e17f69d94ec6b09b92d748ef3c712939b`.
 
-CI `34715215357`: **SUCCESS**.
+CI `34744809727`: **SUCCESS**.
 
 Implemented and CI-green:
 - single-active-anchor archive projection;
-- mixed History-All Live archive-baseline rule;
+- mixed History-All Live nearest-chronological-cumulative-baseline rule, including consecutive Live reads;
 - adaptive shared Statistics x-axis policy for consumption/flow/temperature/battery;
 - centered locale-aware `date · time` presentation;
 - localized timezone abbreviations with DST-fold disambiguation;
@@ -156,9 +156,9 @@ Implemented and CI-green:
 - deterministic `SourceRecordId` primitive for future HA idempotence;
 - six-locale UI/help copy and regression suite.
 
-The single-active-anchor stretched-Hour regression and adaptive chart-axis presentation were physically rechecked on the current candidate and reported as good. No remaining presentation blocker is recorded.
+The protected final normal Live/default NFC regression F passed on 2026-09-13. That read exposed a downstream mixed-History presentation defect: the newest Live card still preferred an older archive baseline over a closer previous Live read. The corrected candidate changes only History analytics/test code; NFC/protocol/archive acquisition remains untouched.
 
-Only the final protected normal Live/default NFC regression F remains before exact signed v2.1.0 RC preparation.
+Before RC preparation, physically spot-check the corrected Live baseline using the already stored consecutive Live reads. No additional NFC contact is required.
 
 ## Deferred v2.2 cleanup
 
