@@ -27,7 +27,27 @@ public final class HistoryAllLiveBaselineTest {
         assertEquals(0.5, delta.consumptionM3, 0.000001);
     }
 
-    @Test public void liveOnlyViewKeepsPreviousLiveFallback() {
+    @Test public void mixedAllViewUsesImmediatePreviousLiveWhenItIsCloserThanArchive() {
+        HistoryStatisticsRepository.Observation archive = archive(
+                "archive", HistorySemanticTimeline.Granularity.HOUR, 2_000L, 10.0, 0);
+        HistoryStatisticsRepository.Observation firstLive = live("live1", 3_000L, 10.2);
+        HistoryStatisticsRepository.Observation secondLive = live("live2", 4_000L, 10.5);
+
+        Map<String, HistoryStatisticsAnalytics.Delta> deltas =
+                HistoryStatisticsAnalytics.deltas(List.of(archive, firstLive, secondLive));
+
+        HistoryStatisticsAnalytics.Delta firstDelta = deltas.get("live1");
+        assertNotNull(firstDelta);
+        assertEquals("archive", firstDelta.previous.identity);
+        assertEquals(0.2, firstDelta.consumptionM3, 0.000001);
+
+        HistoryStatisticsAnalytics.Delta secondDelta = deltas.get("live2");
+        assertNotNull(secondDelta);
+        assertEquals("live1", secondDelta.previous.identity);
+        assertEquals(0.3, secondDelta.consumptionM3, 0.000001);
+    }
+
+    @Test public void liveOnlyViewKeepsPreviousLiveBehavior() {
         HistoryStatisticsRepository.Observation first = live("live1", 1_000L, 10.0);
         HistoryStatisticsRepository.Observation second = live("live2", 2_000L, 10.2);
 
