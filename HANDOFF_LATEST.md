@@ -37,24 +37,24 @@ Stable main baseline:
 Active development branch:
 - `dev/v2.1.0-real-time-timeline`
 
-Current physically tested **functional code candidate**:
-- commit `b38006f9dab270a574d7e08cb9e3785a231a2ef8`
-- Android CI `34715215357`: **SUCCESS**
+Current exact **functional code candidate**:
+- commit `571e225e17f69d94ec6b09b92d748ef3c712939b`
+- Android CI `34744809727`: **SUCCESS**
 - unit/Robolectric suite: **PASS**
-- product translations: **PASS — 227 keys across 6 locales**
+- product translations: **PASS**
 - debug build/signature/hash/artifact upload: **PASS**
 - artifact `w1-nfc-reader-debug`
-- artifact id `10304503134`
-- artifact ZIP SHA-256 `cc48ffd4548fcff663583c1d722309b36584b4285de66ad24a3b4cfc1a367059`
-- APK SHA-256 `4488e1b1d500cf52ff03cc4ab294a9152e5623a111133533e3cd3ef4003b1686`
+- artifact id `10313108673`
+- artifact ZIP SHA-256 `63260084c3648ee7d7c118a2edc3526a15795d7f6abc1eab48e614203451d5c4`
+- APK SHA-256 `81b16bd97205b565e5fc4fa00b0ecd42d162ab934c3da544f7933738cd927baa`
 
-The dev branch also contains documentation-only cleanup/roadmap commits after that functional code candidate. No app/runtime code changed in those documentation commits. Current dev documentation head: `24aece01684ee78c913b5fd6c98e273e1d4b29e4`.
+The dev branch contains documentation-only commits after that functional code candidate. Current dev documentation head after the Live-delta documentation alignment: `b8655ebf5351f6d1bf652250a6800ebd53eae46a`.
 
 Draft PR:
 - `#22 — WIP: add v2.1 real-time timeline foundation`
 - base `main`
 - head `dev/v2.1.0-real-time-timeline`
-- remains Draft until final protected Live regression F and exact signed RC acceptance pass.
+- remains Draft until the corrected mixed-History Live baseline is physically spot-checked and the exact signed RC is accepted.
 
 ## 3. Accepted time model — one canonical timeline, one active anchor
 
@@ -82,9 +82,30 @@ Current invariant:
 - analogous native duration preservation applies to Day/Month/Year;
 - newer anchor may shift the complete reconstructed timeline coherently, but cannot stretch/compress individual intervals.
 
-Physical retest of the current candidate was reported as good. This regression is no longer a release blocker.
+Physical retest was reported as good. This regression is no longer a release blocker.
 
-## 5. Home Assistant source identity
+## 5. Mixed History `All` Live delta — chronological predecessor rule
+
+A final protected Live read on 2026-09-13 succeeded, but its History card exposed a downstream presentation defect: when two Live reads followed one another after an archive point, the newer Live card still preferred the older archive baseline.
+
+Accepted rule:
+- in mixed `History -> All`, a visible Live card uses the chronologically nearest trustworthy earlier **cumulative observation** on the same physical meter;
+- valid Live, Hour, Day and Month observations participate together;
+- chronology wins; there is no preference for archive over Live and no archive-family priority;
+- therefore consecutive Live reads without an archive occurrence between them use Live-to-Live consumption;
+- do not cross meter replacement, known conflicts or unsafe chronology;
+- archive cards keep same-family archive-series semantics; dedicated Live remains Live-to-Live.
+
+Implementation:
+- `HistoryStatisticsAnalytics.nearestTrustworthyPredecessor(...)` now considers both Live and archive cumulative observations;
+- `HistoryAllLiveBaselineTest` explicitly covers `archive -> live1 -> live2` and requires `live2` to use `live1` as predecessor;
+- a negative/backwards total at the nearest trustworthy predecessor remains fail-closed and is not silently re-baselined to an older source.
+
+CI for this fix is green at functional commit `571e225e...`. The fix is downstream History analytics/test code only; NFC/parser/mailbox/archive acquisition code is untouched.
+
+Physical spot-check still required: install the current candidate and reopen the already stored consecutive Live reads. The newest Live card must say consumption **since the immediately preceding Live read**, not since the older archive interval. No additional NFC contact is required.
+
+## 6. Home Assistant source identity
 
 `SourceRecordId` is implemented and CI-green.
 
@@ -102,7 +123,7 @@ The ID excludes derived UTC/local time, SQLite row IDs, retrieval time, phone/in
 
 Future transport rule: **Android keeps no authoritative already-sent ledger.** It may resend every locally available eligible record. Home Assistant owns idempotence using `source_record_id` unique-key / UPSERT / no-op semantics.
 
-## 6. Statistics x-axis — implemented and physically accepted
+## 7. Statistics x-axis — implemented and physically accepted
 
 Shared `V2MetricChartView` behavior:
 - bar metrics: full labels horizontal while they fit -> full set rotated when needed -> full set hidden before collision;
@@ -114,41 +135,37 @@ The current alarm metric is a textual event timeline, not an x-axis chart.
 
 The user physically spot-checked the revised candidate and reported it looks good. The former “next version” chart-label deferral is closed.
 
-## 7. Existing v2.1 product polish
+## 8. Existing v2.1 product polish
 
 - fully-contained Statistics buckets = filled and included in selected-window KPIs;
 - partial edge overlaps = dashed full measured context only, never prorated and excluded from KPIs;
 - genuine zero = visible baseline marker; native gaps remain gaps;
-- History -> All Live delta uses chronologically nearest trustworthy earlier archive cumulative observation; previous-Live fallback only if no archive predecessor exists;
 - `date · time` presentation is locale-aware and centralized;
 - ordinary zone labels prefer localized abbreviations with DST-fold disambiguation;
 - History/Statistics contextual help appears only at actual page headings; generic Statistics explanation is not duplicated in page body;
 - timezone editor is a searchable runtime-supported IANA picker; arbitrary unsupported free text cannot persist.
 
-## 8. Documentation cleanup completed before RC
+## 9. Documentation / roadmap
 
-On 2026-09-13 the public dev-branch documentation was aligned with the actual implemented product:
+The public dev-branch documentation is aligned with the implemented product:
+- old dual `LOCAL / METER` product decision explicitly superseded;
+- time model documents single-active-anchor projection, `SourceRecordId`, chart policy and chronological Live baseline;
+- validation documents use the constrained timezone picker rather than obsolete invalid-free-text flow;
+- root `ROADMAP.md` records v2.1 release, v2.2 cleanup/maintenance and planned v3.0 Home Assistant connector/QR pairing.
 
-- the old dual `LOCAL / METER` product decision is explicitly marked superseded;
-- `V2_1_TIME_MODEL_IMPLEMENTATION.md` now documents single-active-anchor projection, `SourceRecordId`, chart policy and the current release gate;
-- the validation addendum now describes the constrained timezone picker instead of the obsolete free-text invalid-IANA test;
-- `V2_1_REAL_DEVICE_VALIDATION.md` now reflects the current canonical timeline and final gate;
-- root `ROADMAP.md` records the v2.1 release path, v2.2 cleanup/maintenance target and future v3.0 Home Assistant architecture.
-
-No runtime/NFC/parser/archive code changed in this documentation pass.
-
-## 9. Physical validation state
+## 10. Physical validation state
 
 - A: partial pass; fresh/default-state check can be done on exact signed RC.
 - B: protected normal Live NFC path passed earlier.
 - C: accepted physical cases including Statistics/retention/warning fixes.
 - D revised canonical real-time presentation: accepted.
-- single-active-anchor stretched-Hour regression: **PASS** on current candidate.
-- adaptive chart-axis spot-check: **PASS** on current candidate.
+- single-active-anchor stretched-Hour regression: **PASS**.
+- adaptive chart-axis spot-check: **PASS**.
 - timezone/help/presentation spot-check: no current blocker reported.
-- F: **only remaining functional debug-candidate gate** — one final protected normal Live/default NFC read.
+- F final protected normal Live/default NFC regression: **PASS on 2026-09-13**; read succeeded and no automatic History sync/protocol regression was reported.
+- downstream consecutive-Live History baseline: code-fixed/CI-green; **physical spot-check pending on current candidate using stored data**.
 
-## 10. Safety boundary
+## 11. Safety boundary
 
 Remain protected:
 - normal NFC contact = fast Live/default read only;
@@ -161,18 +178,20 @@ Remain protected:
 - no intentional persistent meter/radio/calibration/firmware writes;
 - `QalcosonicReader.java`, `MbusParser.java` and validated archive traversal/state machine remain protected.
 
-## 11. Immediate next action / release gate
+## 12. Immediate next action / release gate
 
 Do **not** yet bump to v2.1.0, mark PR #22 ready, merge, tag or release.
 
 Next action:
-1. perform exactly one final normal protected Live/default NFC read from Overview using the current installed functional candidate;
-2. confirm read succeeds, canonical real time remains primary, raw meter time remains secondary, no automatic History sync starts and no protocol regression appears;
-3. if F passes, prepare v2.1.0 version metadata/changelog/release notes and the exact signed RC;
-4. physically accept that exact signed RC, including fresh/default-state smoke as appropriate;
-5. only then mark PR ready, merge, tag and release.
+1. install exact functional candidate `571e225e...`;
+2. reopen the already stored consecutive Live reads in `History -> All`;
+3. confirm the newest Live delta is based on the immediately previous Live observation when no newer archive point lies between them;
+4. no new NFC read is required because F already passed and this fix is downstream analytics only;
+5. if the spot-check passes, prepare v2.1.0 version metadata/changelog/release notes and exact signed RC;
+6. physically accept that exact signed RC, including fresh/default-state smoke as appropriate;
+7. only then mark PR ready, merge, tag and release.
 
-## 12. Deferred v2.2 code cleanup / maintenance baseline
+## 13. Deferred v2.2 code cleanup / maintenance baseline
 
 The actual code cleanup is intentionally deferred until after v2.1 release to avoid widening the RC regression surface.
 
@@ -184,7 +203,7 @@ v2.2 cleanup target:
 - keep meaningful regression coverage for real bugs, protocol safety, DST, backup compatibility and archive traversal;
 - complete a final repository hygiene pass and then treat the current local-NFC feature set as feature-complete/maintenance mode.
 
-## 13. Planned v3.0 Home Assistant integration
+## 14. Planned v3.0 Home Assistant integration
 
 `ROADMAP.md` is authoritative for the future integration direction.
 
@@ -203,7 +222,7 @@ Accepted high-level direction:
 
 Exact HA APIs/storage interfaces must be revalidated against the then-current Home Assistant platform before implementation.
 
-## 14. Private research authority
+## 15. Private research authority
 
 Only if protocol/time-evidence behavior itself must be revisited:
 - private repo `MarcLeinenDE/engineering-lab`
