@@ -1,5 +1,5 @@
 {
-  "schema_version": 19,
+  "schema_version": 20,
   "project": "W1 NFC Reader",
   "date": "2026-09-13",
   "public_repository": "MarcLeinenDE/w1-nfc-reader",
@@ -10,8 +10,8 @@
   },
   "development": {
     "branch": "dev/v2.1.0-real-time-timeline",
-    "head": "95520baea12c205af45ce2d8cfda28d4a479ce29",
-    "head_note": "documentation-only cleanup after the physically tested functional code candidate; no runtime/NFC/parser/archive code changed",
+    "head": "24aece01684ee78c913b5fd6c98e273e1d4b29e4",
+    "head_note": "documentation-only cleanup plus ROADMAP.md after the physically tested functional code candidate; no runtime/NFC/parser/archive code changed",
     "functional_code_head": "b38006f9dab270a574d7e08cb9e3785a231a2ef8",
     "functional_ci_run": 34715215357,
     "functional_ci_conclusion": "success",
@@ -94,12 +94,13 @@
   },
   "documentation_cleanup": {
     "status": "completed before RC",
-    "dev_head": "95520baea12c205af45ce2d8cfda28d4a479ce29",
+    "dev_head": "24aece01684ee78c913b5fd6c98e273e1d4b29e4",
     "changes": [
       "old dual LOCAL/METER proposal explicitly marked SUPERSEDED",
       "time-model implementation aligned to single-active-anchor and SourceRecordId",
       "validation addendum aligned to constrained timezone picker and final F gate",
-      "real-device validation consolidated to current canonical timeline and RC flow"
+      "real-device validation consolidated to current canonical timeline and RC flow",
+      "root ROADMAP.md added for v2.1/v2.2/v3.0 product direction"
     ],
     "runtime_code_changed": false
   },
@@ -142,9 +143,25 @@
       "retain only minimal old-development-backup normalization compatibility",
       "remove obsolete v2_time_basis_strings.xml resources",
       "remove tests that exist solely for the retired peer mode",
-      "audit other compatibility helpers for genuine redundancy"
+      "audit other compatibility helpers for genuine redundancy",
+      "final repository hygiene pass and maintenance-mode handoff"
     ],
+    "target_state": "feature-complete local NFC product / maintenance mode after cleanup",
     "not_cleanup_targets": "physically validated NFC/parser/archive regression tests and public backup/migration compatibility without separate proof"
+  },
+  "roadmap_v3_home_assistant": {
+    "status": "planned major future version; no implementation in v2.x",
+    "roadmap_file": "ROADMAP.md",
+    "architecture": "Qalcosonic W1 -> NFC -> Android app -> local connector protocol -> Home Assistant custom integration -> sensors/long-term statistics",
+    "pairing": "HA creates short-lived one-time pairing session and QR code; app scans and redeems over reachable local network",
+    "qr_security": "no Wi-Fi credentials; no normal HA administrator/long-lived user token; issue dedicated least-privilege device/app credential after pairing",
+    "network_requirement": "phone must be able to reach HA connector over same LAN or routable local network; discovery is optional convenience, not a requirement",
+    "dedupe": "Android may resend all eligible local records; HA deduplicates/UPSERTs by deterministic source_record_id",
+    "phone_replacement": "fresh/replacement phone can pair again, reread retained archive and resend without duplicate physical occurrences",
+    "multiple_phones": "supported; central HA dedupe remains authoritative",
+    "ha_data_model": "current state as normal entities where appropriate; historical archive intended for HA long-term statistics",
+    "android_permission_boundary": "v3.0 intentionally introduces network access/INTERNET permission; v2.x remains local NFC only",
+    "implementation_note": "revalidate exact Home Assistant APIs/storage interfaces against the then-current HA platform before implementation"
   },
   "private_research": {
     "repository": "MarcLeinenDE/engineering-lab",
