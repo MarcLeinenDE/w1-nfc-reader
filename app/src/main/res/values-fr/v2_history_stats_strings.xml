@@ -32,7 +32,7 @@
     <string name="v2_kpi_current_state">Alarme dans la dernière période d’archive</string>
     <string name="v2_kpi_first_event">Première période avec alarme</string>
     <string name="v2_kpi_last_event">Dernière période avec alarme</string>
-    <string name="v2_consumption_note">Consommation par période horaire, journalière ou mensuelle achevée affichée. Les différences restent limitées au même compteur physique et à la même granularité d’archive.</string>
+    <string name="v2_consumption_note">Les barres pleines représentent des périodes d’archive entièrement contenues et sont incluses dans les indicateurs de la période sélectionnée. Les barres au contour en pointillés représentent des périodes d’archive entièrement mesurées qui ne chevauchent que partiellement la période civile sélectionnée ; leur valeur mesurée complète est affichée uniquement comme contexte, n’est pas répartie au prorata et n’est pas incluse dans ces indicateurs.</string>
     <string name="v2_temperature_note">Observations de température de l’eau enregistrées pour des périodes d’archive achevées. Elles ne sont pas des moyennes de période ; les valeurs sentinelles indisponibles sont ignorées et les périodes manquantes ne sont pas interpolées.</string>
     <string name="v2_flow_note">Débit maximal enregistré pour chaque période d’archive achevée. Lorsque le compteur fournit l’heure de l’extrême, cette heure exacte est utilisée pour le pic.</string>
     <string name="v2_battery_note">Observations de batterie indiquées par le compteur pour des périodes d’archive achevées. Aucune moyenne de période ni durée de vie restante n’est déduite.</string>
@@ -45,8 +45,8 @@
     <string name="v2_alarm_cleared">Aucune alarme enregistrée dans la période d’archive</string>
     <string name="v2_alarm_changed">Enregistrée dans la période d’archive : %1$s</string>
     <string name="v2_alarm_observed">Enregistrée dans la période d’archive : %1$s</string>
-    <string name="v2_coverage">%1$d points de données disponibles sur %2$d</string>
-    <string name="v2_coverage_count_only">%1$d points de données disponibles</string>
+    <string name="v2_coverage">%1$d sur %2$d entièrement inclus</string>
+    <string name="v2_coverage_count_only">%1$d points de données entièrement inclus</string>
     <string name="v2_coverage_not_sync_state">La couverture décrit les observations enregistrées et ne définit pas l’exhaustivité de la synchronisation du protocole.</string>
     <string name="v2_previous_period">Période précédente</string>
     <string name="v2_choose_period">Choisir une période</string>

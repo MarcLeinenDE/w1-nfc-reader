@@ -318,6 +318,15 @@ public final class HistorySyncActivity extends MaterialBaseActivity implements N
             throw new IllegalArgumentException("unsupported product sync mode: " + mode);
         }
 
+        // The safety shell has already performed this final default Live read. Reuse that exact
+        // verified evidence as a fresh time anchor; never issue an additional NFC command merely
+        // for LOCAL projection. A valid final restore remains useful even after a partial traversal.
+        if (transport.finalRestoreVerified()) {
+            LiveTimeAnchorPersistence.persist(
+                    getApplicationContext(),
+                    wire.lastDefaultTimeAnchor(expectedMeter));
+        }
+
         ArchivePersistenceCoordinator.Result persisted = persistence.result();
         showSyncProgress(family, persisted.committed, allMode, allStep);
 

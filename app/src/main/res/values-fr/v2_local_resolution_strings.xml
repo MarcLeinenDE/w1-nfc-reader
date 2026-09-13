@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_local_zone_missing_notice">L’heure locale ne peut pas être résolue pour toutes les données d’archive, car un compteur n’a pas de fuseau horaire attribué. Définissez le fuseau horaire dans les détails du compteur ou passez à l’heure du compteur.</string>
+    <string name="v21_local_window_unresolved_notice">Ces limites en heure locale ne peuvent pas être résolues de manière sûre, car une limite est ambiguë, inexistante ou non valide, par exemple lors d’un changement d’heure. Choisissez une autre limite ou passez à l’heure du compteur.</string>
+    <string name="v21_local_archive_time_unresolved_notice">Certaines périodes d’archive de cette plage ne contiennent pas assez d’informations temporelles pour une projection sûre en heure locale. Elles sont omises ici ; les données brutes restent disponibles en heure du compteur.</string>
+</resources>

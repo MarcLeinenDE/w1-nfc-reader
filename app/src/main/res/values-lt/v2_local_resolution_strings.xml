@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_local_zone_missing_notice">Vietinio laiko negalima patikimai nustatyti visiems archyvo duomenims, nes vienam skaitikliui nepriskirta laiko juosta. Nustatykite laiko juostą skaitiklio informacijoje arba pasirinkite skaitiklio laiką.</string>
+    <string name="v21_local_window_unresolved_notice">Šių vietinio laiko ribų negalima saugiai nustatyti, nes viena riba yra dviprasmiška, neegzistuoja arba neteisinga, pavyzdžiui, keičiant vasaros laiką. Pasirinkite kitą ribą arba skaitiklio laiką.</string>
+    <string name="v21_local_archive_time_unresolved_notice">Kai kuriems šio intervalo archyvo laikotarpiams nepakanka laiko duomenų saugiai vietinio laiko projekcijai. Jie čia nerodomi; neapdoroti duomenys lieka pasiekiami skaitiklio laiku.</string>
+</resources>

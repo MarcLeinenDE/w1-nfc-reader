@@ -51,6 +51,7 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
     private HistorySemanticTimeline.Granularity statsResolutionOverride;
     private HistorySemanticTimeline.Granularity statsDisplayGranularity =
             HistorySemanticTimeline.Granularity.DAY;
+    private AppTimeBasis renderedTimeBasis;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -65,6 +66,15 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         setIntent(intent);
         applyIntent(intent);
         render();
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        AppTimeBasis current = UiPreferences.getTimeBasis(this);
+        if (repository != null && pageHost != null && renderedTimeBasis != null
+                && current != renderedTimeBasis) {
+            render();
+        }
     }
 
     @Override protected void onDestroy() {
@@ -109,6 +119,7 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         pageHost.addView(currentNav == NAV_STATS ? buildStatisticsPage() : buildHistoryPage(),
                 new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
                         FrameLayout.LayoutParams.MATCH_PARENT));
+        renderedTimeBasis = UiPreferences.getTimeBasis(this);
     }
 
     private View buildHistoryPage() {
@@ -139,6 +150,7 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
 
         List<HistoryStatisticsRepository.Observation> observations =
                 repository.queryHistory(historyFilter, window, true);
+        addLocalResolutionNotice(root, repository.lastLocalResolutionIssue());
         Map<String, HistoryStatisticsAnalytics.Delta> deltas =
                 HistoryStatisticsAnalytics.deltas(observations);
         List<HistoryRow> rows = historyRows(observations, deltas, window);
@@ -173,18 +185,17 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         HistorySemanticTimeline.Granularity effective = window.customRange
                 && statsResolutionOverride != null ? statsResolutionOverride : automatic;
         statsDisplayGranularity = effective;
+        int expected = repository.expectedBuckets(window, effective);
 
         addStatisticsSelectors(content, window, availability, automatic, effective);
         if (window.customRange) {
             addAvailabilityLine(content, availability);
-            addCustomRangePrecision(content, window, availability, effective);
+            addCustomRangePrecision(content, window, availability, effective, expected);
         }
 
         List<HistoryStatisticsRepository.Observation> observations =
                 repository.queryStatistics(window, effective);
-        int expected = window.customRange
-                ? HistoryCustomRangeSemantics.expectedFullBuckets(window, effective)
-                : window.expectedBuckets;
+        addLocalResolutionNotice(content, repository.lastLocalResolutionIssue());
         addStatisticsMetric(content, observations, window, effective, expected);
 
         ScrollView scroll = new ScrollView(this);
@@ -393,6 +404,26 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         parent.addView(coverage);
     }
 
+    private void addLocalResolutionNotice(
+            LinearLayout parent,
+            HistoryLocalQueryRepository.ResolutionIssue issue) {
+        if (issue == null || issue == HistoryLocalQueryRepository.ResolutionIssue.NONE
+                || UiPreferences.getTimeBasis(this) != AppTimeBasis.LOCAL) return;
+        int textRes;
+        if (issue == HistoryLocalQueryRepository.ResolutionIssue.ZONE_MISSING) {
+            textRes = R.string.v21_local_zone_missing_notice;
+        } else if (issue == HistoryLocalQueryRepository.ResolutionIssue.WINDOW_UNRESOLVED) {
+            textRes = R.string.v21_local_window_unresolved_notice;
+        } else {
+            textRes = R.string.v21_local_archive_time_unresolved_notice;
+        }
+        TextView warning = MaterialUi.body(this, getString(textRes));
+        warning.setTextColor(MaterialUi.color(this,
+                com.google.android.material.R.attr.colorError, getColor(R.color.app_error)));
+        warning.setPadding(0, MaterialUi.dp(this, 8), 0, MaterialUi.dp(this, 2));
+        parent.addView(warning);
+    }
+
     private void addAvailabilityLine(LinearLayout parent,
                                      HistoryStatisticsRepository.Availability availability) {
         if (availability == null) return;
@@ -405,8 +436,8 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
     private void addCustomRangePrecision(LinearLayout parent,
                                          HistoryPeriodNavigator.Window window,
                                          HistoryStatisticsRepository.Availability availability,
-                                         HistorySemanticTimeline.Granularity granularity) {
-        int expected = HistoryCustomRangeSemantics.expectedFullBuckets(window, granularity);
+                                         HistorySemanticTimeline.Granularity granularity,
+                                         int expected) {
         TextView note;
         if (expected <= 0) {
             note = MaterialUi.body(this, getString(R.string.v2_range_no_full_buckets,
@@ -630,8 +661,7 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         HistoryStatisticsRepository.Observation observation = row.observation;
         LinearLayout content = MaterialUi.cardContent(this);
         content.addView(MaterialUi.label(this,
-                HistoryTimePresentation.formatPrimary(locale(), observation) + " · "
-                        + typeLabel(observation.granularity)));
+                historyPrimaryTime(observation) + " · " + typeLabel(observation.granularity)));
         TextView reading = MaterialUi.headline(this, formatM3(observation.totalM3));
         reading.setTextSize(22f);
         reading.setPadding(0, MaterialUi.dp(this, 4), 0, 0);
@@ -642,8 +672,7 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
             if (observation.live) {
                 consumptionText = getString(R.string.m3_consumption_since,
                         formatM3(row.delta.consumptionM3),
-                        HistoryTimePresentation.formatPredecessor(locale(), observation,
-                                row.delta.previous));
+                        historyPredecessorTime(observation, row.delta.previous));
             } else {
                 consumptionText = getString(archiveConsumptionTextRes(observation.granularity),
                         formatM3(row.delta.consumptionM3));
@@ -657,8 +686,21 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
         TextView meter = MaterialUi.body(this, getString(R.string.m3_meter_id, observation.meterId));
         meter.setPadding(0, MaterialUi.dp(this, 4), 0, 0);
         content.addView(meter);
-        if (observation.live && observation.meterTime != null && !observation.meterTime.isEmpty()) {
-            content.addView(MaterialUi.body(this, getString(R.string.m3_meter_time, observation.meterTime)));
+        AppTimeBasis basis = UiPreferences.getTimeBasis(this);
+        if (basis == AppTimeBasis.LOCAL
+                && observation.meterTime != null && !observation.meterTime.isEmpty()) {
+            String rawMeterTime = observation.live
+                    ? HistoryTimePresentation.formatExactFloatingDateTime(locale(), observation.meterTime)
+                    : HistoryTimePresentation.formatArchivePeriod(
+                            locale(), observation.granularity, observation.meterTime);
+            content.addView(MaterialUi.body(this,
+                    getString(R.string.m3_meter_time, rawMeterTime)));
+        } else if (basis == AppTimeBasis.METER) {
+            String localTime = historyLocalSecondary(observation);
+            if (localTime != null && !localTime.isEmpty()) {
+                content.addView(MaterialUi.body(this,
+                        getString(R.string.v21_time_basis_local) + ": " + localTime));
+            }
         }
         if (observation.batteryPercent != null) {
             content.addView(MaterialUi.body(this, getString(R.string.m3_battery) + ": "
@@ -674,6 +716,46 @@ public final class HistoryStatisticsActivity extends MaterialBaseActivity {
             content.addView(warning);
         }
         card.addView(content);
+    }
+
+    private String historyPrimaryTime(HistoryStatisticsRepository.Observation observation) {
+        if (observation == null) return "";
+        if (UiPreferences.getTimeBasis(this) != AppTimeBasis.METER) {
+            return HistoryTimePresentation.formatPrimary(locale(), observation);
+        }
+        if (observation.live) {
+            if (observation.meterTime == null || observation.meterTime.trim().isEmpty()) {
+                return getString(R.string.m3_not_available);
+            }
+            return HistoryTimePresentation.formatExactFloatingDateTime(locale(), observation.meterTime);
+        }
+        return HistoryTimePresentation.formatArchivePeriod(
+                locale(), observation.granularity, observation.timestamp);
+    }
+
+    private String historyPredecessorTime(
+            HistoryStatisticsRepository.Observation current,
+            HistoryStatisticsRepository.Observation previous) {
+        if (UiPreferences.getTimeBasis(this) == AppTimeBasis.METER
+                && previous != null && previous.live) {
+            if (previous.meterTime == null || previous.meterTime.trim().isEmpty()) {
+                return getString(R.string.m3_not_available);
+            }
+            return HistoryTimePresentation.formatExactFloatingDateTime(locale(), previous.meterTime);
+        }
+        return HistoryTimePresentation.formatPredecessor(locale(), current, previous);
+    }
+
+    private String historyLocalSecondary(HistoryStatisticsRepository.Observation observation) {
+        if (observation == null) return null;
+        if (observation.live) {
+            if (observation.deviceTimeMs <= 0L) return null;
+            return HistoryTimePresentation.formatPrimary(locale(), observation);
+        }
+        String resolved = repository.resolvedLocalArchiveTimestamp(observation);
+        return resolved == null || resolved.isEmpty() ? null
+                : HistoryTimePresentation.formatArchivePeriod(
+                        locale(), observation.granularity, resolved);
     }
 
     private int archiveConsumptionTextRes(HistorySemanticTimeline.Granularity granularity) {

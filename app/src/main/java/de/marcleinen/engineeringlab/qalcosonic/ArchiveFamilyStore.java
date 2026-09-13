@@ -31,13 +31,15 @@ import java.util.regex.Pattern;
  */
 final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersistenceCoordinator.Store {
     static final String DB_NAME = "meter_archive.db";
-    static final int DB_VERSION = 1;
+    static final int DB_VERSION = 2;
     static final String TABLE_PERIODS = "archive_periods";
     static final String TABLE_CONFLICTS = "archive_conflicts";
 
     static final int CONFLICT_CONTENT = 1;
     static final int CONFLICT_STRUCTURE = 1 << 1;
     static final int CONFLICT_PROVENANCE = 1 << 2;
+    private static final String V1_PERIODS = "archive_periods_v1";
+    private static final String V1_CONFLICTS = "archive_conflicts_v1";
     private static final Pattern LEADING_NUMBER = Pattern.compile("^[-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)");
 
     ArchiveFamilyStore(Context context) {
@@ -45,12 +47,23 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
     }
 
     @Override public void onCreate(SQLiteDatabase db) {
+        createPeriodsTable(db);
+        createConflictsTable(db);
+        createIndexes(db);
+    }
+
+    private static void createPeriodsTable(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE " + TABLE_PERIODS + " ("
                 + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + "meter_id TEXT NOT NULL,"
                 + "archive_family TEXT NOT NULL,"
                 + "logger_timestamp TEXT NOT NULL,"
+                + "occurrence_key TEXT NOT NULL DEFAULT '" + ArchiveOccurrenceKey.LEGACY + "',"
                 + "logger_time_basis TEXT NOT NULL,"
+                + "on_time_seconds INTEGER,"
+                + "raw_type_f_hex TEXT,"
+                + "type_f_iv INTEGER,"
+                + "type_f_su INTEGER,"
                 + "retrieved_at_utc TEXT NOT NULL,"
                 + "retrieved_at_ms INTEGER NOT NULL,"
                 + "first_retrieved_at_utc TEXT NOT NULL,"
@@ -71,16 +84,19 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
                 + "last_validation TEXT NOT NULL,"
                 + normalizedColumnsSql()
                 + "extra_values TEXT NOT NULL DEFAULT '',"
-                + "UNIQUE(meter_id, archive_family, logger_timestamp)"
+                + "UNIQUE(meter_id, archive_family, logger_timestamp, occurrence_key)"
                 + ")");
-        db.execSQL("CREATE INDEX idx_archive_family_logger ON " + TABLE_PERIODS
-                + " (meter_id, archive_family, logger_timestamp DESC)");
-        db.execSQL("CREATE INDEX idx_archive_all_logger ON " + TABLE_PERIODS
-                + " (meter_id, logger_timestamp DESC, archive_family)");
+    }
 
+    private static void createConflictsTable(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE " + TABLE_CONFLICTS + " ("
                 + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + "archive_period_id INTEGER NOT NULL,"
+                + "occurrence_key TEXT NOT NULL DEFAULT '" + ArchiveOccurrenceKey.LEGACY + "',"
+                + "on_time_seconds INTEGER,"
+                + "raw_type_f_hex TEXT,"
+                + "type_f_iv INTEGER,"
+                + "type_f_su INTEGER,"
                 + "observed_at_utc TEXT NOT NULL,"
                 + "observed_at_ms INTEGER NOT NULL,"
                 + "source TEXT NOT NULL,"
@@ -94,14 +110,85 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
                 + "extra_values TEXT NOT NULL DEFAULT '',"
                 + "FOREIGN KEY(archive_period_id) REFERENCES " + TABLE_PERIODS + "(id)"
                 + ")");
+    }
+
+    private static void createIndexes(SQLiteDatabase db) {
+        db.execSQL("CREATE INDEX idx_archive_family_logger ON " + TABLE_PERIODS
+                + " (meter_id, archive_family, logger_timestamp DESC, occurrence_key)");
+        db.execSQL("CREATE INDEX idx_archive_all_logger ON " + TABLE_PERIODS
+                + " (meter_id, logger_timestamp DESC, archive_family, occurrence_key)");
         db.execSQL("CREATE INDEX idx_archive_conflict_period_time ON " + TABLE_CONFLICTS
                 + " (archive_period_id, observed_at_ms, id)");
     }
 
     @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        if (oldVersion != newVersion) {
+        int version = oldVersion;
+        if (version == 1 && newVersion >= 2) {
+            migrateV1ToV2(db);
+            version = 2;
+        }
+        if (version != newVersion) {
             throw new IllegalStateException("Unsupported archive DB migration " + oldVersion + " -> " + newVersion);
         }
+    }
+
+    private static void migrateV1ToV2(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE " + TABLE_CONFLICTS + " RENAME TO " + V1_CONFLICTS);
+        db.execSQL("ALTER TABLE " + TABLE_PERIODS + " RENAME TO " + V1_PERIODS);
+        createPeriodsTable(db);
+        createConflictsTable(db);
+
+        String normalized = normalizedColumnNames();
+        db.execSQL("INSERT INTO " + TABLE_PERIODS + " ("
+                + "id,meter_id,archive_family,logger_timestamp,occurrence_key,logger_time_basis,"
+                + "on_time_seconds,raw_type_f_hex,type_f_iv,type_f_su,"
+                + "retrieved_at_utc,retrieved_at_ms,first_retrieved_at_utc,first_retrieved_at_ms,"
+                + "source,validation,structural_fingerprint,content_fingerprint,observation_count,"
+                + "identical_content_confirmations,structural_confirmations,provenance_confirmations,"
+                + "revision_count,conflict_flags,last_content_fingerprint,last_structural_fingerprint,"
+                + "last_source,last_validation," + normalized + ",extra_values) SELECT "
+                + "id,meter_id,archive_family,logger_timestamp,'" + ArchiveOccurrenceKey.LEGACY + "',logger_time_basis,"
+                + "NULL,NULL,NULL,NULL,retrieved_at_utc,retrieved_at_ms,first_retrieved_at_utc,first_retrieved_at_ms,"
+                + "source,validation,structural_fingerprint,content_fingerprint,observation_count,"
+                + "identical_content_confirmations,structural_confirmations,provenance_confirmations,"
+                + "revision_count,conflict_flags,last_content_fingerprint,last_structural_fingerprint,"
+                + "last_source,last_validation," + normalized + ",extra_values FROM " + V1_PERIODS);
+
+        try (Cursor cursor = db.query(TABLE_PERIODS, new String[]{"id", "on_time"},
+                null, null, null, null, "id")) {
+            while (cursor.moveToNext()) {
+                Long seconds = ArchiveOccurrenceKey.parseDurationSeconds(nullable(cursor, 1));
+                if (seconds == null) continue;
+                ContentValues update = new ContentValues();
+                update.put("occurrence_key", ArchiveOccurrenceKey.fromEvidence(seconds, null));
+                update.put("on_time_seconds", seconds);
+                db.update(TABLE_PERIODS, update, "id=?", new String[]{Long.toString(cursor.getLong(0))});
+            }
+        }
+
+        db.execSQL("INSERT INTO " + TABLE_CONFLICTS + " ("
+                + "id,archive_period_id,occurrence_key,on_time_seconds,raw_type_f_hex,type_f_iv,type_f_su,"
+                + "observed_at_utc,observed_at_ms,source,validation,structural_fingerprint,content_fingerprint,"
+                + "content_changed,structure_changed,provenance_changed," + normalized + ",extra_values) SELECT "
+                + "id,archive_period_id,'" + ArchiveOccurrenceKey.LEGACY + "',NULL,NULL,NULL,NULL,"
+                + "observed_at_utc,observed_at_ms,source,validation,structural_fingerprint,content_fingerprint,"
+                + "content_changed,structure_changed,provenance_changed," + normalized + ",extra_values FROM " + V1_CONFLICTS);
+        db.execSQL("UPDATE " + TABLE_CONFLICTS + " SET occurrence_key=(SELECT occurrence_key FROM "
+                + TABLE_PERIODS + " WHERE " + TABLE_PERIODS + ".id=" + TABLE_CONFLICTS + ".archive_period_id)");
+        try (Cursor cursor = db.query(TABLE_CONFLICTS, new String[]{"id", "on_time"},
+                null, null, null, null, "id")) {
+            while (cursor.moveToNext()) {
+                Long seconds = ArchiveOccurrenceKey.parseDurationSeconds(nullable(cursor, 1));
+                if (seconds == null) continue;
+                ContentValues update = new ContentValues();
+                update.put("on_time_seconds", seconds);
+                db.update(TABLE_CONFLICTS, update, "id=?", new String[]{Long.toString(cursor.getLong(0))});
+            }
+        }
+
+        db.execSQL("DROP TABLE " + V1_CONFLICTS);
+        db.execSQL("DROP TABLE " + V1_PERIODS);
+        createIndexes(db);
     }
 
     @Override public ArchivePersistenceCoordinator.WriteOutcome upsert(String meterId, ArchiveFamilyPeriod period) {
@@ -110,12 +197,15 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
         long retrievedAtMs = parseRetrievedAtUtc(period.retrievedAtUtc);
         String extras = encodeExtraValues(period.values.extraValues);
         String contentFingerprint = contentFingerprint(period.values, extras);
+        Long onTimeSeconds = period.onTimeSeconds;
+        String occurrenceKey = period.occurrenceKey();
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         try {
-            StoredPeriod existing = getByKey(db, meterId, period.family, period.loggerTimestamp);
+            StoredPeriod existing = getByKey(db, meterId, period.family, period.loggerTimestamp, occurrenceKey);
             if (existing == null) {
-                ContentValues values = canonicalValues(meterId, period, retrievedAtMs, contentFingerprint, extras);
+                ContentValues values = canonicalValues(meterId, period, retrievedAtMs, contentFingerprint,
+                        extras, occurrenceKey, onTimeSeconds);
                 db.insertOrThrow(TABLE_PERIODS, null, values);
                 db.setTransactionSuccessful();
                 return ArchivePersistenceCoordinator.WriteOutcome.INSERTED;
@@ -143,6 +233,7 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
                 metadata.put("last_source", period.source);
                 metadata.put("last_validation", period.validation);
             }
+            putEvidenceIfMissing(metadata, existing, period);
             metadata.put("observation_count", existing.observationCount + 1);
             metadata.put("identical_content_confirmations",
                     existing.identicalContentConfirmations + (contentSame ? 1 : 0));
@@ -155,7 +246,8 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
             db.update(TABLE_PERIODS, metadata, "id = ?", new String[]{Long.toString(existing.id)});
 
             if (!contentSame || !structureSame || !provenanceSame) {
-                ContentValues conflict = observationValues(period, retrievedAtMs, contentFingerprint, extras);
+                ContentValues conflict = observationValues(period, retrievedAtMs, contentFingerprint,
+                        extras, occurrenceKey, onTimeSeconds);
                 conflict.put("archive_period_id", existing.id);
                 conflict.put("content_changed", contentSame ? 0 : 1);
                 conflict.put("structure_changed", structureSame ? 0 : 1);
@@ -171,6 +263,22 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
         }
     }
 
+    private static void putEvidenceIfMissing(
+            ContentValues target, StoredPeriod existing, ArchiveFamilyPeriod incoming) {
+        if (existing.onTimeSeconds == null && incoming.onTimeSeconds != null) {
+            target.put("on_time_seconds", incoming.onTimeSeconds);
+        }
+        if (existing.rawTypeFHex == null && incoming.rawTypeFHex != null) {
+            target.put("raw_type_f_hex", incoming.rawTypeFHex);
+        }
+        if (existing.typeFIv == null && incoming.typeFIv != null) {
+            target.put("type_f_iv", incoming.typeFIv);
+        }
+        if (existing.typeFSu == null && incoming.typeFSu != null) {
+            target.put("type_f_su", incoming.typeFSu);
+        }
+    }
+
     List<StoredPeriod> getPeriods(String meterId, ArchiveFamilyPeriod.Family family) {
         List<StoredPeriod> result = new ArrayList<>();
         if (meterId == null || meterId.trim().isEmpty()) return result;
@@ -183,7 +291,7 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
         }
         try (Cursor cursor = getReadableDatabase().query(TABLE_PERIODS, projection(), selection,
                 args.toArray(new String[0]), null, null,
-                "logger_timestamp DESC, archive_family ASC")) {
+                "logger_timestamp DESC, archive_family ASC, occurrence_key ASC, id ASC")) {
             while (cursor.moveToNext()) result.add(read(cursor));
         }
         return result;
@@ -192,21 +300,22 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
     List<String> getKnownTimestamps(String meterId, ArchiveFamilyPeriod.Family family) {
         List<String> result = new ArrayList<>();
         if (meterId == null || meterId.trim().isEmpty() || family == null) return result;
-        try (Cursor cursor = getReadableDatabase().query(TABLE_PERIODS,
-                new String[]{"logger_timestamp"}, "meter_id = ? AND archive_family = ?",
-                new String[]{meterId.trim(), family.name()}, null, null,
-                "logger_timestamp DESC")) {
+        try (Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT DISTINCT logger_timestamp FROM " + TABLE_PERIODS
+                        + " WHERE meter_id=? AND archive_family=? ORDER BY logger_timestamp DESC",
+                new String[]{meterId.trim(), family.name()})) {
             while (cursor.moveToNext()) result.add(cursor.getString(0));
         }
         return result;
     }
 
     int conflictCount(String meterId, ArchiveFamilyPeriod.Family family, String loggerTimestamp) {
-        StoredPeriod period = getByKey(getReadableDatabase(), meterId, family, loggerTimestamp);
-        if (period == null) return 0;
+        if (meterId == null || family == null || loggerTimestamp == null) return 0;
         try (Cursor cursor = getReadableDatabase().rawQuery(
-                "SELECT COUNT(*) FROM " + TABLE_CONFLICTS + " WHERE archive_period_id = ?",
-                new String[]{Long.toString(period.id)})) {
+                "SELECT COUNT(*) FROM " + TABLE_CONFLICTS + " c JOIN " + TABLE_PERIODS
+                        + " p ON p.id=c.archive_period_id WHERE p.meter_id=? AND p.archive_family=?"
+                        + " AND p.logger_timestamp=?",
+                new String[]{meterId.trim(), family.name(), loggerTimestamp})) {
             return cursor.moveToFirst() ? cursor.getInt(0) : 0;
         }
     }
@@ -226,8 +335,8 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
 
     private static ContentValues canonicalValues(String meterId, ArchiveFamilyPeriod period,
                                                   long retrievedAtMs, String contentFingerprint,
-                                                  String extras) {
-        ContentValues v = baseValueColumns(period, contentFingerprint, extras);
+                                                  String extras, String occurrenceKey, Long onTimeSeconds) {
+        ContentValues v = baseValueColumns(period, contentFingerprint, extras, occurrenceKey, onTimeSeconds);
         v.put("retrieved_at_utc", period.retrievedAtUtc);
         v.put("retrieved_at_ms", retrievedAtMs);
         v.put("meter_id", meterId.trim());
@@ -250,16 +359,23 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
     }
 
     private static ContentValues observationValues(ArchiveFamilyPeriod period, long retrievedAtMs,
-                                                    String contentFingerprint, String extras) {
-        ContentValues v = baseValueColumns(period, contentFingerprint, extras);
+                                                    String contentFingerprint, String extras,
+                                                    String occurrenceKey, Long onTimeSeconds) {
+        ContentValues v = baseValueColumns(period, contentFingerprint, extras, occurrenceKey, onTimeSeconds);
         v.put("observed_at_utc", period.retrievedAtUtc);
         v.put("observed_at_ms", retrievedAtMs);
         return v;
     }
 
     private static ContentValues baseValueColumns(ArchiveFamilyPeriod period,
-                                                  String contentFingerprint, String extras) {
+                                                   String contentFingerprint, String extras,
+                                                   String occurrenceKey, Long onTimeSeconds) {
         ContentValues v = new ContentValues();
+        v.put("occurrence_key", occurrenceKey);
+        if (onTimeSeconds == null) v.putNull("on_time_seconds"); else v.put("on_time_seconds", onTimeSeconds);
+        put(v, "raw_type_f_hex", period.rawTypeFHex);
+        if (period.typeFIv == null) v.putNull("type_f_iv"); else v.put("type_f_iv", period.typeFIv);
+        if (period.typeFSu == null) v.putNull("type_f_su"); else v.put("type_f_su", period.typeFSu);
         v.put("source", period.source);
         v.put("validation", period.validation);
         v.put("structural_fingerprint", period.structuralFingerprint);
@@ -303,44 +419,51 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
                 + "on_time TEXT,operating_time TEXT,";
     }
 
+    private static String normalizedColumnNames() {
+        return "total_volume,positive_volume,reverse_volume,tariff1_volume,max_flow,max_flow_at,"
+                + "min_flow,min_flow_at,flow,max_temperature,max_temperature_at,min_temperature,min_temperature_at,"
+                + "temperature,external_temperature,battery_percent,error_flags,on_time,operating_time";
+    }
+
     private StoredPeriod getByKey(SQLiteDatabase db, String meterId, ArchiveFamilyPeriod.Family family,
-                                  String loggerTimestamp) {
-        if (meterId == null || family == null || loggerTimestamp == null) return null;
+                                  String loggerTimestamp, String occurrenceKey) {
+        if (meterId == null || family == null || loggerTimestamp == null || occurrenceKey == null) return null;
         try (Cursor cursor = db.query(TABLE_PERIODS, projection(),
-                "meter_id = ? AND archive_family = ? AND logger_timestamp = ?",
-                new String[]{meterId.trim(), family.name(), loggerTimestamp},
+                "meter_id = ? AND archive_family = ? AND logger_timestamp = ? AND occurrence_key = ?",
+                new String[]{meterId.trim(), family.name(), loggerTimestamp, occurrenceKey},
                 null, null, null, "1")) {
             return cursor.moveToFirst() ? read(cursor) : null;
         }
     }
 
     private static String[] projection() {
-        return new String[]{"id","meter_id","archive_family","logger_timestamp","logger_time_basis",
-                "retrieved_at_utc","retrieved_at_ms","first_retrieved_at_utc","first_retrieved_at_ms",
-                "source","validation","structural_fingerprint","content_fingerprint",
-                "observation_count","identical_content_confirmations","structural_confirmations",
+        return new String[]{"id","meter_id","archive_family","logger_timestamp","occurrence_key","logger_time_basis",
+                "on_time_seconds","raw_type_f_hex","type_f_iv","type_f_su","retrieved_at_utc","retrieved_at_ms",
+                "first_retrieved_at_utc","first_retrieved_at_ms","source","validation","structural_fingerprint",
+                "content_fingerprint","observation_count","identical_content_confirmations","structural_confirmations",
                 "provenance_confirmations","revision_count","conflict_flags","last_content_fingerprint",
-                "last_structural_fingerprint","last_source","last_validation","total_volume",
-                "positive_volume","reverse_volume","tariff1_volume","max_flow","max_flow_at","min_flow",
-                "min_flow_at","flow","max_temperature","max_temperature_at","min_temperature",
-                "min_temperature_at","temperature","external_temperature","battery_percent","error_flags",
-                "on_time","operating_time","extra_values"};
+                "last_structural_fingerprint","last_source","last_validation","total_volume","positive_volume",
+                "reverse_volume","tariff1_volume","max_flow","max_flow_at","min_flow","min_flow_at","flow",
+                "max_temperature","max_temperature_at","min_temperature","min_temperature_at","temperature",
+                "external_temperature","battery_percent","error_flags","on_time","operating_time","extra_values"};
     }
 
     private static StoredPeriod read(Cursor c) {
         return new StoredPeriod(c.getLong(0), c.getString(1),
-                ArchiveFamilyPeriod.Family.valueOf(c.getString(2)), c.getString(3), c.getString(4),
-                c.getString(5), c.getLong(6), c.getString(7), c.getLong(8), c.getString(9),
-                c.getString(10), c.getString(11), c.getString(12), c.getInt(13), c.getInt(14),
-                c.getInt(15), c.getInt(16), c.getInt(17), c.getInt(18), c.getString(19),
-                c.getString(20), c.getString(21), c.getString(22), measurementNumber(nullable(c,23)), nullable(c,24),
-                nullable(c,25), nullable(c,26), nullable(c,27), nullable(c,28), nullable(c,29),
-                nullable(c,30), nullable(c,31), nullable(c,32), nullable(c,33), nullable(c,34),
-                nullable(c,35), nullable(c,36), nullable(c,37), nullable(c,38), nullable(c,39),
-                nullable(c,40), nullable(c,41), decodeExtraValues(c.getString(42)));
+                ArchiveFamilyPeriod.Family.valueOf(c.getString(2)), c.getString(3), c.getString(4), c.getString(5),
+                nullableLong(c,6), nullable(c,7), nullableInt(c,8), nullableInt(c,9), c.getString(10), c.getLong(11),
+                c.getString(12), c.getLong(13), c.getString(14), c.getString(15), c.getString(16), c.getString(17),
+                c.getInt(18), c.getInt(19), c.getInt(20), c.getInt(21), c.getInt(22), c.getInt(23), c.getString(24),
+                c.getString(25), c.getString(26), c.getString(27), measurementNumber(nullable(c,28)), nullable(c,29),
+                nullable(c,30), nullable(c,31), nullable(c,32), nullable(c,33), nullable(c,34), nullable(c,35),
+                nullable(c,36), nullable(c,37), nullable(c,38), nullable(c,39), nullable(c,40), nullable(c,41),
+                nullable(c,42), nullable(c,43), nullable(c,44), nullable(c,45), nullable(c,46),
+                decodeExtraValues(c.getString(47)));
     }
 
     private static String nullable(Cursor c, int index) { return c.isNull(index) ? null : c.getString(index); }
+    private static Long nullableLong(Cursor c, int index) { return c.isNull(index) ? null : c.getLong(index); }
+    private static Integer nullableInt(Cursor c, int index) { return c.isNull(index) ? null : c.getInt(index); }
 
     static String measurementNumber(String value) {
         if (value == null) return null;
@@ -354,7 +477,12 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
         final String meterId;
         final ArchiveFamilyPeriod.Family family;
         final String loggerTimestamp;
+        final String occurrenceKey;
         final String loggerTimeBasis;
+        final Long onTimeSeconds;
+        final String rawTypeFHex;
+        final Integer typeFIv;
+        final Integer typeFSu;
         final String retrievedAtUtc;
         final long retrievedAtMs;
         final String firstRetrievedAtUtc;
@@ -395,7 +523,8 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
         final Map<String,String> extraValues;
 
         StoredPeriod(long id, String meterId, ArchiveFamilyPeriod.Family family, String loggerTimestamp,
-                     String loggerTimeBasis, String retrievedAtUtc, long retrievedAtMs,
+                     String occurrenceKey, String loggerTimeBasis, Long onTimeSeconds, String rawTypeFHex,
+                     Integer typeFIv, Integer typeFSu, String retrievedAtUtc, long retrievedAtMs,
                      String firstRetrievedAtUtc, long firstRetrievedAtMs, String source, String validation,
                      String structuralFingerprint, String contentFingerprint, int observationCount,
                      int identicalContentConfirmations, int structuralConfirmations,
@@ -408,11 +537,13 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
                      String batteryPercent, String errorFlags, String onTime, String operatingTime,
                      Map<String,String> extraValues) {
             this.id=id; this.meterId=meterId; this.family=family; this.loggerTimestamp=loggerTimestamp;
-            this.loggerTimeBasis=loggerTimeBasis; this.retrievedAtUtc=retrievedAtUtc;
-            this.retrievedAtMs=retrievedAtMs; this.firstRetrievedAtUtc=firstRetrievedAtUtc;
-            this.firstRetrievedAtMs=firstRetrievedAtMs; this.source=source; this.validation=validation;
-            this.structuralFingerprint=structuralFingerprint; this.contentFingerprint=contentFingerprint;
-            this.observationCount=observationCount; this.identicalContentConfirmations=identicalContentConfirmations;
+            this.occurrenceKey=occurrenceKey; this.loggerTimeBasis=loggerTimeBasis; this.onTimeSeconds=onTimeSeconds;
+            this.rawTypeFHex=rawTypeFHex; this.typeFIv=typeFIv; this.typeFSu=typeFSu;
+            this.retrievedAtUtc=retrievedAtUtc; this.retrievedAtMs=retrievedAtMs;
+            this.firstRetrievedAtUtc=firstRetrievedAtUtc; this.firstRetrievedAtMs=firstRetrievedAtMs;
+            this.source=source; this.validation=validation; this.structuralFingerprint=structuralFingerprint;
+            this.contentFingerprint=contentFingerprint; this.observationCount=observationCount;
+            this.identicalContentConfirmations=identicalContentConfirmations;
             this.structuralConfirmations=structuralConfirmations; this.provenanceConfirmations=provenanceConfirmations;
             this.revisionCount=revisionCount; this.conflictFlags=conflictFlags;
             this.lastContentFingerprint=lastContentFingerprint; this.lastStructuralFingerprint=lastStructuralFingerprint;
@@ -447,6 +578,7 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
         String v = value == null ? "<null>" : value;
         s.append(v.length()).append(':').append(v).append('|');
     }
+
     private static long parseRetrievedAtUtc(String value) {
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
         format.setLenient(false); format.setTimeZone(TimeZone.getTimeZone("UTC"));
@@ -488,10 +620,12 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
         }
         return -1;
     }
+
     private static String escape(String value) {
         if (value == null) return "";
         return value.replace("\\","\\\\").replace("\t","\\t").replace("\n","\\n");
     }
+
     private static String unescape(String value) {
         StringBuilder out=new StringBuilder(); boolean escaped=false;
         for (int i=0;i<value.length();i++) {
@@ -503,6 +637,7 @@ final class ArchiveFamilyStore extends SQLiteOpenHelper implements ArchivePersis
         if (escaped) out.append('\\');
         return out.toString();
     }
+
     private static void requireMeter(String meterId) {
         if (meterId == null || meterId.trim().isEmpty()) throw new IllegalArgumentException("meterId required");
     }

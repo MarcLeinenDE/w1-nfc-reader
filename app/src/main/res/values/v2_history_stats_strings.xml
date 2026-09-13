@@ -32,7 +32,7 @@
     <string name="v2_kpi_current_state">Alarm in latest archive period</string>
     <string name="v2_kpi_first_event">First alarm period</string>
     <string name="v2_kpi_last_event">Last alarm period</string>
-    <string name="v2_consumption_note">Consumption per displayed completed Hour, Day or Month period. Deltas remain within the same physical meter and archive granularity.</string>
+    <string name="v2_consumption_note">Solid bars are fully contained archive periods and are included in the selected-period KPIs. Dashed outline bars show complete measured archive periods that overlap the selected civil period only partly; their full measured value is shown as context, is not prorated and is excluded from those KPIs.</string>
     <string name="v2_temperature_note">Water-temperature observations stored for completed archive periods. They are not period averages; unavailable sentinel values are omitted and missing periods are not interpolated.</string>
     <string name="v2_flow_note">Stored maximum flow for each completed archive period. Where the meter provides an extremum timestamp, that exact timestamp is used for the peak.</string>
     <string name="v2_battery_note">Meter-reported battery observations associated with completed archive periods. No period average or remaining-lifetime prediction is inferred.</string>
@@ -45,8 +45,8 @@
     <string name="v2_alarm_cleared">No alarm registered in archive period</string>
     <string name="v2_alarm_changed">Registered in archive period: %1$s</string>
     <string name="v2_alarm_observed">Registered in archive period: %1$s</string>
-    <string name="v2_coverage">%1$d of %2$d data points available</string>
-    <string name="v2_coverage_count_only">%1$d data points available</string>
+    <string name="v2_coverage">%1$d of %2$d fully contained</string>
+    <string name="v2_coverage_count_only">%1$d fully contained data points</string>
     <string name="v2_coverage_not_sync_state">Coverage describes stored observations and does not define protocol synchronization completeness.</string>
     <string name="v2_previous_period">Previous period</string>
     <string name="v2_choose_period">Choose period</string>

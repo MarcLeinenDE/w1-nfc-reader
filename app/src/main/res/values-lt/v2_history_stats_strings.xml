@@ -32,7 +32,7 @@
     <string name="v2_kpi_current_state">Įspėjimas paskutiniame archyvo laikotarpyje</string>
     <string name="v2_kpi_first_event">Pirmas laikotarpis su įspėjimu</string>
     <string name="v2_kpi_last_event">Paskutinis laikotarpis su įspėjimu</string>
-    <string name="v2_consumption_note">Suvartojimas kiekvienam rodomam užbaigtam valandos, dienos ar mėnesio laikotarpiui. Skirtumai skaičiuojami tik tam pačiam fiziniam skaitikliui ir tai pačiai archyvo raiškai.</string>
+    <string name="v2_consumption_note">Užpildyti stulpeliai žymi archyvo laikotarpius, visiškai patenkančius į pasirinktą laikotarpį, ir yra įtraukiami į jo rodiklius. Punktyriniu kontūru pažymėti stulpeliai rodo visiškai išmatuotus archyvo laikotarpius, kurie pasirinktą kalendorinį laikotarpį dengia tik iš dalies; visa jų išmatuota reikšmė rodoma tik kaip kontekstas, nėra proporcingai dalijama ir neįtraukiama į šiuos rodiklius.</string>
     <string name="v2_temperature_note">Vandens temperatūros stebėjimai, išsaugoti užbaigtiems archyvo laikotarpiams. Tai nėra laikotarpio vidurkiai; neprieinamos specialios reikšmės praleidžiamos, o trūkstami laikotarpiai neinterpoliuojami.</string>
     <string name="v2_flow_note">Išsaugotas didžiausias srautas kiekvienam užbaigtam archyvo laikotarpiui. Jei skaitiklis pateikia ekstremumo laiką, pikui naudojamas tikslus laikas.</string>
     <string name="v2_battery_note">Skaitiklio pateikti baterijos stebėjimai užbaigtiems archyvo laikotarpiams. Laikotarpio vidurkis ar likęs veikimo laikas iš jų neapskaičiuojami.</string>
@@ -45,8 +45,8 @@
     <string name="v2_alarm_cleared">Archyvo laikotarpyje įspėjimas neužregistruotas</string>
     <string name="v2_alarm_changed">Užregistruota archyvo laikotarpyje: %1$s</string>
     <string name="v2_alarm_observed">Užregistruota archyvo laikotarpyje: %1$s</string>
-    <string name="v2_coverage">Pasiekiama %1$d iš %2$d duomenų taškų</string>
-    <string name="v2_coverage_count_only">Pasiekiama %1$d duomenų taškų</string>
+    <string name="v2_coverage">%1$d iš %2$d visiškai įtraukti</string>
+    <string name="v2_coverage_count_only">%1$d visiškai įtraukti duomenų taškai</string>
     <string name="v2_coverage_not_sync_state">Aprėptis apibūdina išsaugotus stebėjimus ir nenustato protokolo sinchronizavimo užbaigtumo.</string>
     <string name="v2_previous_period">Ankstesnis laikotarpis</string>
     <string name="v2_choose_period">Pasirinkti laikotarpį</string>

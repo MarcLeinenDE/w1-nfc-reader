@@ -32,7 +32,7 @@
     <string name="v2_kpi_current_state">Alarm im letzten Archivzeitraum</string>
     <string name="v2_kpi_first_event">Erster Alarmzeitraum</string>
     <string name="v2_kpi_last_event">Letzter Alarmzeitraum</string>
-    <string name="v2_consumption_note">Verbrauch je angezeigtem abgeschlossenem Stunden-, Tages- oder Monatszeitraum. Differenzen bleiben innerhalb desselben physischen Zählers und derselben Archivauflösung.</string>
+    <string name="v2_consumption_note">Ausgefüllte Balken sind vollständig enthaltene Archivzeiträume und fließen in die Kennzahlen des ausgewählten Zeitraums ein. Gestrichelt umrandete Balken zeigen vollständig gemessene Archivzeiträume, die den gewählten Kalenderzeitraum nur teilweise überlappen; ihr kompletter Messwert wird nur als Kontext gezeigt, nicht anteilig berechnet und nicht in diese Kennzahlen einbezogen.</string>
     <string name="v2_temperature_note">Wassertemperatur-Beobachtungen aus abgeschlossenen Archivzeiträumen. Sie sind keine Zeitraum-Mittelwerte; nicht verfügbare Platzhalterwerte werden ausgelassen und fehlende Zeiträume nicht interpoliert.</string>
     <string name="v2_flow_note">Gespeicherter maximaler Durchfluss je abgeschlossenem Archivzeitraum. Wenn der Zähler einen Extremzeitpunkt liefert, wird für die Spitze dieser exakte Zeitpunkt verwendet.</string>
     <string name="v2_battery_note">Vom Zähler gemeldete Batteriewerte zu abgeschlossenen Archivzeiträumen. Daraus werden weder Zeitraum-Mittelwert noch verbleibende Lebensdauer abgeleitet.</string>
@@ -45,8 +45,8 @@
     <string name="v2_alarm_cleared">Im Archivzeitraum kein Alarm registriert</string>
     <string name="v2_alarm_changed">Im Archivzeitraum registriert: %1$s</string>
     <string name="v2_alarm_observed">Im Archivzeitraum registriert: %1$s</string>
-    <string name="v2_coverage">%1$d von %2$d Datenpunkten verfügbar</string>
-    <string name="v2_coverage_count_only">%1$d Datenpunkte verfügbar</string>
+    <string name="v2_coverage">%1$d von %2$d vollständig enthalten</string>
+    <string name="v2_coverage_count_only">%1$d vollständig enthaltene Datenpunkte</string>
     <string name="v2_coverage_not_sync_state">Die Abdeckung beschreibt gespeicherte Beobachtungen und legt nicht die Vollständigkeit der Protokollsynchronisierung fest.</string>
     <string name="v2_previous_period">Vorheriger Zeitraum</string>
     <string name="v2_choose_period">Zeitraum auswählen</string>

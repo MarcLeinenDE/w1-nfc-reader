@@ -28,6 +28,7 @@ final class UiPreferences {
     private static final String PREFS = "ui_preferences";
     private static final String KEY_LANGUAGE = "language";
     private static final String KEY_THEME = "theme";
+    private static final String KEY_TIME_BASIS = "time_basis";
     private static final String KEY_PLATFORM_SYNCED_LANGUAGE = "platform_synced_language";
 
     private UiPreferences() {}
@@ -85,6 +86,25 @@ final class UiPreferences {
     static String getTheme(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .getString(KEY_THEME, THEME_SYSTEM);
+    }
+
+    static AppTimeBasis getTimeBasis(Context context) {
+        String stored = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_TIME_BASIS, AppTimeBasis.LOCAL.name());
+        if (stored == null) return AppTimeBasis.LOCAL;
+        try {
+            return AppTimeBasis.valueOf(stored);
+        } catch (IllegalArgumentException error) {
+            return AppTimeBasis.LOCAL;
+        }
+    }
+
+    static void setTimeBasis(Context context, AppTimeBasis timeBasis) {
+        AppTimeBasis normalized = timeBasis == null ? AppTimeBasis.LOCAL : timeBasis;
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_TIME_BASIS, normalized.name())
+                .apply();
     }
 
     static int appCompatNightMode(Context context) {

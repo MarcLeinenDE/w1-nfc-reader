@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_time_basis">Wyświetlanie czasu</string>
+    <string name="v21_time_basis_local">Czas lokalny</string>
+    <string name="v21_time_basis_meter">Czas licznika</string>
+</resources>

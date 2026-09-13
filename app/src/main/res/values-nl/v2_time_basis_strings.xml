@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_time_basis">Tijdweergave</string>
+    <string name="v21_time_basis_local">Lokale tijd</string>
+    <string name="v21_time_basis_meter">Metertijd</string>
+</resources>

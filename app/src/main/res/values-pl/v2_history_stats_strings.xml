@@ -32,7 +32,7 @@
     <string name="v2_kpi_current_state">Alarm w ostatnim okresie archiwalnym</string>
     <string name="v2_kpi_first_event">Pierwszy okres z alarmem</string>
     <string name="v2_kpi_last_event">Ostatni okres z alarmem</string>
-    <string name="v2_consumption_note">Zużycie dla każdego wyświetlanego zakończonego okresu godzinowego, dziennego lub miesięcznego. Różnice są obliczane tylko dla tego samego fizycznego licznika i tej samej rozdzielczości archiwum.</string>
+    <string name="v2_consumption_note">Pełne słupki oznaczają okresy archiwalne całkowicie zawarte w wybranym przedziale i są uwzględniane w jego wskaźnikach. Słupki z przerywanym obrysem pokazują w pełni zmierzone okresy archiwalne, które tylko częściowo nachodzą na wybrany okres kalendarzowy; ich pełna wartość jest pokazywana wyłącznie jako kontekst, nie jest dzielona proporcjonalnie i nie jest uwzględniana w tych wskaźnikach.</string>
     <string name="v2_temperature_note">Obserwacje temperatury wody zapisane dla zakończonych okresów archiwalnych. Nie są to średnie z okresu; niedostępne wartości specjalne są pomijane, a brakujące okresy nie są interpolowane.</string>
     <string name="v2_flow_note">Zapisany maksymalny przepływ dla każdego zakończonego okresu archiwalnego. Jeśli licznik podaje czas ekstremum, dla szczytu używany jest ten dokładny czas.</string>
     <string name="v2_battery_note">Obserwacje poziomu baterii zgłoszone przez licznik dla zakończonych okresów archiwalnych. Nie wylicza się średniej z okresu ani przewidywanego pozostałego czasu pracy.</string>
@@ -45,8 +45,8 @@
     <string name="v2_alarm_cleared">W okresie archiwalnym nie zarejestrowano alarmu</string>
     <string name="v2_alarm_changed">Zarejestrowano w okresie archiwalnym: %1$s</string>
     <string name="v2_alarm_observed">Zarejestrowano w okresie archiwalnym: %1$s</string>
-    <string name="v2_coverage">Dostępne punkty danych: %1$d z %2$d</string>
-    <string name="v2_coverage_count_only">Dostępne punkty danych: %1$d</string>
+    <string name="v2_coverage">%1$d z %2$d całkowicie zawartych</string>
+    <string name="v2_coverage_count_only">%1$d całkowicie zawartych punktów danych</string>
     <string name="v2_coverage_not_sync_state">Pokrycie opisuje zapisane obserwacje i nie określa kompletności synchronizacji protokołu.</string>
     <string name="v2_previous_period">Poprzedni okres</string>
     <string name="v2_choose_period">Wybierz okres</string>

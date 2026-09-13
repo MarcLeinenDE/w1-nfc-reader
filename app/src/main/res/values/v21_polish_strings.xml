@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_info_history_title">How History works</string>
+    <string name="v21_info_history_body">In All, a Live consumption value is measured from the chronologically nearest trustworthy earlier archive reading, regardless of Hour, Day or Month. If no earlier archive reading exists, the previous Live reading is used. The dedicated Live filter remains Live-to-Live, and archive cards keep their own archive-series deltas.</string>
+    <string name="v21_info_statistics_title">How Statistics works</string>
+    <string name="v21_info_statistics_body">Filled bars are archive intervals fully contained in the selected calendar window and are included in totals and other KPIs. Dashed bars are real measured intervals that overlap only an edge; their full measured value is shown for context but is not prorated or included in the selected-window KPIs. A baseline marker means genuine zero consumption; a missing slot remains a real gap. The coverage count describes the observations used for the selected view and does not by itself indicate whether protocol synchronization is complete.</string>
+    <string name="v21_info_time_model_title">Real time and meter time</string>
+    <string name="v21_info_time_model_body">The normal timeline uses real time reconstructed from verified Live time anchors and the meter’s monotonic ON_TIME, then shown in the meter’s assigned IANA timezone. The meter/logger wall clock is preserved as secondary evidence because it can drift. Unsafe time reconstruction remains unresolved instead of being guessed.</string>
+</resources>

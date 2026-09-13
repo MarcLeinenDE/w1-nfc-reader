@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_info_history_title">So funktioniert die Historie</string>
+    <string name="v21_info_history_body">Unter „Alle“ wird der Live-Verbrauch vom zeitlich nächsten vertrauenswürdigen früheren Archivstand berechnet – unabhängig davon, ob dieser aus Stunde, Tag oder Monat stammt. Gibt es davor keinen Archivstand, wird die vorherige Live-Auslesung verwendet. Der separate Live-Filter bleibt Live-zu-Live; Archivkarten behalten ihre jeweilige Archivserie.</string>
+    <string name="v21_info_statistics_title">So funktioniert die Statistik</string>
+    <string name="v21_info_statistics_body">Ausgefüllte Balken sind Archivintervalle, die vollständig im gewählten Kalenderzeitraum liegen, und fließen in Summe und Kennzahlen ein. Gestrichelte Balken sind echte Messintervalle, die nur einen Rand überlappen; ihr kompletter Messwert wird als Kontext gezeigt, aber weder anteilig verteilt noch in die Kennzahlen des gewählten Zeitraums eingerechnet. Ein Basismarker bedeutet echten Nullverbrauch; ein fehlender Platz bleibt eine echte Lücke. Die Abdeckungszahl beschreibt die für die gewählte Ansicht verwendeten Beobachtungen und sagt für sich allein nichts darüber aus, ob die Protokollsynchronisierung vollständig ist.</string>
+    <string name="v21_info_time_model_title">Reale Zeit und Zählerzeit</string>
+    <string name="v21_info_time_model_body">Die normale Zeitachse nutzt reale Zeit, rekonstruiert aus verifizierten Live-Zeitankern und der monotonen ON_TIME des Zählers und anschließend in der zugeordneten IANA-Zeitzone dargestellt. Die Zähler-/Loggeruhr bleibt als sekundäre Evidenz erhalten, weil sie driften kann. Unsichere Zeitrekonstruktion bleibt ungelöst statt geschätzt zu werden.</string>
+</resources>

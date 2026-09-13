@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v21_meter_time_model">Zeitmodell</string>
+    <string name="v21_meter_timezone">Zeitzone</string>
+    <string name="v21_meter_timezone_not_set">Nicht zugewiesen</string>
+    <string name="v21_meter_timezone_value">%1$s · %2$s</string>
+    <string name="v21_meter_timezone_source_device">Automatisch beim ersten verifizierten Live-Auslesen zugewiesen</string>
+    <string name="v21_meter_timezone_source_user">Manuell ausgewählt</string>
+    <string name="v21_meter_timezone_note">Wird für lokale Zeit in Verlauf und Statistik verwendet. Eine Änderung verändert keine Rohdaten des Zählers.</string>
+    <string name="v21_meter_timezone_edit">Zeitzone des Zählers ändern</string>
+    <string name="v21_meter_timezone_dialog_message">Wähle eine von diesem Gerät unterstützte IANA-Zeitzone aus oder suche danach. Nur die Interpretation der lokalen Zeit ändert sich; rohe Zähler-/Loggerzeiten bleiben unverändert.</string>
+    <string name="v21_meter_timezone_hint">Zeitzone suchen</string>
+    <string name="v21_meter_timezone_save">Speichern</string>
+    <string name="v21_meter_timezone_invalid">Wähle eine Zeitzone aus der unterstützten Liste.</string>
+</resources>
