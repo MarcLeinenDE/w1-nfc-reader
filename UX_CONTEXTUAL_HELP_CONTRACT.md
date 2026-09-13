@@ -1,6 +1,6 @@
 # W1 NFC Reader — Contextual Help / Presentation UX Contract
 
-Date: 2026-09-12
+Date: 2026-09-13
 Status: accepted UX rule for v2.1 release-candidate polish and future app work
 
 ## Purpose
@@ -60,6 +60,8 @@ Per-meter zone selection:
 - arbitrary unsupported free text cannot persist;
 - changing the assigned zone changes only local-time interpretation and never rewrites raw meter/logger timestamps, `ON_TIME`, occurrence identity or archive payloads.
 
+The old mandatory free-text invalid-IANA validation is retired because unsupported values cannot be persisted through the normal picker contract.
+
 ## Statistics / coverage semantics
 
 - fully-contained bucket = filled bar and included in selected-window KPIs;
@@ -72,7 +74,7 @@ Do not repeat the generic explanation under every chart when it already exists i
 
 ## Statistics x-axis — implemented shared v2.1 policy
 
-The adaptive x-axis behavior is now implemented centrally in `V2MetricChartView`; it is no longer deferred to a later app version.
+The adaptive x-axis behavior is implemented centrally in `V2MetricChartView`.
 
 ### Bar charts
 
@@ -135,9 +137,9 @@ Android does not maintain an authoritative already-sent state for HA. A future i
 - Hiding x-axis text never changes the underlying data series.
 - Canonical UTC, native occurrence identity, raw evidence and protocol safety remain authoritative.
 
-## v2.1 implementation status
+## v2.1 implementation / physical status
 
-Current exact candidate: `b38006f9dab270a574d7e08cb9e3785a231a2ef8`.
+Functional code candidate: `b38006f9dab270a574d7e08cb9e3785a231a2ef8`.
 
 CI `34715215357`: **SUCCESS**.
 
@@ -154,4 +156,10 @@ Implemented and CI-green:
 - deterministic `SourceRecordId` primitive for future HA idempotence;
 - six-locale UI/help copy and regression suite.
 
-Physical acceptance still required: recheck the previously stretched Hour, check normal and very dense Statistics ranges for label behavior, complete any remaining timezone/help spot-check, then perform final protected normal Live/default NFC regression F before exact signed RC preparation.
+The single-active-anchor stretched-Hour regression and adaptive chart-axis presentation were physically rechecked on the current candidate and reported as good. No remaining presentation blocker is recorded.
+
+Only the final protected normal Live/default NFC regression F remains before exact signed v2.1.0 RC preparation.
+
+## Deferred v2.2 cleanup
+
+After v2.1 release, remove the hidden retired peer-time-mode runtime scaffolding (`AppTimeBasis.METER` branches, obsolete time-basis resources/tests) while retaining only the minimal compatibility required to read old development backup state and normalize it to the canonical timeline. This cleanup is intentionally deferred so it cannot widen the v2.1 RC regression surface.
