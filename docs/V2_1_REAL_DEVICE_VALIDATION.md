@@ -1,178 +1,161 @@
-# W1 NFC Reader v2.1 — limited real-device validation
+# W1 NFC Reader v2.1 — real-device validation
 
-Status: required physical gate before PR #22 can leave draft/release hardening can advance.
+Status: current physical release gate for PR #22 / v2.1.0.
+
+The authoritative product-time decision is `docs/product-decisions/v2.1-canonical-real-time-product-timeline.md`. The former peer `LOCAL / METER` product mode is retired. Use `docs/V2_1_CANONICAL_REAL_TIME_VALIDATION_ADDENDUM.md` for the canonical timeline, timezone-picker and final Live-read checks.
 
 ## Goal
 
-Confirm on a real compatible Qalcosonic W1 that the v2.1 time-model, global LOCAL/METER query routing and presentation sit safely downstream of the already validated NFC acquisition path. This validation is intentionally narrow: deterministic DST/23/25-hour behavior, database migration, locale formatting contracts and backup semantics are covered by automated tests and do not need artificial physical reproduction.
+Confirm on a real compatible Qalcosonic W1 that all v2.1 work remains safely downstream of the already validated NFC acquisition path while History/Statistics, canonical timing and product presentation behave correctly.
 
-## Pinned physical candidate
+Deterministic DST behavior, database migration, backup compatibility, source-record identity, chart-axis collision policy and most edge semantics are covered by automated tests. Physical testing focuses on the few behaviors that genuinely require a real meter/device.
 
-Use exactly the CI-green debug APK below. Debug builds use the `.dev` application-id suffix and can coexist with the stable public app.
-
-Current replacement candidate after the two Section-C findings:
+## Current functional candidate
 
 - branch: `dev/v2.1.0-real-time-timeline`
-- functional commit: `14a8ae4100ed801f19627c6489afa9ad3757c1aa`
-- CI run: `34519245337` — success
-- complete unit/Robolectric suite: success; includes 9 dedicated LOCAL resolution-warning matrix tests on top of the previously green 355-test suite
-- product i18n contract: 227 keys / 6 locales — success
+- functional code commit: `b38006f9dab270a574d7e08cb9e3785a231a2ef8`
+- Android CI: `34715215357` — **SUCCESS**
+- unit/Robolectric suite: **SUCCESS**
+- product translation check across 6 locales: **SUCCESS**
 - artifact: `w1-nfc-reader-debug`
-- artifact id: `10169014402`
-- artifact ZIP digest: `sha256:eadf6ba16d1d5386dd613ba54b645e0c980cfc01cfa817116fd4ed348eed5a51`
-- APK SHA-256: `c08bcff4152e075a5e59f2b8d90409f0786f2a5a559e047e594743136677ddc3`
+- artifact id: `10304503134`
+- artifact ZIP SHA-256: `cc48ffd4548fcff663583c1d722309b36584b4285de66ad24a3b4cfc1a367059`
+- APK SHA-256: `4488e1b1d500cf52ff03cc4ab294a9152e5623a111133533e3cd3ef4003b1686`
 
-The artifact was independently downloaded after CI. The downloaded ZIP digest matches GitHub's artifact digest, and the actual APK hash matches `SHA256SUMS.txt` exactly.
-
-Superseded physical candidates:
-
-- `e4f458d9ff47a088926772a13d9bf19946f4bc48`: Section C exposed incorrect LOCAL period ownership/adjacency around projected archive periods;
-- `474067fbdf51ad3b892053bd5694a7ffcea765d8`: corrected the period-ownership defect, but a real-device custom-range check exposed a false-positive LOCAL unresolved-time warning when an archive family had no data in the requested time range and only began much later.
-
-Do not use either superseded candidate for acceptance.
+This candidate contains the single-active-anchor fix, deterministic `SourceRecordId` primitive and centralized Statistics X-axis collision handling.
 
 ## Safety rules
 
-- Do not add experimental NFC commands for this validation.
-- Normal NFC contact must remain the protected fast Live/default read.
-- History synchronization must still start only after explicit user action.
+- Do not add experimental NFC commands for validation.
+- Normal NFC contact remains the protected fast Live/default read.
+- History synchronization starts only after explicit user action.
 - Do not alter meter/radio/calibration/firmware state.
-- If NFC behavior differs from the previously validated v2.0 path, stop and treat it as a regression rather than adapting the protocol during the same test.
-- Do not commit private meter IDs, consumption values, captures or raw NFC traffic to the public repository.
+- If NFC behavior differs from the validated v2.0 path, stop and treat it as a regression.
+- Do not commit private meter IDs, consumption values, backups, captures or raw NFC traffic to the public repository.
 
-## LOCAL resolution-warning contract
+## Accepted / retained physical evidence
 
-The red LOCAL time-resolution warning is a fail-closed signal, not a generic no-data message.
+The following downstream behaviors have already been physically exercised during v2.1 development and should not be needlessly repeated unless a later code change touches them:
 
-It may be shown only when the selected LOCAL window is genuinely unsafe to interpret, or when unresolved archive timing can actually affect the selected window. In particular:
+- protected normal Live/default NFC path;
+- explicit-only History synchronization;
+- Hour/Day/Month History ownership on reconstructed real time;
+- empty/out-of-range archive family handling without false time-resolution warnings;
+- final History Default/Live verification refreshing the time model;
+- native Statistics interval handling across time anchors;
+- natural oldest-retention edge handling;
+- known normal-day Hour Statistics case with fully-contained buckets and partial-edge context;
+- no-Hour-data period without false warning;
+- long-range chart presentation after the centralized label-collision fix;
+- mixed History → All Live baseline selection;
+- canonical date/time presentation and contextual-help cleanup.
 
-- an empty Hour/Day/Month family must not show the warning;
-- a family whose stored coverage begins later than the requested window must not show the warning solely because its oldest stored native bucket lacks a predecessor boundary;
-- the `All` view must not inherit a warning from an unrelated empty/out-of-range granularity;
-- Statistics with no fully contained bucket must not show a time-resolution warning merely because it returns zero points;
-- a normal coverage gap is not itself a time-resolution problem;
-- a genuinely missing per-meter zone remains fail-closed when archive selection cannot be interpreted safely;
-- an ambiguous fall-back boundary or nonexistent spring-forward boundary remains fail-closed;
-- genuinely unresolved archive timing that can overlap the requested window remains fail-closed.
+## Single-active-anchor regression
 
-For warning relevance only, the natural unknown start of the oldest stored native record is conservatively bounded by the maximum physical size of that one record (Hour 1 h, Day 24 h, Month 31 d, Year 366 d). This bound is **not** used to synthesize, store or render a canonical UTC interval. Interior unresolved runs and unbounded unsafe suffixes remain conservative and continue to warn when their unknown region can affect the request.
+The older boundary-by-boundary anchor selection is retired.
 
-Automated warning coverage includes empty families, Hour/Day/Month retention edges far outside the selected range, a selected range that actually touches the unresolved oldest bucket, `All` with valid Day data plus later Hour coverage, bounded Statistics before Hour coverage, relevant missing zone, relevant missing usable time anchor, DST fold and DST gap. Existing lower-level coverage tests continue to cover exact/partial/gap/unresolved interval states.
+For each physical meter:
 
-## Physical validation sequence
+- only the newest fully verified Live/default anchor participates in projection;
+- all stored archive points are projected backwards from that same anchor via native `ON_TIME`;
+- a newer valid anchor replaces the previous active projection anchor;
+- an archive `ON_TIME` newer than the active anchor fails closed;
+- a backwards/reset `ON_TIME` does not silently replace the timeline.
 
-### A. Installation and default state
+Required invariant:
 
-1. Install the pinned debug APK alongside the stable app.
-2. Launch the debug app normally.
-3. Open Settings and confirm the global time display defaults to **Local time** for a fresh debug-app state.
-4. Return without changing protocol-related settings.
+- two valid Hour archive boundaries separated by exactly 3,600 `ON_TIME` seconds must remain exactly 3,600 real seconds apart.
 
-Expected:
-- app launches normally;
-- stable app remains installed independently;
-- LOCAL is the default presentation/query basis.
+A newer anchor may shift the absolute reconstructed placement of older archive data as one coherent timeline; it must not stretch or compress individual native intervals.
 
-### B. Protected normal Live read + localized meter time
+## Statistics presentation contract
 
-Already passed on the real meter before the downstream Section-C-only fixes. It does not need to be repeated solely because of these downstream changes; Section F remains the final protected NFC regression check.
+All metric charts use the shared `V2MetricChartView` policy.
 
-Confirmed evidence:
-- Live read succeeds through the established default-read path;
-- no archive synchronization starts automatically;
-- German locale formatting of Live meter time is correct;
-- Meter details shows the assigned `Europe/Berlin` zone and expected automatic provenance.
+- bar-chart labels are horizontal while they fit;
+- when needed they rotate together;
+- if even the rotated labels cannot be presented without collision, the X-axis text is hidden rather than becoming an unreadable block;
+- dense line-chart labels are thinned/hidden based on available width;
+- data bars/points are never discarded merely to make labels fit.
 
-### C. LOCAL History / Statistics
+This applies across consumption, flow, temperature, battery and other Statistics metrics using the shared view.
 
-Use already synchronized archive data if the debug app contains it. If the debug installation has no archive baseline, perform only the normal explicit History synchronization needed to establish/refresh the test data, following the existing validated sync UX.
+## Canonical timeline check
 
-1. Open History in LOCAL mode.
-2. Inspect Live and available Hour/Day/Month rows.
-3. Confirm Live rows use real acquisition time as primary and meter time as secondary when available.
-4. Confirm archive rows use resolved local/civil time as primary and raw meter/logger time as secondary evidence.
-5. Check a bounded/custom range both where the selected granularity has data and where one granularity has no data.
-6. In `All`, confirm an unavailable granularity does not create a false LOCAL resolution warning.
-7. Open Statistics for bounded periods with known data and also inspect a range with no fully contained bucket.
+The normal product UI has one canonical real-time axis.
 
 Expected:
-- Live ordering follows actual acquisition epoch in LOCAL mode;
-- History does not silently reorder archive rows by raw logger text when resolved UTC evidence is available;
-- raw meter time remains visible, not overwritten;
-- Hour/Day/Month values remain owned by their canonical physical UTC intervals and are not shifted to predecessor buckets;
-- no false red LOCAL warning appears merely because a granularity is empty or begins outside the selected range;
-- a genuine unsafe LOCAL boundary/time-resolution state still warns and omits unsafe derived rows;
-- Statistics shows plausible coverage and values;
-- no `0` total is invented merely because a LOCAL projection is unavailable.
 
-### D. Global LOCAL ↔ METER switch — Overview, Live History and archive History
+- no global `Local time / Meter time` selector in Settings;
+- Live primary time = actual Android acquisition time;
+- archive primary time = single active verified anchor + native `ON_TIME`, projected through the persisted per-meter IANA zone;
+- raw meter/logger wall-clock remains secondary evidence;
+- unsafe reconstruction fails closed rather than promoting raw meter time;
+- no History synchronization starts simply by navigating product screens.
 
-1. While remembering one visible Live read and one archive row/range, open Settings.
-2. Switch to **Meter time**.
-3. Return first to Overview.
-4. Confirm the latest Live result now shows meter time as primary and real/local acquisition time as secondary.
-5. Open History and select Live. Confirm Live rows use localized raw meter time as primary and real/local acquisition time as secondary.
-6. Use a bounded Live period where the meter clock differs visibly from Android time. Confirm inclusion follows meter time, not Android acquisition time.
-7. Inspect the same archive evidence: primary time follows raw meter/logger wall-clock semantics; resolved local time is secondary when trustworthy.
-8. Return to Statistics and confirm the METER basis remains active.
-9. Switch back to **Local time** and revisit Overview/History.
+The detailed checklist is maintained in `docs/V2_1_CANONICAL_REAL_TIME_VALIDATION_ADDENDUM.md`.
+
+## Timezone picker check
+
+Meter Details uses a searchable constrained IANA picker rather than an unrestricted free-text editor.
 
 Expected:
-- switching presentation basis does not change stored measurements or raw timestamps;
-- METER uses raw meter time for Live History selection/order and for Live/archive primary presentation;
-- METER does not silently fall back to Android time when a bounded Live row has no usable meter time;
-- trustworthy local/real time remains secondary evidence in METER mode;
-- LOCAL returns to real acquisition time for Live and resolved civil time for archives;
-- the same underlying records remain identifiable;
-- no History synchronization is triggered by changing the setting.
 
-### E. Zone-management UI smoke
+- current persisted zone is preselected;
+- supported zones can be searched/selected;
+- only exact runtime-supported zone IDs can be persisted;
+- unsupported arbitrary typed text cannot replace the valid zone;
+- zone changes affect only local/civil interpretation, never raw meter/archive evidence;
+- no NFC or History action is triggered by the picker.
 
-1. Open Meter details.
-2. Tap the timezone row and confirm the edit dialog opens with the current IANA zone.
-3. Enter an obviously invalid value and attempt to save.
-4. Confirm the dialog remains open and shows an error.
-5. Cancel the dialog.
+The former mandatory free-text invalid-IANA test is retired.
+
+## Final functional gate — Section F
+
+Before RC preparation, perform exactly one final normal protected Live/default NFC read from Overview using the current candidate.
 
 Expected:
-- invalid IANA input is rejected;
-- no raw archive/live data changes;
-- the existing valid timezone remains unchanged.
 
-A successful manual timezone replacement does not need to be forced on the production meter merely to satisfy this physical gate; store/update/provenance behavior is covered by automated tests.
+- normal protected Live/default read succeeds;
+- canonical real acquisition time is primary;
+- raw meter time remains secondary when available;
+- no stale archive selection leaks into the Live result;
+- no automatic History synchronization starts;
+- no protocol/mailbox/archive regression is observed;
+- the successful read refreshes the active time anchor.
 
-### F. Final normal Live regression read
+If this passes, functional debug-candidate validation is complete.
 
-After navigating History, Statistics, Settings and Meter details, return to Overview in LOCAL mode and perform another normal Live read.
+## Exact RC acceptance
 
-Expected:
-- normal protected Live read still succeeds;
-- the newly displayed real and meter timestamps are plausible and locale-formatted;
-- no stale selected archive state leaks into the Live result;
-- no protocol regression is observed.
+After Section F passes:
 
-## Presentation-only follow-ups already recorded
+1. set v2.1.0 version metadata and prepare changelog/release notes;
+2. build the exact signed release candidate through the release workflow;
+3. verify artifact/signature/hash provenance;
+4. perform a short physical acceptance of **that exact signed RC**, including fresh/default-state smoke where appropriate;
+5. only then move PR #22 out of Draft, merge, tag and release.
 
-These do not change the warning/time identity model and may be handled together after the functional C–F gate:
+A passing debug APK does not replace physical acceptance of the exact signed RC.
 
-- ordinary LOCAL labels should prefer trustworthy locale-aware timezone abbreviations (for example `MEZ`/`MESZ` in German or `CET`/`CEST` in English) rather than showing only `+01:00`/`+02:00`; exact IANA zone and numeric offset remain internal/diagnostic truth;
-- the centered `·` separator is missing between date/time in `Am Handy ausgelesen` in Meter details;
-- the same centered separator is missing in the Overview `Ausgelesen` line.
+## Deferred v2.2 cleanup
+
+The hidden compatibility implementation for the retired `AppTimeBasis.METER` path is intentionally not removed during v2.1 RC hardening. That larger cleanup belongs to v2.2 after release.
+
+The v2.2 cleanup should remove obsolete peer-mode runtime branches/resources/tests while retaining only the minimal compatibility required to read old development backup state and normalize it to canonical time.
+
+Do not remove physically validated NFC/parser/archive regression tests merely because they originate from older development stages.
 
 ## Evidence to record
 
-For the accepted candidate, record at minimum:
+For final acceptance record at minimum:
 
-- APK source commit;
+- source commit;
 - GitHub Actions run id;
 - artifact id/digest and APK SHA-256;
-- Android device/model and Android version (non-sensitive only);
-- meter family/model, without publishing a private serial/meter ID;
-- PASS/FAIL for sections A–F;
+- non-sensitive Android device/OS information;
+- meter family/model without publishing private serial/meter ID;
+- PASS/FAIL for final Live read and exact signed RC acceptance;
 - any user-visible discrepancy with a short description.
 
-Screenshots are optional. Do not publish screenshots containing private meter IDs or personal consumption data without redaction.
-
-## Acceptance rule
-
-The physical gate passes only if A–F are all accepted and no protected NFC/archive behavior regresses. A UI wording/layout issue may be fixed in a follow-up candidate and retested selectively; a protocol/read regression reopens the safety gate and blocks release.
+Screenshots are optional and must not publish private meter IDs or personal consumption data without redaction.
