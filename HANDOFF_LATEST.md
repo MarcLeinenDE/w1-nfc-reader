@@ -9,17 +9,18 @@ This is the canonical coordination handoff for W1 NFC Reader v2.1. Repository st
 1. `HANDOFF_LATEST.md` on `handoff/v2.1.0-current`
 2. `CURRENT_STATE.json` on `handoff/v2.1.0-current`
 3. `UX_CONTEXTUAL_HELP_CONTRACT.md` on this handoff branch
-4. `docs/product-decisions/v2.1-canonical-real-time-product-timeline.md` on `dev/v2.1.0-real-time-timeline`
-5. `docs/V2_1_TIME_MODEL_IMPLEMENTATION.md`
-6. `docs/V2_1_CANONICAL_REAL_TIME_VALIDATION_ADDENDUM.md`
-7. `docs/V2_1_REAL_DEVICE_VALIDATION.md`
-8. `docs/V2_ARCHIVE_PERIOD_SEMANTICS.md`
-9. `docs/V2_HISTORY_NAVIGATION_FILTERS.md`
-10. `docs/V2_HISTORY_SYNC_ARCHITECTURE.md`
-11. `docs/PROTOCOL_SAFETY.md`
-12. `docs/RELEASING.md`
-13. `CHANGELOG.md`
-14. `AGENTS.md`
+4. `ROADMAP.md` on `dev/v2.1.0-real-time-timeline`
+5. `docs/product-decisions/v2.1-canonical-real-time-product-timeline.md` on `dev/v2.1.0-real-time-timeline`
+6. `docs/V2_1_TIME_MODEL_IMPLEMENTATION.md`
+7. `docs/V2_1_CANONICAL_REAL_TIME_VALIDATION_ADDENDUM.md`
+8. `docs/V2_1_REAL_DEVICE_VALIDATION.md`
+9. `docs/V2_ARCHIVE_PERIOD_SEMANTICS.md`
+10. `docs/V2_HISTORY_NAVIGATION_FILTERS.md`
+11. `docs/V2_HISTORY_SYNC_ARCHITECTURE.md`
+12. `docs/PROTOCOL_SAFETY.md`
+13. `docs/RELEASING.md`
+14. `CHANGELOG.md`
+15. `AGENTS.md`
 
 `docs/product-decisions/v2.1-real-time-timeline-and-coverage.md` is retained only as an explicitly **SUPERSEDED historical proposal**. It is not authoritative.
 
@@ -47,7 +48,7 @@ Current physically tested **functional code candidate**:
 - artifact ZIP SHA-256 `cc48ffd4548fcff663583c1d722309b36584b4285de66ad24a3b4cfc1a367059`
 - APK SHA-256 `4488e1b1d500cf52ff03cc4ab294a9152e5623a111133533e3cd3ef4003b1686`
 
-The dev branch now also contains documentation-only cleanup commits after that functional code candidate. No app/runtime code changed in the documentation cleanup. Current dev documentation head after cleanup: `95520baea12c205af45ce2d8cfda28d4a479ce29`.
+The dev branch also contains documentation-only cleanup/roadmap commits after that functional code candidate. No app/runtime code changed in those documentation commits. Current dev documentation head: `24aece01684ee78c913b5fd6c98e273e1d4b29e4`.
 
 Draft PR:
 - `#22 — WIP: add v2.1 real-time timeline foundation`
@@ -131,7 +132,8 @@ On 2026-09-13 the public dev-branch documentation was aligned with the actual im
 - the old dual `LOCAL / METER` product decision is explicitly marked superseded;
 - `V2_1_TIME_MODEL_IMPLEMENTATION.md` now documents single-active-anchor projection, `SourceRecordId`, chart policy and the current release gate;
 - the validation addendum now describes the constrained timezone picker instead of the obsolete free-text invalid-IANA test;
-- `V2_1_REAL_DEVICE_VALIDATION.md` now reflects the current canonical timeline and final gate.
+- `V2_1_REAL_DEVICE_VALIDATION.md` now reflects the current canonical timeline and final gate;
+- root `ROADMAP.md` records the v2.1 release path, v2.2 cleanup/maintenance target and future v3.0 Home Assistant architecture.
 
 No runtime/NFC/parser/archive code changed in this documentation pass.
 
@@ -170,7 +172,7 @@ Next action:
 4. physically accept that exact signed RC, including fresh/default-state smoke as appropriate;
 5. only then mark PR ready, merge, tag and release.
 
-## 12. Deferred v2.2 code cleanup
+## 12. Deferred v2.2 code cleanup / maintenance baseline
 
 The actual code cleanup is intentionally deferred until after v2.1 release to avoid widening the RC regression surface.
 
@@ -178,10 +180,30 @@ v2.2 cleanup target:
 - remove hidden `AppTimeBasis.METER` runtime/peer-mode branches;
 - retain only minimal compatibility needed to read old development backup state and normalize it to canonical real time;
 - remove obsolete `v2_time_basis_strings.xml` resources and tests that exist solely for the retired peer mode;
-- audit other compatibility helpers for genuine redundancy;
-- do **not** remove physically validated NFC/parser/archive regression tests merely because they are old.
+- audit other compatibility helpers/dead code for genuine redundancy;
+- keep meaningful regression coverage for real bugs, protocol safety, DST, backup compatibility and archive traversal;
+- complete a final repository hygiene pass and then treat the current local-NFC feature set as feature-complete/maintenance mode.
 
-## 13. Private research authority
+## 13. Planned v3.0 Home Assistant integration
+
+`ROADMAP.md` is authoritative for the future integration direction.
+
+Accepted high-level direction:
+- v3.0 is the deliberate network-capability boundary; Home Assistant transport is not part of v2.x;
+- local/cloud-free flow: `W1 -> NFC -> Android -> local connector -> Home Assistant`;
+- Home Assistant custom integration creates a short-lived one-time pairing session and QR code;
+- QR contains local connector/pairing information, **not Wi-Fi credentials** and not a normal HA administrator/long-lived user token;
+- phone must be able to reach the HA connector over the same LAN/routable local network; mDNS discovery is optional convenience, not a requirement;
+- successful pairing yields a dedicated least-privilege app/device credential;
+- Android may resend all eligible local observations every time; HA deduplicates/UPSERTs by deterministic `source_record_id`;
+- a fresh/replacement phone can pair again, reread the meter and resend retained history without creating duplicates;
+- multiple independently paired phones are allowed;
+- current state becomes normal HA entities where appropriate; historical archive data is intended for HA long-term statistics rather than thousands of permanent entities;
+- v3.0 will intentionally add Android network access/`INTERNET` permission; v2.x remains local NFC only.
+
+Exact HA APIs/storage interfaces must be revalidated against the then-current Home Assistant platform before implementation.
+
+## 14. Private research authority
 
 Only if protocol/time-evidence behavior itself must be revisited:
 - private repo `MarcLeinenDE/engineering-lab`
